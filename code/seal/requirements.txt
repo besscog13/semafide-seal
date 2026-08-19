@@ -1,0 +1,26 @@
+# Dependencies for code/seal/ only.
+#
+# The package is deliberately standalone. It imports nothing from the
+# superseded thesis and needs no numerical or web stack, so running the live
+# code does not require compiling scipy or scikit-learn.
+#
+#   pip install -r code/seal/requirements.txt
+#   python -m seal.demo
+#
+# code/requirements.txt is the heavier set and exists for the abandoned
+# thesis under code/pmc/ and code/main.py. It is not needed here.
+
+# The floor is what has actually been run, not what was inherited. The
+# superseded thesis pinned 42, and this file copied it. The package uses
+# InvalidSignature, hashes, serialization, and ec, all long-stable API, and the
+# full suite plus the demo pass on 41.0.7. A floor of 42 is a claim nobody
+# checked, and it makes pip fail on any system where cryptography is managed by
+# the distribution rather than by pip.
+cryptography>=41.0.0
+
+# Only for running the test suite.
+pytest>=8.0.0
+
+# Property-based testing. Test-only, like pytest. The live package imports
+# neither, and CI asserts that on every push.
+hypothesis>=6.0

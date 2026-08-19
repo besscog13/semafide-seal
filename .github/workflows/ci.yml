@@ -1,0 +1,107 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "claude/**"
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # The seal package is the only live code in this repository.
+  # ---------------------------------------------------------------------------
+  seal:
+    name: seal package
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: pip install -r code/seal/requirements.txt
+
+      - name: Tests
+        working-directory: code
+        run: python -m pytest tests -q
+
+      - name: Demo runs end to end
+        working-directory: code
+        run: python -m seal.demo
+
+      # The package claims to depend on cryptography and the standard library
+      # and nothing else. That claim is load-bearing, since it is what lets the
+      # live code be installed and run without the abandoned numerical stack,
+      # so it is asserted here rather than trusted.
+      - name: Dependency isolation
+        working-directory: code
+        run: |
+          python - <<'PY'
+          import importlib, sys
+          before = set(sys.modules)
+          importlib.import_module("seal.demo")
+          forbidden = ("pmc", "numpy", "scipy", "sklearn", "fastapi",
+                       "uvicorn", "pydantic", "starlette", "z3",
+                       "hypothesis")
+          leaked = sorted(m for m in set(sys.modules) - before
+                          if any(f in m for f in forbidden))
+          if leaked:
+              raise SystemExit(f"seal pulled in {leaked}")
+          print("clean: cryptography and the standard library only")
+          PY
+
+  # ---------------------------------------------------------------------------
+  # Formal checks over the state machines that hold the custody guarantees.
+  #
+  # A separate job on purpose. z3 is a verification dependency and must never
+  # reach the live package, so it is installed in an environment the seal job
+  # never sees, and the isolation assertion above lists z3 as forbidden.
+  #
+  # Each spec proves a safety property over unbounded histories AND drives the
+  # real implementation over concrete traces, asserting the code accepts and
+  # refuses exactly where the model says. A proof about a model that nothing
+  # ties to the code is the defect that fires KC2, one level up.
+  # ---------------------------------------------------------------------------
+  specs:
+    name: formal specs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install
+        run: |
+          pip install -r code/seal/requirements.txt
+          pip install -r specs/requirements.txt
+
+      - name: Run every SMT spec
+        run: |
+          set -o pipefail
+          failed=0
+          # Recursive on purpose. A depth limit here would silently skip a
+          # spec in a subdirectory and report a pass over less than it checked.
+          mapfile -t specs < <(find specs -name "SPEC_*.py" -type f | sort)
+          if [ ${#specs[@]} -eq 0 ]; then
+            echo "No specs found. This job asserts something, so that is a failure."
+            exit 1
+          fi
+          for spec in "${specs[@]}"; do
+            echo "::group::$spec"
+            if python "$spec"; then
+              echo "::endgroup::"
+            else
+              echo "::endgroup::"
+              echo "::error file=$spec::POLICY BREACH in $spec"
+              failed=1
+            fi
+          done
+          exit $failed

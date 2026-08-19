@@ -1,0 +1,5 @@
+# Verification-only. Deliberately NOT in code/seal/requirements.txt: the live
+# package depends on cryptography and the standard library and nothing else,
+# and CI asserts that on every push. These specs import the seal package to
+# check the implementation against the model, so they sit outside it.
+z3-solver>=4.12
