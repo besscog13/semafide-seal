@@ -93,6 +93,7 @@ from .verifier import (
     VerificationReport,
     verify,
 )
+from .evidence import EvidentiaryReliance, assess_evidentiary_reliance
 
 __all__ = [
     "OPEN_QUESTIONS",
@@ -108,7 +109,6 @@ __all__ = [
     "Beacon",
     "TimeAnchor",
     "issue_time_anchor",
-    "resolve_bounds",
     "AssignmentAnchor",
     "AssignmentCheckpoint",
     "AssignmentIssuer",
@@ -162,4 +162,6 @@ __all__ = [
     "Finding",
     "VerificationReport",
     "verify",
+    "EvidentiaryReliance",
+    "assess_evidentiary_reliance",
 ]
