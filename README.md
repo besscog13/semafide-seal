@@ -2,69 +2,103 @@
 
 Semafide is building cryptographic custody and state-preservation middleware for batch-executed valuation and automated lending pipelines.
 
-When an analytical tool, automated valuation model, or regression script executes, the design captures the execution context through an application-level API and binds the inputs, parameters, model version, and output into a tamper-evident record. Semafide holds that record. The party who produced the analysis does not.
+The current repository is a pre-build verifier and artifact scaffold. It does not capture executions or provide custody yet. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
+
+When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
 
 ## The problem
 
-Mortgage collateral is increasingly valued by software running against live databases. Automated valuation models score properties from public records and listing data. Appraisers derive adjustments from regression analyses over comparable sales. Both run against surfaces that change continuously, because sales get corrected, listings get amended, records get merged, and the models themselves are versioned and retired.
+Mortgage valuation increasingly relies on software and data sources that can change after an analysis runs. Automated valuation models can use public records, listings, market data, and other inputs. Appraisers can use statistical analysis and regression-based methods to support adjustments. The underlying data, tools, and model versions may change, be corrected, or become unavailable.
 
-When a repurchase demand, a regulatory examination, or a dispute arrives eighteen months later, re-running the analysis produces a different number. Not because anyone was careless. The analysis was a query against a live surface for a moment that no longer exists.
+When a repurchase demand, regulatory examination, or dispute arrives later, rerunning an analysis can produce a different result. The problem is not necessarily carelessness. The historical execution may have depended on a state that is no longer available in the same form.
 
-Since 1 October 2025, the interagency Quality Control Standards for Automated Valuation Models have required institutions using an AVM in a credit decision or securitization determination to maintain control systems that protect against the manipulation of data. Separately, since February 2025, appraisers have been required to summarize in the report itself the data sources, tools, and techniques behind a time adjustment. Both obligations assume the underlying execution can be accounted for. Neither is satisfied by a log entry recording what a system concluded.
+The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Neither requirement should be read as establishing a general legal rule that a particular logging mechanism is insufficient. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
 
 ## Authorization and admissibility
 
-Authorization is prospective and structural. It asks whether an action is permitted and whether the output conforms: schema validity, licence currency, a passing risk score, the required checks completed. Nearly every system in this market is built for it, because clearing the gate is what keeps a pipeline moving.
+Authorization is prospective and structural. It asks whether an action is permitted and whether the output conforms: schema validity, licence currency, a passing risk score, the required checks completed.
 
-Admissibility asks a different question. If this transaction is challenged three years from now, can the data state it rested on be proven?
+Admissibility asks a different question. If a transaction is challenged three years from now, can the data state it rested on be established?
 
-Two things follow. The question is adjudicated retrospectively and the answer has to be manufactured prospectively, because an analysis cannot be made provable after the fact. And the engine that cleared the transaction cannot credibly attest to its own history, because its records are self-serving on precisely the point in dispute.
+The question is adjudicated retrospectively, but the evidence needed to answer it has to be preserved prospectively. An analysis cannot be made historically reproducible after the relevant state has disappeared. The system that produced the analysis also cannot provide independent evidence of the completeness of its own record without some external control over that record.
 
 ## The principle
 
-A record showing that an analysis and its inputs sat together in one file is not evidence that the output was derived from those inputs at that moment. Co-occurrence is not binding. Workfiles and audit trails are kept as though it were. The gap does not show until someone examines a specific decision. By then it cannot be closed.
+A record showing that an analysis and its inputs sat together in one file is not evidence that the output was derived from those inputs at that moment. **Co-occurrence is not binding.**
 
-The record is meant for that examiner rather than for the party being examined. Its value is that it is held by someone other than the party whose interests it may later cut against.
+A prior evidence commitment establishes precedence: the evidence commitment existed in the chain before the run seal that names it. That rules out selecting the committed evidence after seeing the output. It does not by itself prove that the analysis actually consumed those inputs.
+
+That distinction is why the verifier separates `PRECEDENCE` from `REDERIVED`. Re-derivation can establish that a pinned execution recipe, applied to the referenced evidence, produces the sealed output. It does not by itself prove that the historical execution actually ran that recipe. That stronger historical claim depends on a capture mechanism and custody arrangement that this repository does not yet implement.
 
 ## Why custody rather than a file
 
-The obvious design hands the appraiser or the institution a signed artifact to keep. That design does not work, and the reason decides the shape of the product.
+The obvious design hands the appraiser or institution a signed artifact to keep. A signature does not solve completeness.
 
-A signature proves that what a document contains has not been altered. It cannot prove that the document contains everything, because completeness is a claim about what is absent, and whoever decides what to hand over also decides what to leave out. Run five analyses, seal all five, disclose the three that support the conclusion. Each of the three verifies perfectly. Nothing in them says the other two ever existed.
+A signature proves that what a document contains has not been altered, assuming the signing key and verification process are trusted. It cannot prove that the document contains everything. Completeness is a claim about what is absent, and the party deciding what to disclose can also decide what to omit. Run five analyses, seal all five, and disclose the three that support the conclusion. Each of the three can verify perfectly. Nothing inside them establishes that the other two existed.
 
-Timestamping does not close this, which is worth saying plainly because it is the intuitive fix. A timestamp proves a document existed at a time. It says nothing about documents nobody was shown. Anchor all five runs to a time authority and hand over three, and all three still verify.
+Timestamping does not close this. A timestamp can establish that a particular document existed by a stated time. It says nothing about documents nobody was shown. Timestamp all five runs and hand over three, and all three still verify.
 
-Splitting the work across five separate records rather than five entries in one does not help either, and it is the version of the trick worth naming, because each record is then not merely valid but honest. Every entry it contains really was part of it. The omission is a whole record rather than a line inside one.
+Splitting the work across five separate records does not help. Each record can be internally complete and authentic while the disclosure remains incomplete.
 
-What closes both is that the record is not the examined party's to curate. An examiner asks the custodian how many runs an assignment contains, and how many records it holds, and receives answers the examined party did not compose. That is the difference between a signature and custody, and it is why the record lives here rather than with the appraiser.
+The intended custody architecture addresses that problem by putting assignment-level disclosure outside the control of the party being examined. An examiner can then ask the custodian how many runs and records it received and compare that statement with the supplied artifact. This is a custody property, not something a signature alone provides.
 
-## How it integrates
+The current repository implements the verification side of that model. It does not yet implement the capture mechanism or the production custody service.
 
-Semafide does not touch data scrapers, form-filling software, or delivery pipelines. It operates as an application-level API that upstream analytical software calls with an execution manifest carrying the input dataset hash, the parameter set, the tool and model version, and the output.
+## How the intended architecture integrates
 
-The manifest also carries a re-derivation recipe, which is a required part of the integration rather than an optional field. A partner exposes a version-pinned execution endpoint that a third party can call later, and commits to a window over which that version stays runnable. A verifier calls it, re-executes, and compares. Proof of derivation comes from reproduction rather than from assertion.
+The intended integration is at the application boundary. Semafide is not intended to replace data scrapers, form-filling software, appraisal tools, or delivery pipelines. Upstream analytical software would submit an execution manifest carrying the evidence commitment, parameter set, tool and model version, and output.
 
-On the other side, an examiner receives two things: the record of the runs, and a signed statement of what the assignment holds, meaning how many runs, what the record ends with, and how many separate records there are. The second is what makes a short disclosure visible, and it is signed by a key that is not the sealer's. Verification without it reports that completeness was never checked, rather than reporting a pass.
+The manifest can also carry a re-derivation recipe. The current schema requires a pinned endpoint and version, the exact invocation, the input reference, the expected output digest, and a service window. A verifier can later execute the recipe and compare the produced output with the sealed output when the partner still serves that environment.
 
-Each analysis is bound to its assignment when it is sealed rather than when the work is certified. The distinction matters because certification happens last, and a fact recorded last is recorded by someone who already knows how the work turned out.
+Successful re-derivation establishes reproducibility of the claimed execution recipe. It does not, standing alone, establish that the historical execution used that recipe. Historical capture and custody are the remaining operational layer.
 
-The same reasoning applies to the clock, and it leads somewhere less obvious. The time a record states is a number its author wrote, so a record assembled after a question arrives and dated to the original work is indistinguishable from one made at the time. Timestamping is the intuitive fix and it addresses the opposite problem: a timestamp establishes that a document existed by a certain moment, which rules out a record made later than it claims and says nothing about one made earlier. Ruling out the earlier case requires the record to commit to something that had not been published yet when the work is claimed to have happened, because nobody can write down a value before it exists. The two together place the work inside a window that neither end of was chosen by the party being examined, and how wide that window is gets reported rather than assumed.
+The intended examiner workflow has two distinct statements. One concerns the supplied chain and its completeness. The other concerns the assignment-level disclosure: how many chains the assignment contains and what the custodian says it holds. The latter must come from a party other than the sealer. Without that independent statement, the verifier reports that assignment disclosure was not checked rather than treating the artifact as complete.
+
+Each analysis is committed to its assignment when the chain opens, rather than being assigned at certification. The anchor fixes the assignment before later entries are added. This prevents a completed chain from being relabelled after the fact. It does not establish that the assignment contains no sibling chains; that requires an assignment-level disclosure from outside the chain.
+
+## External time
+
+The time a record states is a value chosen by its author. A chain assembled today can therefore contain timestamps from last year and still have internally valid signatures.
+
+A conventional timestamp authority addresses a different side of the problem. It can establish that a particular document existed no later than the time asserted by the timestamp token. It does not establish that the document did not exist earlier.
+
+The repository therefore models two external bounds. An upper bound comes from an external time authority. A lower bound comes from a published unpredictable value that could not have been known before it was issued. If both are available and independently resolved, the verifier reports the resulting interval rather than treating the author's timestamp as historical proof.
+
+The current package models these bounds but does not itself provide a production RFC 3161 service or a production beacon. Those are deployment dependencies.
 
 ## What it does not do
 
 Nothing blocks. Nothing evaluates quality. Nothing scores. Custody, not judgment.
 
-The record is symmetric evidence. It documents a flawed analysis as faithfully as a sound one. It does not create admissibility where none existed, and it does not establish that the inputs were well chosen. It attests to the capture, meaning what the software actually consumed at the moment it ran, rather than to the quality of what was captured.
+The intended record is symmetric evidence. It should document a flawed analysis as faithfully as a sound one. It does not establish that the inputs were well chosen, that an appraisal conclusion was correct, or that an automated decision was substantively sound.
 
-Custody carries costs that a file handed over does not, and they are real. The guarantee depends on Semafide continuing to exist and continuing to answer, which makes it an operational commitment rather than a purely cryptographic one. Verification also depends on a partner's pinned version remaining executable, so part of the guarantee rests on contract rather than on cryptography.
+It also does not claim that successful re-derivation proves historical execution. The strongest historical claim requires capture at the time of execution and a custody arrangement that prevents the interested party from selecting the evidence after seeing the outcome.
 
-Nothing in the mathematics prevents a custodian from colluding with the party it is meant to constrain, so the custodian has to be accountable to something outside itself. Two things reduce what has to be taken on faith and neither eliminates it. The record is kept in an append-only structure, so a statement of the log made years apart must demonstrate arithmetically that the later contains the earlier unchanged, and a custodian that removed an entry cannot produce that demonstration. And outside parties countersign those statements, keeping what they last saw and refusing anything inconsistent with it, so showing two different accounts of the same record requires convincing all of them rather than nobody, and an inconsistent pair once obtained is permanent evidence that its author cannot withdraw. What remains is a question about who those parties are and whether anyone checks, which is a matter of how the service is operated rather than of what the mathematics forces.
+Custody carries costs that a file handed over does not. A production guarantee would depend on Semafide continuing to operate, a custodian preserving the records it received, and partners keeping pinned execution environments available. Those are operational and contractual dependencies, not consequences of cryptography alone.
+
+Nothing in the mathematics prevents a custodian from colluding with the party it is meant to constrain. An append-only log can make later equivocation detectable when its consistency proofs are checked. Independent witnesses can make conflicting views harder to maintain without detection. Neither mechanism eliminates the need to decide who the witnesses are, whether they are independent, and whether anyone checks what they signed.
 
 ## About this repository
 
-`code/seal/` holds the record schema, the checkpoint formats for a single record and for an assignment, the external time bounds, an append-only log with the proofs that hold the custodian to its own history, the countersigning that raises the cost of telling two examiners different things, and a standalone verifier. It imports nothing from earlier work. The verifier classifies a record by what it establishes about the relation between an output and the inputs it claims, reports whether a commodity timestamping service could have produced the same evidentiary force, and reports whether anything outside the record vouches for its length, for how many records the assignment has, and for when it was written. The capture path is not implemented.
+`code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, and standalone verifier. It is a pre-build scaffold. The capture path is not implemented.
 
-It depends on `cryptography` alone. To watch it work, `pip install -r code/seal/requirements.txt` and then `cd code && python -m seal.demo`, which builds a sequence of records differing by one decision each and prints what the verifier concludes about every one, including a truncated record, a set of five records with one handed over, and a record dated to before it could have existed, each shown before and after somebody other than its author has spoken for it.
+The verifier classifies what an artifact establishes about the relation between an output and the evidence it claims. In particular, it distinguishes:
+
+- **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.
+- **PRECEDENCE:** the evidence commitment precedes the run seal. This rules out choosing that commitment after seeing the output, but does not prove the analysis consumed it.
+- **WITNESSED:** an independent observer attested to the capture. The current artifact format cannot reach this level from a self-declared witness field; an external signature or anchor is required.
+- **REDERIVABLE:** a complete execution recipe links to the claimed evidence and output and remains available for execution.
+- **REDERIVED:** a verifier actually executed that recipe and reproduced the sealed output.
+
+The verifier also reports chain completeness, assignment disclosure, external time bounds, and input-retention determinations. These answer different questions. Completeness asks whether a supplied chain is whole. Disclosure asks whether the chain is the whole assignment. Anchoring asks what external evidence constrains when the chain existed. Retention asks whether the operator could have kept the input, which determines whether re-derivation provides something beyond a locally retained and timestamped copy.
+
+A green verification result is not a claim that the underlying model, appraisal, or business decision was correct. It means the artifact satisfied the particular checks the verifier performed against the evidence supplied to it.
+
+The package also documents known limits. The current re-derivation recipe pins the endpoint, tool, version, invocation, input reference, output digest, and service window, but does not yet pin the full execution environment, numerical libraries, hardware, or linked BLAS. A later mismatch can therefore reflect environmental drift rather than a changed analysis. The verifier fails conservatively rather than converting that uncertainty into a clean pass.
+
+The package deliberately does not present its experimental transparency-log implementation as a production foundation. Production deployments should use established transparency-log and witness specifications rather than treating this scaffold as a replacement for them.
+
+It depends on `cryptography` alone. To watch it work, `pip install -r code/seal/requirements.txt` and then `cd code && python -m seal.demo`. The demo exercises the verifier against cases including truncation, assignment-level disclosure, and time-bound failures.
 
 ## Contact
 
