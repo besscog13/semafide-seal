@@ -4,6 +4,8 @@ Semafide is building cryptographic custody and state-preservation middleware for
 
 The current repository is a pre-build verifier and artifact scaffold. It does not capture executions or provide custody yet. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
+**For the broader architecture and commercial thesis, see [`docs/executive-thesis.md`](docs/executive-thesis.md).**
+
 When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
 
 ## The problem
