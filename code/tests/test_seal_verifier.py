@@ -11,6 +11,7 @@ have.
 
 from __future__ import annotations
 
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from seal import (
@@ -30,10 +31,12 @@ from seal import (
     WitnessMode,
     WorkfileBinding,
     commit,
+    canonical_bytes,
     export_artifact,
     issue_retention_determination,
     merkle_root,
     verify,
+    witness_attestation_payload,
 )
 
 T0 = 1_753_200_000_000_000_000
@@ -124,6 +127,7 @@ def _build(
     beacon: dict | None = None,
     opened_ns: int = T0,
     base_ns: int | None = None,
+    witness_key=None,
 ) -> SealChain:
     """Construct an artifact. Each keyword changes exactly one decision."""
     chain = SealChain(assignment_id, opened_ns=opened_ns,
@@ -150,13 +154,31 @@ def _build(
     else:
         recipe = None
 
-    chain.append(EntryKind.RUN_SEAL, RunSeal(
+    run_body = RunSeal(
         run_id="run-1",
         primitives=_primitives(root, pinning, retention),
         evidence_commitment_hash=ev_hash,
         witness_mode=witness,
         rederivation_recipe=recipe,
-    ).to_body(), t)
+    ).to_body()
+    if witness_key is not None:
+        witness_pem = witness_key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode("ascii")
+        attestation = {
+            "witness": "independent-custodian",
+            "public_key": witness_pem,
+            "signature": "",
+            "capture_ref": "custody-event-1",
+            "statement": "observed_execution",
+        }
+        run_body["witness_attestation"] = attestation
+        attestation["signature"] = witness_key.sign(
+            canonical_bytes(witness_attestation_payload(run_body)),
+            ec.ECDSA(hashes.SHA256()),
+        ).hex()
+    chain.append(EntryKind.RUN_SEAL, run_body, t)
     t += 1_000_000_000
 
     if bind:
@@ -300,8 +322,26 @@ def test_self_declared_witness_does_not_clear_kc2():
     chain = _build(WitnessMode.INDEPENDENT)
     r = verify(export_artifact(chain))
     assert r.binding_level is BindingLevel.PRECEDENCE
+    assert not r.evidence.witness_attestation
+    assert not r.evidence.historical_execution_established
     assert r.kc2_fires
     assert any(f.code == "witness_self_declared" for f in r.findings)
+
+
+def test_independent_observer_attestation_establishes_historical_execution():
+    witness_key = ec.generate_private_key(ec.SECP256R1())
+    witness_pem = witness_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+                   witness_key=witness_key)
+    r = verify(export_artifact(chain), rederive=_ok,
+               trusted_witness_keys=[witness_pem],
+               retention_determinations=[_determination()])
+    assert r.evidence.witness_attestation
+    assert r.evidence.recipe_reproduced
+    assert r.evidence.historical_execution_established
 
 
 def test_complete_recipe_not_executed_is_only_rederivable():
@@ -332,6 +372,8 @@ def test_rederivation_mismatch_drops_to_precedence():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=lambda rec: OTHER_DIGEST)
     assert r.binding_level is BindingLevel.PRECEDENCE
+    assert not r.evidence.recipe_reproduced
+    assert not r.evidence.historical_execution_established
     assert any(f.code == "rederivation_mismatch" for f in r.findings)
 
 
@@ -375,6 +417,8 @@ def test_rederivation_over_locally_retainable_evidence_still_fires_kc2():
                retention_determinations=[
                    _determination(Holding.OPERATOR_HOLDS)])
     assert r.binding_level is BindingLevel.REDERIVED
+    assert r.evidence.recipe_reproduced
+    assert not r.evidence.historical_execution_established
     assert r.input_provenance is Provenance.SOURCED
     assert r.input_holding is Holding.OPERATOR_HOLDS
     assert r.kc2_fires
