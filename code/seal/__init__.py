@@ -27,6 +27,7 @@ from .artifact import (
     RunSeal,
     SealChain,
     WitnessMode,
+    WitnessAttestation,
     WorkfileBinding,
     chain_identity,
     export_artifact,
@@ -87,11 +88,13 @@ from .witness import (
 )
 from .verifier import (
     BindingLevel,
+    EvidencePropositions,
     Completeness,
     Coverage,
     Finding,
     VerificationReport,
     verify,
+    witness_attestation_payload,
 )
 from .evidence import EvidentiaryReliance, assess_evidentiary_reliance
 
@@ -132,6 +135,9 @@ __all__ = [
     "export_artifact",
     "load_artifact",
     "BindingLevel",
+    "EvidencePropositions",
+    "WitnessAttestation",
+    "witness_attestation_payload",
     "Checkpoint",
     "Holding",
     "HoldingReport",

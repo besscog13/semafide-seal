@@ -66,6 +66,44 @@ class BindingLevel(Enum):
     REDERIVED = 4
 
 
+@dataclass(frozen=True)
+class EvidencePropositions:
+    """Independently established propositions about a sealed relation.
+
+    These are the source of truth.  ``BindingLevel`` remains a lossy,
+    backwards-compatible display projection; it must not be used to infer a
+    proposition that is not stated here.
+    """
+
+    precedence: bool = False
+    witness_attestation: bool = False
+    recipe_available: bool = False
+    recipe_reproduced: bool = False
+    historical_execution_established: bool = False
+
+    @classmethod
+    def across(cls, propositions: Iterable["EvidencePropositions"]) -> "EvidencePropositions":
+        items = list(propositions)
+        if not items:
+            return cls()
+        return cls(**{
+            name: all(getattr(item, name) for item in items)
+            for name in cls.__dataclass_fields__
+        })
+
+    def binding_level(self) -> BindingLevel:
+        """Return the legacy display projection without ordering the evidence."""
+        if not self.precedence:
+            return BindingLevel.BUNDLED
+        if self.recipe_reproduced:
+            return BindingLevel.REDERIVED
+        if self.recipe_available:
+            return BindingLevel.REDERIVABLE
+        if self.witness_attestation:
+            return BindingLevel.WITNESSED
+        return BindingLevel.PRECEDENCE
+
+
 class Completeness(Enum):
     """
     Whether anything outside the artifact vouches for how long the chain is.
@@ -104,6 +142,7 @@ class VerificationReport:
     signatures_valid: bool = False
     key_trusted: Optional[bool] = None
     binding_level: BindingLevel = BindingLevel.BUNDLED
+    evidence: EvidencePropositions = field(default_factory=EvidencePropositions)
     coverage: Coverage = Coverage.ABSENT
     completeness: Completeness = Completeness.UNCHECKED
     disclosure: Disclosure = Disclosure.UNCHECKED
@@ -165,6 +204,11 @@ class VerificationReport:
             f"signatures_valid     {self.signatures_valid}",
             f"key_trusted          {self.key_trusted}",
             f"binding_level        {self.binding_level.name}",
+            f"precedence           {self.evidence.precedence}",
+            f"witness_attestation  {self.evidence.witness_attestation}",
+            f"recipe_available     {self.evidence.recipe_available}",
+            f"recipe_reproduced    {self.evidence.recipe_reproduced}",
+            f"historical_execution {self.evidence.historical_execution_established}",
             f"coverage             {self.coverage.name}",
             f"completeness         {self.completeness.name}",
             f"disclosure           {self.disclosure.name}",
@@ -205,6 +249,7 @@ def _verify(
     beacon_resolver: Optional[BeaconResolver] = None,
     trusted_authorities: Optional[Iterable[str]] = None,
     retention_determinations: Optional[Iterable[dict[str, Any]]] = None,
+    trusted_witness_keys: Optional[Iterable[str]] = None,
 ) -> VerificationReport:
     """
     Verify an artifact and report what it establishes.
@@ -355,27 +400,31 @@ def _verify(
                 )
             )
 
-    # Binding level, taken as the weakest across all sealed runs.
-    level = BindingLevel.REDERIVED
-    for run in runs:
-        level = min(level, _run_binding_level(run, commitments, report, rederive),
-                    key=lambda x: x.value)
-    report.binding_level = level
+    # Evidence propositions are independently evaluated for every run. The
+    # legacy binding level is only a derived, lossy projection of this matrix.
+    report.evidence = EvidencePropositions.across(
+        _run_evidence(run, commitments, report, rederive, trusted_witness_keys)
+        for run in runs
+    )
+    report.binding_level = report.evidence.binding_level()
 
     # Whether a commodity timestamping service could have produced the same
     # evidentiary force. See BindingLevel and kc2_fires for the reasoning.
-    if level.value <= BindingLevel.PRECEDENCE.value:
+    if report.evidence.witness_attestation:
+        report.timestamp_replicable = False
+    elif not report.evidence.recipe_reproduced:
         report.timestamp_replicable = True
         report.findings.append(
             Finding(
                 "kc2_fires",
-                f"Artifact reaches {level.name}. Two independent timestamps over "
+                "Artifact does not establish an independent witness attestation "
+                "or successful recipe reproduction. Two independent timestamps over "
                 "local files reach PRECEDENCE, so nothing here exceeds a "
                 "commodity timestamping service.",
                 "KC2",
             )
         )
-    elif level in (BindingLevel.REDERIVABLE, BindingLevel.REDERIVED):
+    else:
         # Re-derivation only escapes the timestamp if the input cannot be held
         # locally. A locally retainable input set can be timestamped and re-run
         # without a custodian.
@@ -409,7 +458,7 @@ def _verify(
             report.findings.append(
                 Finding(
                     "kc2_fires",
-                    f"Artifact reaches {level.name}, and nothing outside it "
+                    "Artifact successfully reproduces its recipe, and nothing outside it "
                     "establishes that the operator cannot hold the raw input. "
                     "Where the input can be held, the same folder can be "
                     "timestamped and re-run locally, so re-derivation adds "
@@ -417,9 +466,6 @@ def _verify(
                     "KC2",
                 )
             )
-    else:
-        report.timestamp_replicable = False
-
     for detail in retention_conflicts(retention_determinations or ()):
         report.findings.append(Finding("retention_contested", detail, "KC2"))
 
@@ -631,13 +677,14 @@ def _check_assignment(
             report.findings.append(Finding(code, detail, "assignment custody"))
 
 
-def _run_binding_level(
+def _run_evidence(
     run: Entry,
     commitments: dict[str, Entry],
     report: VerificationReport,
     rederive: Optional[Callable[[dict[str, Any]], Optional[str]]] = None,
-) -> BindingLevel:
-    """Classify one run seal. Strongest claim the evidence actually supports."""
+    trusted_witness_keys: Optional[Iterable[str]] = None,
+) -> EvidencePropositions:
+    """Establish each proposition for one run without treating them as a ladder."""
     body = run.body
     mode = body.get("witness_mode")
     ref = body.get("evidence_commitment_hash")
@@ -651,7 +698,7 @@ def _run_binding_level(
                 "KC1",
             )
         )
-        return BindingLevel.BUNDLED
+        return EvidencePropositions()
 
     committed = commitments.get(ref)
     if committed is None:
@@ -659,7 +706,7 @@ def _run_binding_level(
             Finding("dangling_commitment",
                     f"Run {body.get('run_id')} names an evidence commitment not in the chain.")
         )
-        return BindingLevel.BUNDLED
+        return EvidencePropositions()
 
     if committed.seq >= run.seq:
         report.findings.append(
@@ -670,9 +717,11 @@ def _run_binding_level(
                 "KC1",
             )
         )
-        return BindingLevel.BUNDLED
+        return EvidencePropositions()
 
-    if mode == WitnessMode.REDERIVABLE.value:
+    evidence = EvidencePropositions(precedence=True)
+
+    if mode == WitnessMode.REDERIVABLE.value or body.get("rederivation_recipe") is not None:
         recipe = body.get("rederivation_recipe")
 
         # A recipe must be tied to the two things the artifact claims, or
@@ -694,7 +743,7 @@ def _run_binding_level(
                         "KC2",
                     )
                 )
-                return BindingLevel.PRECEDENCE
+                return evidence
             if recipe.get("input_ref") != ref:
                 report.findings.append(
                     Finding(
@@ -705,7 +754,7 @@ def _run_binding_level(
                         "KC2",
                     )
                 )
-                return BindingLevel.PRECEDENCE
+                return evidence
 
         if not RederivationRecipe.is_complete(recipe):
             missing = [f for f in RederivationRecipe.REQUIRED
@@ -719,7 +768,8 @@ def _run_binding_level(
                     "KC2",
                 )
             )
-            return BindingLevel.PRECEDENCE
+            return evidence
+        evidence = EvidencePropositions(precedence=True, recipe_available=True)
         if rederive is None:
             report.findings.append(
                 Finding(
@@ -729,7 +779,7 @@ def _run_binding_level(
                     "KC2",
                 )
             )
-            return BindingLevel.REDERIVABLE
+            return evidence
         # The callback used to receive the whole recipe including
         # output_digest, which is the answer it is being asked to produce.
         # Passing the target to the oracle under test is the wrong shape
@@ -746,7 +796,7 @@ def _run_binding_level(
                     "liveness",
                 )
             )
-            return BindingLevel.REDERIVABLE
+            return evidence
         if produced != recipe.get("output_digest"):
             report.findings.append(
                 Finding(
@@ -757,10 +807,17 @@ def _run_binding_level(
                     "KC2",
                 )
             )
-            return BindingLevel.PRECEDENCE
-        return BindingLevel.REDERIVED
+            # A run that has been tried and disagrees with its sealed output
+            # cannot retain even the legacy "rederivable" projection.
+            return EvidencePropositions(precedence=True)
+        evidence = EvidencePropositions(
+            precedence=True, recipe_available=True, recipe_reproduced=True,
+        )
+        return _attach_witness_attestation(
+            evidence, body, run.public_key, trusted_witness_keys, report
+        )
 
-    if mode == WitnessMode.INDEPENDENT.value:
+    if mode == WitnessMode.INDEPENDENT.value or body.get("witness_attestation") is not None:
         # Granting WITNESSED here would be the cheapest route to clearing KC2
         # in the whole package: nine characters in a field the sealer writes,
         # with no recipe and no
@@ -768,20 +825,74 @@ def _run_binding_level(
         # outside party observed anything, because there is no second
         # signature and no external anchor. Until one exists the declaration
         # is a claim, and claims do not clear kill conditions.
-        report.findings.append(
-            Finding(
-                "witness_self_declared",
-                f"Run {body.get('run_id')} declares an independent witness. "
-                "The artifact carries no second signature and no external "
-                "anchor, so nothing distinguishes this from self-attestation.",
-                "KC2",
-            )
+        return _attach_witness_attestation(
+            evidence, body, run.public_key, trusted_witness_keys, report
         )
-    return BindingLevel.PRECEDENCE
+    return evidence
 
 
-__all__ = ["BindingLevel", "Completeness", "Coverage", "Finding",
-           "VerificationReport", "verify"]
+def _attach_witness_attestation(
+    evidence: EvidencePropositions, body: dict[str, Any], run_key: str,
+    trusted_witness_keys: Optional[Iterable[str]], report: VerificationReport,
+) -> EvidencePropositions:
+    valid, detail = _witness_attestation_valid(
+        body.get("witness_attestation") or {}, body, run_key, trusted_witness_keys
+    )
+    if valid:
+        # This is the only current path to a historical-execution claim.
+        return EvidencePropositions(
+            precedence=evidence.precedence,
+            witness_attestation=True,
+            recipe_available=evidence.recipe_available,
+            recipe_reproduced=evidence.recipe_reproduced,
+            historical_execution_established=True,
+        )
+    report.findings.append(Finding("witness_self_declared", detail, "KC2"))
+    return evidence
+
+
+def witness_attestation_payload(run_body: dict[str, Any]) -> dict[str, Any]:
+    """The relation an independent witness must sign, not a supplied bundle."""
+    action = (run_body.get("primitives", {})
+              .get(PrimitiveKind.ACTION.value, {})
+              .get("commitment"))
+    return {
+        "statement": "observed_execution",
+        "run_id": run_body.get("run_id"),
+        "evidence_commitment_hash": run_body.get("evidence_commitment_hash"),
+        "action_digest": action,
+        "capture_ref": (run_body.get("witness_attestation") or {}).get("capture_ref"),
+    }
+
+
+def _witness_attestation_valid(
+    attestation: dict[str, Any], run_body: dict[str, Any], run_key: str,
+    trusted_witness_keys: Optional[Iterable[str]],
+) -> tuple[bool, str]:
+    if attestation.get("statement") != "observed_execution" or not attestation.get("capture_ref"):
+        return False, (f"Run {run_body.get('run_id')} declares an independent witness, "
+                       "but carries no attestation that it observed this execution.")
+    key = attestation.get("public_key")
+    if not key or key.strip() == run_key.strip():
+        return False, (f"Run {run_body.get('run_id')} has no distinct witness key; "
+                       "a self-authored signature over a supplied bundle is not independent.")
+    trusted = {k.strip() for k in trusted_witness_keys or ()}
+    if key.strip() not in trusted:
+        return False, (f"Run {run_body.get('run_id')} names an untrusted witness key; "
+                       "the supplied bundle does not establish independent observation.")
+    try:
+        pub = serialization.load_pem_public_key(key.encode("ascii"))
+        pub.verify(bytes.fromhex(attestation.get("signature", "")),
+                   canonical_bytes(witness_attestation_payload(run_body)),
+                   ec.ECDSA(hashes.SHA256()))
+        return True, ""
+    except (InvalidSignature, ValueError):
+        return False, (f"Run {run_body.get('run_id')} carries an invalid witness "
+                       "attestation over the observed execution relation.")
+
+
+__all__ = ["BindingLevel", "Completeness", "Coverage", "EvidencePropositions",
+           "Finding", "VerificationReport", "verify", "witness_attestation_payload"]
 
 
 def _check_anchoring(
@@ -832,6 +943,7 @@ def verify(
     beacon_resolver: Optional[BeaconResolver] = None,
     trusted_authorities: Optional[Iterable[str]] = None,
     retention_determinations: Optional[Iterable[dict[str, Any]]] = None,
+    trusted_witness_keys: Optional[Iterable[str]] = None,
 ) -> VerificationReport:
     """
     Fail-closed wrapper around the verification pass.
@@ -853,7 +965,8 @@ def verify(
                        time_anchors=time_anchors,
                        beacon_resolver=beacon_resolver,
                        trusted_authorities=trusted_authorities,
-                       retention_determinations=retention_determinations)
+                       retention_determinations=retention_determinations,
+                       trusted_witness_keys=trusted_witness_keys)
     except Exception as exc:  # noqa: BLE001 - hostile input is the whole point
         report = VerificationReport()
         report.findings.append(

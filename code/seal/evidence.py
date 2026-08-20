@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .verifier import BindingLevel, VerificationReport
+from .verifier import VerificationReport
 
 
 @dataclass(frozen=True)
@@ -33,19 +33,18 @@ def assess_evidentiary_reliance(report: VerificationReport) -> EvidentiaryRelian
     """Assess whether the report clears the current relation-level threshold.
 
     This is intentionally narrower than a general "safe to rely on" claim.
-    It requires cryptographic trust plus a binding level that establishes the
-    action/evidence relation without depending on a commodity timestamping
-    service. It does not claim that the underlying analysis is correct or that
-    the assignment disclosure is complete.
+    It requires cryptographic trust plus either an independent witness
+    attestation or successful recipe reproduction.  The propositions, rather
+    than the legacy ``BindingLevel`` projection, are the source of truth.
     """
     reasons: list[str] = []
 
     if not report.trustworthy:
         reasons.append("cryptographic_trust_not_established")
 
-    if report.binding_level not in (BindingLevel.WITNESSED, BindingLevel.REDERIVED):
+    if not (report.evidence.witness_attestation or report.evidence.recipe_reproduced):
         reasons.append(
-            f"binding_level_{report.binding_level.name.lower()}_does_not_establish_relation"
+            "no_independent_witness_attestation_or_recipe_reproduction"
         )
 
     if report.kc2_fires:

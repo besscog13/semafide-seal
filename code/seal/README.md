@@ -6,11 +6,11 @@ The package models the evidence that a future capture layer will need to preserv
 
 ## What the verifier can establish
 
-The verifier deliberately separates different claims about an execution:
+The verifier deliberately separates independent evidence propositions about an execution. `BindingLevel` is retained only as a backwards-compatible projection, not an ordering of those claims:
 
 - **`BUNDLED`** means the claimed inputs and output are present together. It does not establish that the output was derived from those inputs.
 - **`PRECEDENCE`** means the evidence commitment existed in the chain before the run seal that names it. This prevents selecting that commitment after seeing the output. It does not establish that the analysis consumed the committed evidence.
-- **`WITNESSED`** means an independent observer has attested to the capture. A self-declared witness field is not enough to reach this level.
+- **`WITNESSED`** means an independently trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A self-declared witness field or signature over a supplied bundle is not enough.
 - **`REDERIVABLE`** means a complete execution recipe links the claimed evidence to the claimed output and the referenced execution endpoint remains available.
 - **`REDERIVED`** means the verifier actually executed that recipe and reproduced the sealed output.
 

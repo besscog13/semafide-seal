@@ -74,6 +74,32 @@ class WitnessMode(Enum):
 
 
 @dataclass(frozen=True)
+class WitnessAttestation:
+    """An outside witness's statement about one observed execution.
+
+    A signature over an arbitrary supplied bundle is not this attestation.  The
+    signed statement must explicitly say that the witness observed the
+    execution relation and bind the run, committed evidence, and sealed action.
+    The verifier also requires the signing key to be independently trusted.
+    """
+
+    witness: str
+    public_key: str
+    signature: str
+    capture_ref: str
+    statement: str = "observed_execution"
+
+    def to_body(self) -> dict[str, Any]:
+        return {
+            "witness": self.witness,
+            "public_key": self.public_key,
+            "signature": self.signature,
+            "capture_ref": self.capture_ref,
+            "statement": self.statement,
+        }
+
+
+@dataclass(frozen=True)
 class Entry:
     """
     One sealed chain entry.
@@ -353,6 +379,7 @@ class RunSeal:
     evidence_commitment_hash: Optional[str]
     witness_mode: WitnessMode
     rederivation_recipe: Optional[dict[str, Any]] = None
+    witness_attestation: Optional[dict[str, Any]] = None
 
     def to_body(self) -> dict[str, Any]:
         return {
@@ -365,6 +392,7 @@ class RunSeal:
             "evidence_commitment_hash": self.evidence_commitment_hash,
             "witness_mode": self.witness_mode.value,
             "rederivation_recipe": self.rederivation_recipe,
+            "witness_attestation": self.witness_attestation,
         }
 
 
@@ -429,6 +457,7 @@ __all__ = [
     "GENESIS",
     "EntryKind",
     "WitnessMode",
+    "WitnessAttestation",
     "Entry",
     "AssignmentAnchor",
     "SealChain",

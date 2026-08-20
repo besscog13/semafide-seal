@@ -28,7 +28,7 @@ A record showing that an analysis and its inputs sat together in one file is not
 
 A prior evidence commitment establishes precedence: the evidence commitment existed in the chain before the run seal that names it. That rules out selecting the committed evidence after seeing the output. It does not by itself prove that the analysis actually consumed those inputs.
 
-That distinction is why the verifier separates `PRECEDENCE` from `REDERIVED`. Re-derivation can establish that a pinned execution recipe, applied to the referenced evidence, produces the sealed output. It does not by itself prove that the historical execution actually ran that recipe. That stronger historical claim depends on a capture mechanism and custody arrangement that this repository does not yet implement.
+That distinction is why the verifier records independent evidence propositions: precedence, witness attestation, recipe availability, recipe reproduction, and historical execution established. `BindingLevel` remains only as a backward-compatible display projection. Re-derivation can establish that a pinned execution recipe, applied to the referenced evidence, produces the sealed output. It does not by itself prove that the historical execution actually ran that recipe. That stronger historical claim depends on an independently trusted witness attestation covering the observed execution relation.
 
 ## Why custody rather than a file
 
@@ -82,11 +82,11 @@ Nothing in the mathematics prevents a custodian from colluding with the party it
 
 `code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, and standalone verifier. It is a pre-build scaffold. The capture path is not implemented.
 
-The verifier classifies what an artifact establishes about the relation between an output and the evidence it claims. In particular, it distinguishes:
+The verifier reports independent propositions about the relation between an output and the evidence it claims. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:
 
 - **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.
 - **PRECEDENCE:** the evidence commitment precedes the run seal. This rules out choosing that commitment after seeing the output, but does not prove the analysis consumed it.
-- **WITNESSED:** an independent observer attested to the capture. The current artifact format cannot reach this level from a self-declared witness field; an external signature or anchor is required.
+- **WITNESSED:** an independently trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A signature over a supplied bundle or a self-declared witness field is not enough.
 - **REDERIVABLE:** a complete execution recipe links to the claimed evidence and output and remains available for execution.
 - **REDERIVED:** a verifier actually executed that recipe and reproduced the sealed output.
 
