@@ -4,9 +4,21 @@ This package is the verification and artifact layer for Semafide. It is not the 
 
 The package models the evidence that a future capture layer will need to preserve and provides a standalone verifier for the claims that artifact can establish.
 
-## What the verifier can establish
+## The epistemic evidence model
 
-The verifier deliberately separates independent evidence propositions about an execution. `BindingLevel` is retained only as a backwards-compatible projection, not an ordering of those claims:
+The verifier's source of truth is five independent propositions, not `BindingLevel`:
+
+| Proposition | Meaning |
+|---|---|
+| `precedence` | The evidence commitment predates the run seal. |
+| `witness_attestation` | An independently trusted witness signed an observed-execution attestation that binds the run, evidence, action, and capture reference. |
+| `recipe_available` | A complete recipe is present and correctly linked to the claimed evidence and action. |
+| `recipe_reproduced` | A verifier executed that recipe and reproduced the sealed output. |
+| `historical_execution_established` | A valid observed-execution witness attestation covers the relation. It is never inferred from re-derivation alone. |
+
+A signature over a supplied bundle is not a witness attestation, and successful re-derivation is not historical proof. `BindingLevel` is retained only as a lossy backwards-compatible projection.
+
+## Legacy binding-level projection
 
 - **`BUNDLED`** means the claimed inputs and output are present together. It does not establish that the output was derived from those inputs.
 - **`PRECEDENCE`** means the evidence commitment existed in the chain before the run seal that names it. This prevents selecting that commitment after seeing the output. It does not establish that the analysis consumed the committed evidence.

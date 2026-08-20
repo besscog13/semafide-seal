@@ -28,7 +28,19 @@ A record showing that an analysis and its inputs sat together in one file is not
 
 A prior evidence commitment establishes precedence: the evidence commitment existed in the chain before the run seal that names it. That rules out selecting the committed evidence after seeing the output. It does not by itself prove that the analysis actually consumed those inputs.
 
-That distinction is why the verifier records independent evidence propositions: precedence, witness attestation, recipe availability, recipe reproduction, and historical execution established. `BindingLevel` remains only as a backward-compatible display projection. Re-derivation can establish that a pinned execution recipe, applied to the referenced evidence, produces the sealed output. It does not by itself prove that the historical execution actually ran that recipe. That stronger historical claim depends on an independently trusted witness attestation covering the observed execution relation.
+## The epistemic evidence model
+
+The verifier records five independent propositions. They are not a ladder: each establishes a different fact, and a claim is true only where the corresponding evidence supports it.
+
+| Proposition | What it establishes | What it does not establish |
+|---|---|---|
+| Precedence | The evidence commitment predates the run seal. | The analysis consumed that evidence. |
+| Witness attestation | An independently trusted witness signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness is operationally independent or truthful. |
+| Recipe availability | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
+| Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
+| Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
+
+Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true. `BindingLevel` remains only as a lossy, backward-compatible display projection.
 
 ## Why custody rather than a file
 
@@ -82,7 +94,7 @@ Nothing in the mathematics prevents a custodian from colluding with the party it
 
 `code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, and standalone verifier. It is a pre-build scaffold. The capture path is not implemented.
 
-The verifier reports independent propositions about the relation between an output and the evidence it claims. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:
+The verifier reports the epistemic propositions above. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:
 
 - **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.
 - **PRECEDENCE:** the evidence commitment precedes the run seal. This rules out choosing that commitment after seeing the output, but does not prove the analysis consumed it.
