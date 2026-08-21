@@ -53,15 +53,21 @@ The Semafide verification engine decouples verification into two distinct, non-c
 - **Cryptographic Validity (Mathematical Proof):** Verifies that digital signatures, SHA-256 hashes, and append-only log inclusion proofs are mathematically well-formed and untampered with.
 - **Evidentiary Reliance (Epistemic Warrant):** Evaluates whether an external examiner has structural and procedural justification to rely on the claims asserted by the execution manifest.
 
-### 3. The 5 Independent Evidence Propositions
+### 3. The Five Independent Evidence Propositions
 
-Rather than a one-dimensional score, the verifier evaluates five orthogonal, independent propositions:
+The verifier's source of truth is five independent propositions. They are **not** a ladder: each establishes a different fact, and a claim holds only where the corresponding evidence supports it. These are the field names the verifier actually reports.
 
-1. **Manifest integrity and schema binding (BUNDLED):** The inputs, parameters, model version, and outputs form a coherent signed execution manifest. This establishes that the components belong to the same asserted run, but does not by itself prove historical sequence or execution correctness.
-2. **Input precedence and prior commitment (PRECEDENCE):** The input evidence commitment existed in the append-only log before the run seal that names it. This can prevent post-hoc substitution within the committed record, but does not by itself prove when the underlying real-world evidence first existed.
-3. **Independent witness attestation (WITNESSED):** An independently recognized witness attests to the relevant capture event and the exact state within the witness's scope. A field in the operator's own manifest saying “witnessed” is not sufficient.
-4. **Recipe availability and computational rederivability (REDERIVABLE):** The computational recipe linking input evidence to output is fully specified, accessible, and executable.
-5. **Deterministic reproduction (REDERIVED):** A standalone verifier independently re-executes the recipe against the committed inputs and reproduces the sealed output. This establishes computational equivalence under the specified environment. It does not, by itself, establish that the historical execution actually occurred that way.
+| Proposition | What it establishes | What it does not establish |
+|---|---|---|
+| `precedence` | The input evidence commitment existed in the append-only log before the run seal that names it. This prevents post-hoc substitution within the committed record. | That the analysis consumed that evidence, or when the underlying real-world evidence first existed. |
+| `witness_attestation` | An independently trusted witness signed an observed-execution attestation binding the run, evidence, action, and capture reference. | That the witness is operationally independent or truthful. A field in the operator's own manifest saying “witnessed” is not sufficient, and neither is a generic signature over a supplied bundle. |
+| `recipe_available` | A complete re-derivation recipe is present and correctly linked to the claimed evidence and action. | That the recipe has ever been executed. |
+| `recipe_reproduced` | A standalone verifier executed that recipe against the committed inputs and reproduced the sealed output, establishing computational equivalence under the specified environment. | That the historical execution actually ran that recipe. |
+| `historical_execution_established` | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. It is never inferred from re-derivation alone. |
+
+Two consequences are load-bearing and easy to get wrong. Successful re-derivation does **not** make `historical_execution_established` true. A generic signature over a supplied bundle does **not** make `witness_attestation` true.
+
+**On the legacy `BindingLevel` projection.** The verifier also emits an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`) for backwards compatibility with existing consumers. It is a **lossy display projection, not the evidence model**, and it must not be used to infer a proposition not stated in the table above. In particular `BUNDLED` is not an independent proposition; it is the floor the projection returns when `precedence` is false.
 
 ### The Key Principle
 
@@ -84,11 +90,16 @@ The goal is not to replace judgment. It is to make the factual substrate beneath
 ## 5. Codebase Architecture
 
 - `code/seal/artifact.py` & `code/seal/evidence.py`: Manifest schemas, evidence encapsulation, and proposition representations.
+- `code/seal/log.py`: Append-only log primitives and inclusion/consistency proof machinery.
 - `code/seal/checkpoint.py` & `code/seal/anchor.py`: Append-only log state checkpoints and external time-bound anchors.
 - `code/seal/witness.py`: External witness cosigning and custody-boundary interfaces.
 - `code/seal/assignment.py`: Assignment aggregation and disclosure-completeness verification.
+- `code/seal/retention.py`: Third-party retention determinations — whether the operator could have held the raw input, which decides whether re-derivation establishes anything beyond a locally retained and timestamped copy.
 - `code/seal/verifier.py` & `code/seal/primitives.py`: Standalone verifier engine for third-party auditing.
-- `code/seal/tests/`: Adversarial tests evaluating malformed inputs, precedence failures, witness failures, rederivation failures, and other attempts to manufacture evidence through declaration alone.
+- `code/tests/`: Adversarial and property-based tests evaluating malformed inputs, precedence failures, witness failures, rederivation failures, and other attempts to manufacture evidence through declaration alone.
+- `specs/`: Z3/SMT specifications over the state machines that carry the custody guarantees. Each proves a safety property over unbounded histories and drives the real implementation over concrete traces.
+
+See [Verification status](../README.md#verification-status) for what currently passes.
 
 ## 6. Market Selection & Commercial Strategy
 
