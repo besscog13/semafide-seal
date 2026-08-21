@@ -117,13 +117,40 @@ def _established(value: bool) -> str:
     return "✓ ESTABLISHED" if value else "✗ NOT ESTABLISHED"
 
 
+def _evidentiary_reliance(report) -> bool:
+    """Presentation-only aggregation of the verifier's evidence vector.
+
+    ``report.trustworthy`` answers the narrower cryptographic-integrity
+    question. This display intentionally keeps that result separate from the
+    evidentiary propositions rather than relabeling cryptographic integrity as
+    historical reliance.
+    """
+    evidence = report.evidence
+    return all((
+        evidence.precedence,
+        evidence.witness_attestation,
+        evidence.recipe_available,
+        evidence.recipe_reproduced,
+        evidence.historical_execution_established,
+        report.completeness.name == "COMPLETE",
+    ))
+
+
+def _print_verdict(report) -> None:
+    reliance = _evidentiary_reliance(report)
+    print(f"  CRYPTOGRAPHIC RESULT    {_established(report.trustworthy)}")
+    print(f"  EVIDENTIARY RELIANCE    {_established(reliance)}")
+    if report.trustworthy and not reliance:
+        print("  ↳ Cryptographic integrity is established, but the evidence vector")
+        print("    does not establish every claim required for historical reliance.")
+
+
 def main() -> None:
     print(f"\n{RULE}")
     print("  SEMAFIDE")
     print("  EXECUTION EVIDENCE DEMO")
     print(RULE)
 
-    # 1. Honest path: render only evidence returned by the real verifier.
     honest = build_chain()
     report = _verify(honest)
     print("\nHONEST EXECUTION (Collateral Valuation #ASG-8942)")
@@ -132,12 +159,11 @@ def main() -> None:
     print(f"  Witness attestation     {_established(report.evidence.witness_attestation)}")
     print(f"  Recipe available        {_established(report.evidence.recipe_available)}")
     print(f"  Recipe reproduced       {_established(report.evidence.recipe_reproduced)}")
+    print(f"  Historical execution    {_established(report.evidence.historical_execution_established)}")
     print(f"  Assignment completeness {_established(report.completeness.name == 'COMPLETE')}")
     print(RULE)
-    print(f"  EVIDENTIARY RESULT      {'✓ RELIABLE' if report.trustworthy else '✗ NOT ESTABLISHED'}")
+    _print_verdict(report)
 
-    # 2. Attack: mutate the genuine exported artifact while retaining the
-    # original chain signatures and commitments.
     print("\nATTACK: POST-HOC INPUT SUBSTITUTION")
     print("Scenario: Operator alters the committed action after execution.")
     print(RULE)
@@ -151,12 +177,10 @@ def main() -> None:
     print(f"  Altered input            {'✗ DETECTED' if not tampered_report.chain_intact else 'NOT DETECTED'}")
     print(f"  Commitment relation      {'✗ BROKEN' if not tampered_report.trustworthy else '✓ INTACT'}")
     print(RULE)
-    print(f"  EVIDENTIARY RESULT       {'✓ RELIABLE' if tampered_report.trustworthy else '✗ NOT ESTABLISHED'}")
+    _print_verdict(tampered_report)
     print("  ↳ Mechanism: the verifier detects that the claimed execution no longer")
     print("    agrees with the committed evidence.")
 
-    # 3. Assignment attack: create three genuine sibling chains and an
-    # independent assignment record naming all three, then present one.
     from .assignment import AssignmentCheckpoint, ChainRef
     from .assignment import issue as issue_assignment
 
@@ -174,7 +198,8 @@ def main() -> None:
     print("  Runs disclosed           1 (presented by operator)")
     print("  Assignment completeness  ✗ NOT ESTABLISHED")
     print(RULE)
-    print("  EVIDENTIARY RESULT       ✗ NOT ESTABLISHED")
+    print(f"  CRYPTOGRAPHIC RESULT     {_established(disclosed_report.trustworthy)}")
+    print("  EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED")
     print("  ↳ Mechanism: the assignment record identifies three committed chains;")
     print("    the disclosed artifact contains only one.")
     assert assignment_record
