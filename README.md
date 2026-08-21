@@ -43,7 +43,7 @@ The verifier records five independent propositions. They are not a ladder: each 
 | Proposition | What it establishes | What it does not establish |
 |---|---|---|
 | Precedence | The evidence commitment predates the run seal. | The analysis consumed that evidence. |
-| Witness attestation | An independently trusted witness signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness is operationally independent or truthful. |
+| Witness attestation | A separately trusted witness key signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness organization is operationally independent or truthful. |
 | Recipe availability | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
 | Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
 | Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
@@ -106,7 +106,7 @@ The verifier reports the epistemic propositions above. Its legacy `BindingLevel`
 
 - **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.
 - **PRECEDENCE:** the evidence commitment precedes the run seal. This rules out choosing that commitment after seeing the output, but does not prove the analysis consumed it.
-- **WITNESSED:** an independently trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A signature over a supplied bundle or a self-declared witness field is not enough.
+- **WITNESSED:** a separately trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A signature over a supplied bundle or a self-declared witness field is not enough.
 - **REDERIVABLE:** a complete execution recipe links to the claimed evidence and output and remains available for execution.
 - **REDERIVED:** a verifier actually executed that recipe and reproduced the sealed output.
 
