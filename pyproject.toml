@@ -1,0 +1,66 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "semafide-seal"
+version = "0.0.1"
+description = "Pre-build verifier and artifact scaffold for independently verifiable evidence of automated executions"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Eli Besser", email = "eli@semafide.com" }]
+keywords = [
+    "evidence",
+    "transparency-log",
+    "append-only-log",
+    "attestation",
+    "provenance",
+    "audit",
+    "automated-valuation-model",
+]
+classifiers = [
+    # 3 - Alpha overstates this. The capture layer does not exist and the
+    # scaffold is explicitly not a production foundation.
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Legal Industry",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Topic :: Security :: Cryptography",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+]
+
+# The floor is what has actually been run. CI runs 3.11 and the suite passes on
+# 3.14 locally. Declaring 3.9 or 3.10 would be a claim nobody checked, which is
+# the same error this project refuses everywhere else.
+requires-python = ">=3.11"
+
+# The live package depends on cryptography and the standard library, and nothing
+# else. CI asserts that on every push rather than trusting this line.
+dependencies = ["cryptography>=41.0.0"]
+
+[project.optional-dependencies]
+# Test-only. The live package imports neither, and CI asserts it.
+test = ["pytest>=8.0.0", "hypothesis>=6.0"]
+# Verification-only. z3 must never reach the live package; it is listed in the
+# CI dependency-isolation check as forbidden.
+specs = ["z3-solver>=4.12"]
+
+[project.urls]
+Homepage = "https://github.com/besscog13/semafide-seal"
+Repository = "https://github.com/besscog13/semafide-seal"
+Security = "https://github.com/besscog13/semafide-seal/blob/main/SECURITY.md"
+
+# The package lives under code/ rather than at the repository root, so the
+# distribution root is remapped rather than the tree being moved.
+[tool.setuptools]
+package-dir = { "" = "code" }
+
+[tool.setuptools.packages.find]
+where = ["code"]
+include = ["seal*"]
+
+[tool.pytest.ini_options]
+testpaths = ["code/tests"]
+pythonpath = ["code"]
