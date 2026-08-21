@@ -1,5 +1,11 @@
 # Semafide
 
+[![CI](https://github.com/besscog13/semafide-seal/actions/workflows/ci.yml/badge.svg)](https://github.com/besscog13/semafide-seal/actions/workflows/ci.yml)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status: pre-alpha scaffold](https://img.shields.io/badge/status-pre--alpha%20scaffold-orange.svg)](#verification-status)
+[![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
+
 Semafide is building cryptographic custody and state-preservation middleware for batch-executed valuation and automated lending pipelines.
 
 The current repository is a pre-build verifier and artifact scaffold. It does not capture executions or provide custody yet. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
@@ -112,7 +118,53 @@ The package also documents known limits. The current re-derivation recipe pins t
 
 The package deliberately does not present its experimental transparency-log implementation as a production foundation. Production deployments should use established transparency-log and witness specifications rather than treating this scaffold as a replacement for them.
 
-It depends on `cryptography` alone. To watch it work, `pip install -r code/seal/requirements.txt` and then `cd code && python -m seal.demo`. The demo exercises the verifier against cases including truncation, assignment-level disclosure, and time-bound failures.
+It depends on `cryptography` alone.
+
+## Quickstart
+
+```bash
+git clone https://github.com/besscog13/semafide-seal.git
+cd semafide-seal
+pip install -e .
+
+python -m seal.demo    # the guided walkthrough
+```
+
+The demo exercises the verifier against cases including truncation, assignment-level disclosure, retention determinations, and time-bound failures. It is the fastest way to see what the verifier refuses to grant.
+
+To run the checks yourself:
+
+```bash
+pip install -e ".[test]"
+pytest                                      # unit, adversarial, and property-based tests
+
+pip install -e ".[specs]"
+python specs/SPEC_merkle_consistency.py     # each spec exits 0 or 1
+```
+
+## Verification status
+
+The claims in this repository are asserted by CI on every push rather than described. What currently passes:
+
+| Check | Status |
+|---|---|
+| Unit and adversarial tests (`code/tests/`) | **120 passing** |
+| Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
+| Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
+| End-to-end demo | Runs clean |
+| Dependency isolation | Asserted — the live package imports `cryptography` and the standard library only |
+
+The division of labour is deliberate: **SMT for mathematical invariants** forced by the construction, **property-based testing for input-shaped questions** quantified over arbitrary values, and **unit tests for explicit design rules** somebody chose and could have chosen differently. Each spec proves a safety property over unbounded histories *and* drives the real implementation over concrete traces, because a proof about a model that nothing ties to the code establishes nothing about the code.
+
+What this does **not** establish: that the scaffold is production-ready, that it has been independently audited, or that the capture and custody layers exist. They do not.
+
+## Security
+
+The security property this project cares about is narrow: a party should not be able to make an epistemic claim true by declaring it. Vulnerability reporting, in-scope and out-of-scope findings, and the documented known limits are in [`SECURITY.md`](SECURITY.md).
+
+## License
+
+MIT. See [`LICENSE`](LICENSE).
 
 ## Contact
 
