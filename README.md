@@ -128,9 +128,12 @@ cd semafide-seal
 pip install -e .
 
 python -m seal.demo    # the guided walkthrough
+python -m seal.demo_60s # a 60-second external-facing walkthrough: honest execution, tamper detection, and a selective-disclosure attack
 ```
 
 The demo exercises the verifier against cases including truncation, assignment-level disclosure, retention determinations, and time-bound failures. It is the fastest way to see what the verifier refuses to grant.
+
+`demo_60s` is a shorter presentation layer over the same real verifier, built for showing someone outside the project what it establishes and what it catches, rather than for diagnostic depth.
 
 To run the checks yourself:
 
