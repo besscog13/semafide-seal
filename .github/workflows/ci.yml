@@ -37,8 +37,10 @@ jobs:
 
       # The package claims to depend on cryptography and the standard library
       # and nothing else. That claim is load-bearing, since it is what lets the
-      # live code be installed and run without the abandoned numerical stack,
-      # so it is asserted here rather than trusted.
+      # live code be installed and run without any numerical or web stack, so it
+      # is asserted here rather than trusted. The forbidden list is deliberately
+      # broader than what is currently installed: it fails the moment a future
+      # change pulls one of these into the live import path.
       - name: Dependency isolation
         working-directory: code
         run: |
