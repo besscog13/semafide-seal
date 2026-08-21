@@ -48,19 +48,21 @@ In standard analytical workflows, storing inputs and outputs together in a datab
 
 ### 2. The Foundational Separation: Cryptographic Trust vs. Evidentiary Reliance
 
-The Semafide verification engine decouples verification into two distinct, non-conflated tiers:
+The Semafide verification engine separates two distinct questions:
 
-- **Cryptographic Validity (Mathematical Proof):** Verifies that digital signatures, SHA-256 hashes, and append-only log inclusion proofs are mathematically well-formed and untampered with.
-- **Evidentiary Reliance (Epistemic Warrant):** Evaluates whether an external examiner has structural and procedural justification to rely on the claims asserted by the execution manifest.
+- **Cryptographic Validity:** Verifies that digital signatures, SHA-256 hashes, and append-only log inclusion proofs are mathematically well-formed and untampered with.
+- **Evidentiary Reliance:** Evaluates whether the available evidence supports the particular claims being made about an execution.
+
+These are related but non-equivalent results. A cryptographically valid record can still fail to establish a historical or independent claim.
 
 ### 3. The Five Independent Evidence Propositions
 
-The verifier's source of truth is five independent propositions. They are **not** a ladder: each establishes a different fact, and a claim holds only where the corresponding evidence supports it. These are the field names the verifier actually reports.
+The verifier's source of truth is five independent propositions. They are **not a ladder**: each establishes a different fact, and a claim holds only where the corresponding evidence supports it. These are the field names the verifier actually reports.
 
 | Proposition | What it establishes | What it does not establish |
 |---|---|---|
 | `precedence` | The input evidence commitment existed in the append-only log before the run seal that names it. This prevents post-hoc substitution within the committed record. | That the analysis consumed that evidence, or when the underlying real-world evidence first existed. |
-| `witness_attestation` | An independently trusted witness signed an observed-execution attestation binding the run, evidence, action, and capture reference. | That the witness is operationally independent or truthful. A field in the operator's own manifest saying “witnessed” is not sufficient, and neither is a generic signature over a supplied bundle. |
+| `witness_attestation` | A separately trusted witness key signed an observed-execution attestation binding the run, evidence, action, and capture reference. | That the witness organization is operationally independent or truthful. A field in the operator's own manifest saying “witnessed” is not sufficient, and neither is a generic signature over a supplied bundle. |
 | `recipe_available` | A complete re-derivation recipe is present and correctly linked to the claimed evidence and action. | That the recipe has ever been executed. |
 | `recipe_reproduced` | A standalone verifier executed that recipe against the committed inputs and reproduced the sealed output, establishing computational equivalence under the specified environment. | That the historical execution actually ran that recipe. |
 | `historical_execution_established` | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. It is never inferred from re-derivation alone. |
@@ -75,7 +77,7 @@ Two consequences are load-bearing and easy to get wrong. Successful re-derivatio
 
 ## 3. Contextual Verification Boundaries & Cross-Cutting Guarantees
 
-- **Assignment completeness:** Can verify that the supplied sequence of runs represents the complete disclosure of an assignment from the custodian, reducing the risk of selective omission.
+- **Assignment completeness:** Can verify that the supplied sequence of runs represents the complete disclosure of an assignment from the custodian, reducing the risk of selective omission. It does not establish that no execution existed outside the records received by that custodian.
 - **External time bounds:** Can anchor execution between verifiable physical boundaries, such as an RFC 3161 timestamp authority (upper bound) and an unpredictable published public value (lower bound).
 
 These mechanisms establish specific propositions. They should not be treated as proof of substantive business wisdom, appraisal accuracy, model quality, or legal correctness.
@@ -123,12 +125,16 @@ Semafide's commercial hypothesis is that the strongest early markets are not sim
 
 - **Regulatory Driver:** Interagency AVM Quality Control Rule (CFPB, Fed, OCC, FDIC) and Fair Lending compliance.
 - **Financial Risk:** Secondary market loan repurchase demands (Fannie Mae / Freddie Mac) on contested collateral valuations.
-- **The Solution:** Lenders obtain an independent execution seal proving third-party AVM runs were bound to contemporaneous market data without post-hoc curation.
+- **Current Solution Hypothesis:** A lender could use independently verifiable execution evidence about third-party AVM runs and the evidence state bound to them, rather than relying solely on an operator-curated reconstruction.
+
+This is a market hypothesis, not a demonstrated buyer requirement or proof that the current repository satisfies a lender's audit standard.
 
 ### Expansion: Multi-Vendor AI Supply Chains & Autonomous Agents
 
-- Eliminates the B2B blame game between enterprise orchestrators, data vendors, and foundation model providers by providing immutable receipts of exchange at API boundaries.
-- Serves as an unalterable flight recorder for autonomous agents executing consequential financial transactions.
+- **Expansion hypothesis:** Immutable evidence of relevant API-bound execution relationships could reduce disputes between enterprise orchestrators, data vendors, and model providers.
+- **Expansion hypothesis:** Similar evidence infrastructure could serve consequential autonomous agents that execute financial or operational actions without a human observing each step.
+
+These are future applications, not current product claims.
 
 ## 8. Conclusion
 
