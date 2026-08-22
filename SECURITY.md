@@ -43,7 +43,7 @@ These are documented in the source and repeated here so a reader does not have t
 
 Note the direction of this failure: it manufactures a false accusation against an honest partner rather than a false clearance for a dishonest one. It fails loudly and conservatively. The fix is an environment manifest beside the recipe, and it is not implemented.
 
-**Witness placement is unresolved.** Where a witness sits relative to the operator's workflow — and therefore whether it is meaningfully independent — is an open design question. The code takes no position on it. Cryptography does not establish that a witness is independent, truthful, or that anyone checked what it signed.
+**Witness placement is unresolved.** Where a witness sits relative to the operator's workflow, and therefore whether it is meaningfully independent, is an open design question. The code takes no position on it. Cryptography does not establish that a witness is independent, truthful, or that anyone checked what it signed.
 
 **Custody depends on operations, not mathematics.** Nothing in the mathematics prevents a custodian from colluding with the party it constrains. An append-only log makes later equivocation detectable *when its consistency proofs are actually checked*. Independent witnesses make conflicting views harder to sustain undetected. Neither removes the need to decide who the witnesses are and whether anyone verifies their attestations.
 
