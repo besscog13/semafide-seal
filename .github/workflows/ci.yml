@@ -35,6 +35,46 @@ jobs:
         working-directory: code
         run: python -m seal.demo
 
+      # README.md quotes what seal.demo_60s prints. Copied output is a claim
+      # about the code that nothing keeps true, so CI asserts the relationship.
+      # Fails if the heading is missing as well as if the block has drifted. A
+      # check that quietly asserts nothing because somebody renamed a section
+      # is worse than no check, since it still reports green.
+      - name: README quotes the demo accurately
+        run: |
+          python - <<'PY'
+          import difflib, pathlib, re, subprocess, sys
+
+          HEADING = "## What the demo prints"
+          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+          if HEADING not in readme:
+              sys.exit(f"{HEADING!r} is not in README.md; this check has "
+                       "nothing to assert")
+
+          after = readme.split(HEADING, 1)[1]
+          block = re.search(r"```\n(.*?)```", after, re.DOTALL)
+          if block is None:
+              sys.exit(f"no fenced block follows {HEADING!r} in README.md")
+          claimed = block.group(1).rstrip("\n")
+
+          actual = subprocess.run(
+              [sys.executable, "-m", "seal.demo_60s"],
+              cwd="code", capture_output=True, text=True, check=True,
+          ).stdout.rstrip("\n")
+
+          if claimed == actual:
+              print("README demo block matches what seal.demo_60s prints")
+              sys.exit(0)
+
+          print("::error::README.md quotes output seal.demo_60s no longer "
+                "produces. Regenerate it: cd code && python -m seal.demo_60s")
+          print("\n".join(difflib.unified_diff(
+              claimed.splitlines(), actual.splitlines(),
+              fromfile="README.md block", tofile="seal.demo_60s", lineterm="")))
+          sys.exit(1)
+          PY
+
       # The package claims to depend on cryptography and the standard library
       # and nothing else. That claim is load-bearing, since it is what lets the
       # live code be installed and run without any numerical or web stack, so it
