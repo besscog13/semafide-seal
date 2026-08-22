@@ -161,6 +161,60 @@ pip install -e ".[specs]"
 python specs/SPEC_merkle_consistency.py     # each spec exits 0 or 1
 ```
 
+## What the demo prints
+
+`python -m seal.demo_60s`, verbatim:
+
+```
+
+------------------------------------------------------------------------
+  SEMAFIDE
+  EXECUTION EVIDENCE DEMO
+------------------------------------------------------------------------
+
+HONEST EXECUTION (Collateral Valuation #ASG-8942)
+------------------------------------------------------------------------
+  Precedence              ✓ ESTABLISHED
+  Witness attestation     ✗ NOT ESTABLISHED
+  Recipe available        ✓ ESTABLISHED
+  Recipe reproduced       ✓ ESTABLISHED
+  Historical execution    ✗ NOT ESTABLISHED
+  Assignment completeness ✗ NOT ESTABLISHED
+------------------------------------------------------------------------
+  CRYPTOGRAPHIC RESULT    ✓ ESTABLISHED
+  EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
+  ↳ Cryptographic integrity is established, but the evidence vector
+    does not establish every claim required for historical reliance.
+
+ATTACK: POST-HOC INPUT SUBSTITUTION
+Scenario: Operator alters the committed action after execution.
+------------------------------------------------------------------------
+  Original evidence       COMMITTED
+  Altered input            NOT DETECTED
+  Commitment relation      ✗ BROKEN
+------------------------------------------------------------------------
+  CRYPTOGRAPHIC RESULT    ✗ NOT ESTABLISHED
+  EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
+  ↳ Mechanism: the verifier detects that the claimed execution no longer
+    agrees with the committed evidence.
+
+ATTACK: SELECTIVE ASSIGNMENT OMISSION
+Scenario: Operator ran 3 models but presents only the favorable run.
+------------------------------------------------------------------------
+  Runs committed          3 (independent assignment record)
+  Runs disclosed           1 (presented by operator)
+  Assignment completeness  ✗ NOT ESTABLISHED
+------------------------------------------------------------------------
+  CRYPTOGRAPHIC RESULT     ✓ ESTABLISHED
+  EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED
+  ↳ Mechanism: the assignment record identifies three committed chains;
+    the disclosed artifact contains only one.
+```
+
+Read what it refuses on the honest case. Every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nothing outside the record states how many runs the assignment holds.
+
+This block is copied output and can go stale. CI checks it against `code/seal/demo_60s.py` rather than trusting it.
+
 ## Verification status
 
 The claims in this repository are asserted by CI on every push rather than described. What currently passes:
