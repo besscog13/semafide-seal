@@ -10,6 +10,19 @@ This document separates what is implemented from what Semafide is proposing and 
 - **Thesis:** An architectural proposition Semafide is designed to test.
 - **Hypothesis:** A commercial or institutional proposition that still requires validation.
 
+## Canonical Claim Hierarchy
+
+The claims in this document sit at different altitudes. Reading a claim at the wrong altitude is the most common way to misread this project — either treating the code as proving more than it does, or treating the commercial framing as more settled than it is. This hierarchy is a map, not new content; every layer is developed further in the numbered sections below.
+
+1. **Problem** — When consequential decisions move from humans into automated systems, the question of what actually happened still has to be answered.
+2. **Instrument** — Semafide is an instrument for testing whether evidence surrounding an automated execution supports specific claims about that execution.
+3. **Technical principle** — Cryptographic validity is not the same thing as evidentiary reliance (Section 2).
+4. **Evidence model** — Five independent propositions: `precedence`, `witness_attestation`, `recipe_available`, `recipe_reproduced`, `historical_execution_established`. Each answers a different question; none implies another (Section 2.3).
+5. **Commercial thesis** — Some high-consequence, opaque workflows face adversarial examination where the cost of being unable to establish what happened may justify stronger evidence preservation (Section 6).
+6. **Market hypothesis** — AVMs in mortgage lending are the first market being tested. This is unproven and specific to that market, not a claim about automated decision-making generally (Section 7).
+
+The strongest claim this project can make in public today is Layers 2 through 4 — what the repository's verifier actually establishes. Layers 5 and 6 are strategy, not proof, and should not be read back into what the code does.
+
 ## 1. Executive Summary: The Disappearance of the Human Execution Point
 
 ### The Core Problem
@@ -36,7 +49,7 @@ The institutional shift is from trusting operator-controlled records to asking w
 
 ### The Core Thesis
 
-Semafide is building cryptographic custody and state-preservation infrastructure for independently verifiable evidence of automated executions.
+Semafide is building cryptographic custody and state-preservation infrastructure for independently verifiable evidence of automated executions. That is a company-level goal, not a description of this repository: the codebase accompanying this thesis is a pre-build verifier and evidence-model scaffold, and does not itself implement capture or custody (see the README's verification status).
 
 The technical proposition is narrower than a claim that every automated action needs this infrastructure. Semafide is investigating the environments where the consequences of being unable to prove what happened are large enough to justify preserving stronger evidence at the time of execution.
 
@@ -121,7 +134,7 @@ Semafide's commercial hypothesis is that the strongest early markets are not sim
 - **Commercial hypothesis:** There are workflows where the cost of being unable to prove what happened exceeds the cost of preserving stronger evidence at execution time.
 - **Unproven:** Which buyer will pay first, what exact evidence standard that buyer requires, and how much stronger evidence is worth economically.
 
-### Primary Wedge: Automated Valuation Models (AVMs) in Mortgage Lending
+### Primary Wedge Hypothesis: Automated Valuation Models (AVMs) in Mortgage Lending
 
 - **Regulatory Driver:** Interagency AVM Quality Control Rule (CFPB, Fed, OCC, FDIC) and Fair Lending compliance.
 - **Financial Risk:** Secondary market loan repurchase demands (Fannie Mae / Freddie Mac) on contested collateral valuations.
