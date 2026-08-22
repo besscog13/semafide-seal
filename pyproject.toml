@@ -19,8 +19,9 @@ keywords = [
     "automated-valuation-model",
 ]
 classifiers = [
-    # 3 - Alpha overstates this. The capture layer does not exist and the
-    # scaffold is explicitly not a production foundation.
+    # 3 - Alpha overstates this. seal.capture is a starting scaffold, not a
+    # production capture layer, and it still cannot answer where an
+    # independent witness sits in a live workflow (KC3).
     "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Legal Industry",
