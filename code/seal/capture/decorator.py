@@ -40,7 +40,6 @@ from __future__ import annotations
 
 import functools
 import inspect
-import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,10 +51,10 @@ from ..artifact import (
     EntryKind,
     EvidenceCommitment,
     RunSeal,
-    SealChain,
     WitnessMode,
     export_artifact,
 )
+from .assignment import _open, write_manifest
 from ..primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit
 from ..verifier import VerificationReport, verify, witness_attestation_payload
 from .witness_client import request_witness_signature
@@ -71,11 +70,60 @@ class CaptureResult:
     report: VerificationReport
     witness_attempted: bool
     witness_attestation_established: bool
+    assignment_id: str = ""
+    runs_in_assignment: int = 0
 
     @property
     def trustworthy(self) -> bool:
         """Mirrors `VerificationReport.trustworthy` — see `seal.verifier`."""
         return self.report.trustworthy
+
+
+def _primitives(output: Any, model_id: str, evidence_hash: str,
+                t_start: int, t_end: int) -> dict:
+    """
+    The six, mapped from what a call actually gives us.
+
+    SURFACE and EVIDENCE carry the same commitment here because nothing
+    upstream of the function call is observed separately. See the module
+    docstring: a caller with a real evidence-acquisition step ahead of the call
+    should split them, and that split is not this scaffold's to make.
+    """
+    return {
+        PrimitiveKind.ACTION: PrimitiveRecord(
+            kind=PrimitiveKind.ACTION, commitment=commit(output),
+            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            holder="operator",
+        ),
+        PrimitiveKind.SURFACE: PrimitiveRecord(
+            kind=PrimitiveKind.SURFACE, commitment=evidence_hash,
+            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            holder="operator",
+        ),
+        PrimitiveKind.EVIDENCE: PrimitiveRecord(
+            kind=PrimitiveKind.EVIDENCE, commitment=evidence_hash,
+            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            holder="operator",
+        ),
+        PrimitiveKind.EVALUATOR: PrimitiveRecord(
+            kind=PrimitiveKind.EVALUATOR, commitment=commit({"model_id": model_id}),
+            pinning=Pinning.PINNED, retention=Retention.FULL,
+            holder="operator", descriptor={"model_id": model_id},
+        ),
+        PrimitiveKind.INSTANT: PrimitiveRecord(
+            kind=PrimitiveKind.INSTANT,
+            commitment=commit({"started_ns": t_start, "completed_ns": t_end}),
+            pinning=Pinning.PINNED, retention=Retention.FULL,
+            holder="operator",
+        ),
+        # A claim is a certification-time assertion about what the run
+        # supports. One function call does not make one, and this does not
+        # invent one to fill the slot. `close_assignment` is that moment.
+        PrimitiveKind.CLAIM: PrimitiveRecord(
+            kind=PrimitiveKind.CLAIM, commitment=None, pinning=Pinning.ABSENT,
+            retention=Retention.NONE, holder=None,
+        ),
+    }
 
 
 def seal_execution(
@@ -122,7 +170,7 @@ def seal_execution(
             output = fn(*args, **kwargs)
             t_end = time.time_ns()
 
-            chain = SealChain(assignment_id, private_key=private_key, opened_ns=t_start)
+            state = _open(assignment_id, t_start, private_key)
 
             evidence_hash_input = commit(inputs)
             evidence = EvidenceCommitment(
@@ -133,87 +181,64 @@ def seal_execution(
                 as_of=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(t_start / 1e9)),
                 query_descriptor={name: commit(value) for name, value in inputs.items()},
             )
-            evidence_commitment_hash = chain.append(
-                EntryKind.EVIDENCE_COMMITMENT, evidence.to_body(), t_start
-            ).block_hash
 
-            primitives = {
-                PrimitiveKind.ACTION: PrimitiveRecord(
-                    kind=PrimitiveKind.ACTION, commitment=commit(output),
-                    pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
-                    holder="operator",
-                ),
-                PrimitiveKind.SURFACE: PrimitiveRecord(
-                    kind=PrimitiveKind.SURFACE, commitment=evidence_hash_input,
-                    pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
-                    holder="operator",
-                ),
-                PrimitiveKind.EVIDENCE: PrimitiveRecord(
-                    kind=PrimitiveKind.EVIDENCE, commitment=evidence_hash_input,
-                    pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
-                    holder="operator",
-                ),
-                PrimitiveKind.EVALUATOR: PrimitiveRecord(
-                    kind=PrimitiveKind.EVALUATOR, commitment=commit({"model_id": model_id}),
-                    pinning=Pinning.PINNED, retention=Retention.FULL,
-                    holder="operator", descriptor={"model_id": model_id},
-                ),
-                PrimitiveKind.INSTANT: PrimitiveRecord(
-                    kind=PrimitiveKind.INSTANT,
-                    commitment=commit({"started_ns": t_start, "completed_ns": t_end}),
-                    pinning=Pinning.PINNED, retention=Retention.FULL,
-                    holder="operator",
-                ),
-                PrimitiveKind.CLAIM: PrimitiveRecord(
-                    kind=PrimitiveKind.CLAIM, commitment=None, pinning=Pinning.ABSENT,
-                    retention=Retention.NONE, holder=None,
-                ),
-            }
+            primitives = _primitives(output, model_id, evidence_hash_input,
+                                     t_start, t_end)
 
             run_body = RunSeal(
                 run_id=this_run_id,
                 primitives=primitives,
-                evidence_commitment_hash=evidence_commitment_hash,
+                evidence_commitment_hash=None,
                 witness_mode=WitnessMode.SELF_ATTESTED,
             ).to_body()
 
             witness_attempted = bool(witness_url)
-            established = False
             if witness_url:
                 # A provisional attestation carrying only capture_ref, so
                 # `witness_attestation_payload` (the exact function the real
-                # verifier uses) can compute what needs signing. Mirrors the
-                # construction in tests/test_seal_verifier.py rather than
-                # re-deriving the payload shape here.
+                # verifier uses) can compute what needs signing.
                 run_body["witness_attestation"] = {
                     "capture_ref": f"capture:{fn.__module__}.{fn.__qualname__}:{t_start}",
                 }
-                payload = witness_attestation_payload(run_body)
-                attestation = request_witness_signature(witness_url, payload)
-                if attestation is not None:
-                    run_body["witness_attestation"] = attestation
-                    run_body["witness_mode"] = WitnessMode.INDEPENDENT.value
-                else:
-                    run_body["witness_attestation"] = None
             else:
                 run_body["witness_attestation"] = None
 
-            chain.append(EntryKind.RUN_SEAL, run_body, t_end)
-            manifest = export_artifact(chain)
+            # One lock for the whole append. The evidence commitment and the run
+            # that names it must land adjacent: a concurrent call interleaving
+            # between them would not corrupt the chain, it would make a run
+            # appear to consume evidence committed for a different call, and the
+            # verifier reads precedence off exactly that ordering.
+            with state.lock:
+                chain = state.chain
+                evidence_commitment_hash = chain.append(
+                    EntryKind.EVIDENCE_COMMITMENT, evidence.to_body(), t_start
+                ).block_hash
+                run_body["evidence_commitment_hash"] = evidence_commitment_hash
+
+                if witness_url:
+                    payload = witness_attestation_payload(run_body)
+                    attestation = request_witness_signature(witness_url, payload)
+                    if attestation is not None:
+                        run_body["witness_attestation"] = attestation
+                        run_body["witness_mode"] = WitnessMode.INDEPENDENT.value
+                    else:
+                        run_body["witness_attestation"] = None
+
+                chain.append(EntryKind.RUN_SEAL, run_body, t_end)
+                state.runs += 1
+                manifest = export_artifact(chain)
+                chain_key = chain.public_key_pem
+                runs_so_far = state.runs
 
             report = verify(
                 manifest,
-                trusted_keys=[chain.public_key_pem],
+                trusted_keys=[chain_key],
                 trusted_witness_keys=trusted_witness_keys,
             )
-            established = report.evidence.witness_attestation
 
             manifest_path = None
             if output_dir:
-                out = Path(output_dir)
-                out.mkdir(parents=True, exist_ok=True)
-                manifest_path = out / f"{this_run_id}.manifest.json"
-                manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True))
+                manifest_path = write_manifest(assignment_id, manifest, output_dir)
 
             wrapper.last_capture = CaptureResult(
                 output=output,
@@ -221,7 +246,9 @@ def seal_execution(
                 manifest_path=manifest_path,
                 report=report,
                 witness_attempted=witness_attempted,
-                witness_attestation_established=established,
+                witness_attestation_established=report.evidence.witness_attestation,
+                assignment_id=assignment_id,
+                runs_in_assignment=runs_so_far,
             )
             return output
 

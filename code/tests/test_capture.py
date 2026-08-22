@@ -17,7 +17,25 @@ import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from seal import BindingLevel, canonical_bytes, verify
+from seal import BindingLevel, Coverage, canonical_bytes, verify
+from seal.capture.assignment import (
+    AssignmentError,
+    close_assignment,
+    reset_assignments,
+)
+
+
+@pytest.fixture(autouse=True)
+def _isolated_assignments():
+    """
+    A chain now lives for its assignment, so tests sharing an assignment id
+    share a chain and every assertion after the first reads a chain some other
+    test built. Reset before and after: before so a test starts clean, after so
+    a failure does not leak into the next one.
+    """
+    reset_assignments()
+    yield
+    reset_assignments()
 from seal.capture import seal_execution
 
 
@@ -195,3 +213,102 @@ def test_verify_rejects_a_manifest_if_key_list_is_forged(tmp_path, running_witne
     sealed({"median_sqft": 250}, {"sqft": 1800})
 
     assert not sealed.last_capture.witness_attestation_established
+
+
+# ---------------------------------------------------------------------------
+# One chain per assignment.
+#
+# The defect these cover: a fresh chain per call produced one artifact per run,
+# each verifying perfectly and none of them relating to the others. That is the
+# sibling-chain hole manufactured by construction, and it made the count harder
+# to establish than it had been.
+# ---------------------------------------------------------------------------
+
+def test_every_call_appends_to_one_chain_across_functions(tmp_path):
+    """Two decorated functions in one assignment share one chain."""
+    priced = seal_execution(
+        assignment_id="ASG-2026-4400", model_id="AVM-v4.2",
+        output_dir=str(tmp_path))(lambda sqft: {"valuation": sqft * 250})
+    adjusted = seal_execution(
+        assignment_id="ASG-2026-4400", model_id="regression-v2",
+        output_dir=str(tmp_path))(lambda trend: {"pct_per_month": trend})
+
+    for sqft in (1800, 1850, 1900):
+        priced(sqft)
+    adjusted(0.0042)
+
+    manifest = adjusted.last_capture.manifest
+    kinds = [e["kind"] for e in manifest["entries"]]
+    assert kinds.count("run_seal") == 4
+    assert kinds.count("assignment_anchor") == 1
+    assert adjusted.last_capture.runs_in_assignment == 4
+    # One manifest for the assignment, not one per call.
+    assert len(list(tmp_path.iterdir())) == 1
+
+
+def test_coverage_is_absent_until_certification(tmp_path):
+    """
+    The two moments. Runs are captured at execution; sign-off binds at
+    certification. An assignment still in progress carries no binding, and
+    ABSENT is the honest reading of that rather than a defect.
+    """
+    sealed = seal_execution(
+        assignment_id="ASG-2026-4401", model_id="AVM-v4.2",
+        output_dir=str(tmp_path))(lambda x: {"valuation": x})
+    sealed(1)
+    assert sealed.last_capture.report.coverage is Coverage.ABSENT
+
+    _, report = close_assignment(
+        "ASG-2026-4401", certification_ref="cert-1",
+        effective_date="2026-03-14", output_dir=str(tmp_path))
+    assert report.coverage is Coverage.CONTIGUOUS
+
+
+def test_a_removed_run_is_detectable_after_certification(tmp_path):
+    """
+    The property the whole change exists for. Three runs sealed and one
+    discarded before hand-over used to produce a flawless artifact. It now
+    produces a broken chain, and renumbering to hide the gap does not help
+    because prev-hash linkage is what breaks.
+    """
+    sealed = seal_execution(
+        assignment_id="ASG-2026-4402", model_id="AVM-v4.2",
+        output_dir=None)(lambda x: {"valuation": x * 250})
+    for sqft in (1800, 1850, 1900):
+        sealed(sqft)
+    manifest, report = close_assignment(
+        "ASG-2026-4402", certification_ref="cert-1",
+        effective_date="2026-03-14", output_dir=None)
+    key = manifest["entries"][0]["public_key"]
+    assert report.coverage is Coverage.CONTIGUOUS
+
+    run_indexes = [i for i, e in enumerate(manifest["entries"])
+                   if e["kind"] == "run_seal"]
+    cut = json.loads(json.dumps(manifest))
+    del cut["entries"][run_indexes[1]]
+    assert not verify(cut, trusted_keys=[key]).chain_intact
+
+    renumbered = json.loads(json.dumps(cut))
+    for n, entry in enumerate(renumbered["entries"]):
+        entry["seq"] = n
+    assert not verify(renumbered, trusted_keys=[key]).trustworthy
+
+
+def test_a_second_signing_key_for_an_open_assignment_is_refused():
+    """
+    A chain carries one key. Accepting a second decorator's key silently would
+    mean the caller never learns their own was ignored.
+    """
+    first = ec.generate_private_key(ec.SECP256R1())
+    second = ec.generate_private_key(ec.SECP256R1())
+    seal_execution(assignment_id="ASG-2026-4403", model_id="m",
+                   output_dir=None, private_key=first)(lambda: {"v": 1})()
+    with pytest.raises(AssignmentError):
+        seal_execution(assignment_id="ASG-2026-4403", model_id="m",
+                       output_dir=None, private_key=second)(lambda: {"v": 2})()
+
+
+def test_closing_an_assignment_that_is_not_open_raises():
+    with pytest.raises(AssignmentError):
+        close_assignment("ASG-never-opened", certification_ref="c",
+                         effective_date="2026-03-14", output_dir=None)
