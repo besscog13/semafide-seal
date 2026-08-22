@@ -93,6 +93,14 @@ The following are not substitutes for current inspection:
 
 When current state matters, open it.
 
+### 7. Assume main can move between your own reads
+
+This repository can be edited by more than one session, including automated ones, and a push can land between the moment a ref is read and the moment a PR is opened against it.
+
+Before opening a PR, refetch and diff the current head of the base branch against the SHA the work started from. If it moved, re-run steps 1 through 5 against the new head rather than merging into a state that was never inspected.
+
+**Required evidence:** the base branch SHA at the start of the work and its SHA immediately before the PR is opened, with a diff of the range if the two are not identical.
+
 ## Claim provenance
 
 When making consequential repository statements, classify the basis internally as one of:
@@ -115,6 +123,7 @@ Before opening a PR, the author should be able to answer yes to all applicable q
 - [ ] Did I inspect the actual resulting diff?
 - [ ] Did I verify that the final wording does not exceed what the current implementation establishes?
 - [ ] Did I run the relevant tests or explicitly record why they could not be run?
+- [ ] Did I recheck whether the base branch moved since I started, and re-audit against the new head if it did?
 
 ## Why this exists
 
