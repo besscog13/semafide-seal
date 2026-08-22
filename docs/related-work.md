@@ -52,6 +52,23 @@ verified match to that description is HDP, cited above. A claim attributed
 to Tesserae should be treated as UNVERIFIED until a primary source for it is
 located and read directly.
 
+A wider pass against three additional entries closed part of the gap this
+document left open below. The
+[SCITT AI Agent Execution Profile](https://datatracker.ietf.org/doc/draft-emirdag-scitt-ai-agent-execution/),
+an Internet-Draft, requires that every material action produce exactly one
+record, rejects a registration whose sequence number or timing breaks the
+chain, and assigns that check to an Evidence Custodian defined as a party
+with no financial or operational interest in the agent's behavior; the draft
+states its own guarantees are void if the operator and the custodian are the
+same entity. The
+[ContextNest paper](https://arxiv.org/abs/2607.02116) records what version of
+a context an agent consumed and on whose authority, through a hash-chained
+version history, and states plainly that its hash chain gives evidence of
+tampering rather than prevention of it. The
+[PSI AI Agent Action Sealing and Liability Protocol draft](https://www.ietf.org/archive/id/draft-singh-psi-agent-00.txt)
+announces the same problem in its title but its published text has no
+mechanism, so it supports no comparison beyond that shared framing.
+
 ## Where Semafide overlaps and where it differs
 
 Each of the projects above answers some form of: can this record be verified
@@ -72,15 +89,26 @@ than asserting it in prose alone.
 SLSA's provenance and Aevum's signed ledger both stop at authenticity: a
 valid signature from the recorded builder or agent, chained and timestamped.
 Neither, by construction, asks whether a verifying party can distinguish a
-complete record from a selected subset of one. That is the question
-Semafide's assignment-completeness and disclosure layer is built to isolate.
+complete record from a selected subset of one. The SCITT profile comes
+closer than the rest of the category to that same structural move: it puts
+the completeness check in the hands of a custodian outside the sealing
+operator rather than in the operator's own instrumentation, which is the
+same reasoning behind Semafide's assignment-completeness layer. Its scope is
+narrower. The profile checks that one agent's hash chain has no missing
+link, a property visible from the chain the custodian already holds. It does
+not ask whether the runs disclosed for a named assignment are the whole set
+of runs performed for that assignment, a question that survives even when
+every disclosed chain is internally continuous. That narrower question, not
+the existence of any third-party check at all, is what Semafide's layer is
+built to isolate.
 
 ## What this does not establish
 
-Finding no product that asks the same narrower question is evidence about
-this search, not about the category. The field is active: the survey cited
-above alone references dozens of adjacent efforts this document does not
-enumerate, and standards work covering the same ground is in progress at the
-IETF. A wider pass against that literature, checked source by source rather
-than assumed from a single earlier list, is a separate piece of work from
-this document and is tracked outside it.
+Finding no product that asks the exact same question, at the same scope, is
+evidence about this search and the wider pass that followed it, not proof
+that the category will never contain one. The field is active: the survey
+cited above alone references dozens of adjacent efforts this document does
+not enumerate, and standards work covering the same ground, including the
+SCITT profile above, is still in progress at the IETF. A search run again
+later could find a system that closes even the narrower gap this document
+describes.
