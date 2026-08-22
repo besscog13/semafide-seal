@@ -6,6 +6,22 @@
 [![Status: pre-alpha scaffold](https://img.shields.io/badge/status-pre--alpha%20scaffold-orange.svg)](#verification-status)
 [![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
 
+**When software makes a consequential decision, how do you prove later what happened?**
+
+Semafide is building evidence infrastructure for automated decisions. It is designed for situations where a valuation, recommendation, approval, or other consequential action is produced by software and someone later needs to establish what the system actually relied on.
+
+**This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody.
+
+**Run the demo**
+
+```bash
+pip install -r code/seal/requirements.txt
+cd code
+python -m seal.demo
+```
+
+The rest of this README explains the problem, what the verifier can establish, what it cannot establish, and what remains unsolved.
+
 Semafide is building cryptographic custody and state-preservation middleware for batch-executed valuation and automated lending pipelines.
 
 The current repository is a pre-build verifier and artifact scaffold. It does not capture executions or provide custody yet. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
