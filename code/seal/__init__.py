@@ -2,8 +2,11 @@
 semafide.seal: artifact schema and standalone verifier.
 
 Pre-build scaffold. This package encodes what an artifact must contain and what
-a verifier can report about one without overclaiming. It contains no capture
-mechanism, because where the witness sits is KC3 and remains open.
+a verifier can report about one without overclaiming. `seal.capture` adds a
+decorator that seals a real function call into a real artifact, but it does
+not answer where an independent witness sits in a live workflow — that is
+KC3 and remains open. Every run `seal.capture` produces without a trusted
+witness configured seals SELF_ATTESTED, and says so.
 
 It depends on `cryptography` and the standard library only.
 """
