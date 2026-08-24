@@ -10,7 +10,7 @@
 
 Semafide is building evidence infrastructure for automated decisions. It is designed for situations where a valuation, recommendation, approval, or other consequential action is produced by software and someone later needs to establish what the system actually relied on.
 
-**This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody.
+**This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
 **Run the demo**
 
@@ -21,10 +21,6 @@ python -m seal.demo
 ```
 
 The rest of this README explains the problem, what the verifier can establish, what it cannot establish, and what remains unsolved.
-
-Semafide is building cryptographic custody and state-preservation middleware for batch-executed valuation and automated lending pipelines.
-
-The current repository is a pre-build verifier and artifact scaffold. It does not capture executions or provide custody yet. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
 **For the broader architecture and commercial thesis, see [`docs/executive-thesis.md`](docs/executive-thesis.md).**
 
@@ -221,7 +217,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 | Check | Status |
 |---|---|
-| Unit and adversarial tests (`code/tests/`) | **120 passing** |
+| Unit and adversarial tests (`code/tests/`) | **135 passing** |
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
