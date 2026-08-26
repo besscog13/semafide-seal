@@ -92,6 +92,8 @@ Everything above says why the problem is worth solving. This section says what t
 
 **The write path.** An analytical tool, an automated valuation model, or a regression engine calls an application-level interface at the moment it executes, passing a structured execution manifest: a commitment to the input evidence, the parameter set, the tool and model version, the output, and where available a re-derivation recipe. Semafide returns a signed receipt and retains the record. The calling system keeps its own logs and its own outputs, unchanged.
 
+What crosses that boundary is a commitment rather than the evidence itself. The manifest carries a hash of the input state and a commitment per input, not the rows, so a custodian holding a record holds nothing that would carry personal or confidential data out of the operator's environment. The schema does allow a partner to carry bytes where that is wanted, and a partner who chooses it takes on the handling obligations that follow. The scaffold does not.
+
 **Custody.** Semafide holds the record. The party who produced the analysis does not. Records accumulate against an assignment identifier, so the chain of runs for one piece of work is held by a party with no interest in how that work turns out. This is the whole product in one sentence, and everything else is mechanism supporting it.
 
 **The read path.** An examiner receives the runs, plus a signed checkpoint issued by the custodian rather than by the sealer, stating how many runs the assignment holds and what the chain ends with. Verification without that checkpoint reports that completeness was never checked rather than reporting a pass, which is the difference between a custody product and an archive.
@@ -230,6 +232,8 @@ That separation is a go-to-market problem rather than a technical one. The party
 Not archival software, which is the comparison the product invites and the wrong one.
 
 The strongest competitor is risk transfer. At least one vendor sells a repurchase and loan-level price adjustment warranty attached to its appraisal review product. That is a direct commercial answer to the same pain, and it is insurance rather than evidence. An institution that can buy an indemnity against an appraisal-caused repurchase has resolved its felt problem regardless of what remains unproven about the underlying valuation. A warranty pays out and a seal does not, which makes it a harder competitor than any archive.
+
+One hypothesis is recorded here because it is the only route anyone has proposed out of that collision, and because recording it is not the same as believing it. An insurer pricing a repurchase warranty has to price what it is underwriting, and how many analyses an assignment held is the kind of fact that moves a loss ratio. On that reading the product is an input to risk transfer rather than a competitor of it. Nobody has put this to an underwriter, no insurer has said that such a count would change a price, and until one does this is a sentence rather than a finding.
 
 The second competitor is a product category that already exists and looks like a solution. Several vendors sell retrospective valuations, which return a value as of a past date by excluding data after that date. To a risk officer that appears to close the reproducibility gap without any custody layer.
 
