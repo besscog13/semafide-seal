@@ -64,6 +64,53 @@ to the code is the same defect as a re-derivation recipe compared against
 itself, which is KC2 stated, and it would be a poor joke to reproduce that
 defect in the verification layer.
 
+## The four are not equally strong, and the summary line hides it
+
+Four green lines print the same way. They do not mean the same thing, and a
+reader who takes them as four equivalent proofs has been misled by the format
+rather than by the text.
+
+**`SPEC_merkle_consistency` is bounded, and it is the only one that is.** Tree
+sizes run to six and proof lengths to five. Within those bounds the adversary is
+unbounded in proof content, since every proof element is a free constant over
+the hash datatype, so the soundness result is a real statement about arbitrary
+forgeries at small sizes. It is not a statement about all tree sizes. A
+structural defect appearing only at size ninety would not be caught. For an
+RFC 6962 transcription the residual risk is transcription error rather than
+novel mathematics, which is why the conformance sweep carries more weight here
+than the solver does. Raising the bound would buy confidence and would not turn
+this into an unbounded proof, and quietly doing so while implying otherwise
+would be the exact move this package refuses everywhere else.
+
+**`SPEC_checkpoint_issuer` is a genuine unbounded induction, resting on one
+uninterpreted symbol.** Heads are uninterpreted integers, only equality matters,
+and the invariant is proved preserved over histories of any length. What it does
+not establish is that `_extends` correctly decides extension, because `extends`
+enters the model as an uninterpreted Boolean. The result is therefore that the
+refusal policy is sufficient given a correct extension check. Whether the
+extension check is correct is discharged only by the conformance traces, which
+are finite.
+
+**`SPEC_witness_cosigning` has the same shape and the same boundary, plus key
+continuity.** The extra conjunct matters more than its size suggests: without
+it, rotating a key would be an epistemic reset, letting a log walk away from its
+own history and present a clean one. The spec closes that as a local escape
+route. `consistent` is uninterpreted for the same reason `extends` is.
+
+**`SPEC_assignment_issuer` is unbounded over the number of chains and proves
+less than its name suggests.** It establishes that once a chain has entered the
+observed set, no accepted statement can shorten it or drop it. It does not
+establish that every chain which existed was observed. That gap is capture
+completeness, it is open, and no amount of work on this spec closes it. Observed
+history cannot shrink is a different claim from observed history equals actual
+history, and only the first is proved.
+
+The common boundary, stated once: the uninterpreted symbols in the checkpoint
+and witness inductions are where the proofs hand off to the implementation, and
+that hand-off is discharged by conformance over concrete traces rather than by
+the solver. A defect in `_extends` or in the consistency machinery that appears
+only outside the traces exercised would survive all four gates.
+
 ## What this does not do, and it is the important part
 
 **It does not address the failure mode this project actually has.** Every gap
