@@ -285,6 +285,8 @@ Kill conditions were written and dated before any check ran, and each result is 
 
 **What survives all of the above.** Completeness custody. Establishing how many analyses an assignment contains requires no determinism, no re-derivation, and no observing witness. It is the one property in Section 8's discriminating test that the layer beneath does not already record, and it is what the accompanying repository's verifier reports as assignment disclosure.
 
+**The narrowing, stated in one line, because it is easy to lose across six findings.** The architecture set out to prove what a system relied on. What survived is proof of how many times it ran. Those are different products, and this document describes the second one.
+
 ### 9.2 The question that decides this
 
 Would one institution pay to know how many analyses its own panel ran, purely to manage its own exposure, with no external party needing to accept the statement as evidence?

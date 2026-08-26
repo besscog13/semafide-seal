@@ -28,8 +28,8 @@ import itertools
 import pathlib
 import sys
 
-from z3 import (And, ForAll, Function, Implies, Int, IntSort, Not, Solver,
-                sat, unsat)
+from z3 import (And, Bool, ForAll, Function, Implies, Int, IntSort, Not, Or,
+                Solver, sat, unsat)
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "code"))
 
@@ -99,10 +99,72 @@ def prove_not_vacuous() -> None:
     report("anti-vacuity: a grown statement is accepted", solver.check() == sat)
 
 
+def prove_bounded_traces_are_clean(depth: int = 4, chains: int = 3) -> None:
+    """
+    The induction above is the real result and it is transitivity of >=, so the
+    risk it guards against here is smaller than for the two machines carrying
+    sequence numbers. It is checked anyway.
+
+    An asymmetry in a proof suite is a claim that one state machine deserves
+    less scrutiny than its siblings, and nobody decided that. `SPEC_checkpoint_
+    issuer` and `SPEC_witness_cosigning` both carry this check because an
+    invariant can be preserved by every transition and still fail to imply the
+    property somebody wanted. Absence here was an omission rather than a
+    judgement, and it was found by an outside reader rather than by us.
+
+    Fully symbolic. Every proposed count is a free non-negative integer, every
+    acceptance is computed from the guard rather than assumed, and the safety
+    property is checked across all pairs of accepted statements rather than
+    against the immediate predecessor the issuer actually stores.
+    """
+    solver = Solver()
+    proposed = [[Int(f"n_{i}_{c}") for c in range(chains)] for i in range(depth)]
+    accepted = [Bool(f"acc_{i}") for i in range(depth)]
+
+    for row in proposed:
+        for count in row:
+            solver.add(count >= 0)          # an entry count is never negative
+
+    last = [Int(f"last_0_{c}") for c in range(chains)]
+    has_prior = Bool("has_0")
+    solver.add(Not(has_prior), *[v == 0 for v in last])
+    state = [(has_prior, last)]
+
+    for i in range(depth):
+        prior_i, last_i = state[-1]
+        guard = And(*[Implies(last_i[c] > 0, proposed[i][c] >= last_i[c])
+                      for c in range(chains)])
+        solver.add(accepted[i] == Or(Not(prior_i), guard))
+
+        next_prior = Bool(f"has_{i + 1}")
+        next_last = [Int(f"last_{i + 1}_{c}") for c in range(chains)]
+        solver.add(next_prior == Or(prior_i, accepted[i]))
+        for c in range(chains):
+            solver.add(Implies(accepted[i], next_last[c] == proposed[i][c]))
+            solver.add(Implies(Not(accepted[i]), next_last[c] == last_i[c]))
+        state.append((next_prior, next_last))
+
+    # Safety across the whole history, not just adjacent pairs: no accepted
+    # statement ever shows a chain at fewer entries than an earlier accepted
+    # statement showed it. Count zero is absence, so this covers a drop too.
+    breaches = [
+        And(accepted[i], accepted[j], proposed[i][c] > 0,
+            proposed[j][c] < proposed[i][c])
+        for i, j in itertools.combinations(range(depth), 2)
+        for c in range(chains)
+    ]
+    solver.add(Or(*breaches))
+    result = solver.check()
+    report(f"bounded traces to depth {depth}: no chain ever shrinks",
+           result == unsat,
+           "" if result == unsat else f"trace {solver.model()}")
+
+
 def conformance() -> None:
     """
     Drive the real issuer over every trace of three statements drawn from
-    subsets of three chains at two lengths, and require agreement at each step.
+    subsets of two chains at two claimed counts, and require agreement at
+    each step.
     """
     from cryptography.hazmat.primitives.asymmetric import ec
 
@@ -166,6 +228,7 @@ def main() -> int:
     prove_statements_are_monotone()
     prove_the_refusals_are_necessary()
     prove_not_vacuous()
+    prove_bounded_traces_are_clean()
     conformance()
 
     print()
