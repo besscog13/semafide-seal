@@ -74,6 +74,8 @@ Splitting the work across five separate records does not help. Each record can b
 
 The intended custody architecture addresses that problem by putting assignment-level disclosure outside the control of the party being examined. An examiner can then ask the custodian how many runs and records it received and compare that statement with the supplied artifact. This is a custody property, not something a signature alone provides.
 
+The same limit applies to watermarks and to Content Credentials, which travel attached to the artifact and therefore remain with whoever chooses which artifacts to hand over. Longer version in [`docs/watermarking.md`](docs/watermarking.md).
+
 The current repository implements the verification side of that model. It does not yet implement the capture mechanism or the production custody service.
 
 ## How the intended architecture integrates
