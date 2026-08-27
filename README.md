@@ -177,7 +177,7 @@ HONEST EXECUTION (Collateral Valuation #ASG-8942)
   Recipe available        ✓ ESTABLISHED
   Recipe reproduced       ✓ ESTABLISHED
   Historical execution    ✗ NOT ESTABLISHED
-  Assignment completeness ✗ NOT ESTABLISHED
+  Completeness            ✗ NOT ESTABLISHED
 ------------------------------------------------------------------------
   CRYPTOGRAPHIC RESULT    ✓ ESTABLISHED
   EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
@@ -201,7 +201,7 @@ Scenario: Operator ran 3 models but presents only the favorable run.
 ------------------------------------------------------------------------
   Runs committed          3 (independent assignment record)
   Runs disclosed           1 (presented by operator)
-  Assignment completeness  ✗ NOT ESTABLISHED
+  Assignment disclosure    ✗ NOT ESTABLISHED
 ------------------------------------------------------------------------
   CRYPTOGRAPHIC RESULT     ✓ ESTABLISHED
   EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED

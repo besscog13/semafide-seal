@@ -93,7 +93,7 @@ complete record from a selected subset of one. The SCITT profile comes
 closer than the rest of the category to that same structural move: it puts
 the completeness check in the hands of a custodian outside the sealing
 operator rather than in the operator's own instrumentation, which is the
-same reasoning behind Semafide's assignment-completeness layer. Its scope is
+same reasoning behind Semafide's assignment-disclosure layer. Its scope is
 narrower. The profile checks that one agent's hash chain has no missing
 link, a property visible from the chain the custodian already holds. It does
 not ask whether the runs disclosed for a named assignment are the whole set

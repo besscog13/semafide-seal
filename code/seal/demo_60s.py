@@ -160,7 +160,7 @@ def main() -> None:
     print(f"  Recipe available        {_established(report.evidence.recipe_available)}")
     print(f"  Recipe reproduced       {_established(report.evidence.recipe_reproduced)}")
     print(f"  Historical execution    {_established(report.evidence.historical_execution_established)}")
-    print(f"  Assignment completeness {_established(report.completeness.name == 'COMPLETE')}")
+    print(f"  Completeness            {_established(report.completeness.name == 'COMPLETE')}")
     print(RULE)
     _print_verdict(report)
 
@@ -196,7 +196,7 @@ def main() -> None:
     disclosed_report = _verify(siblings[0])
     print("  Runs committed          3 (independent assignment record)")
     print("  Runs disclosed           1 (presented by operator)")
-    print("  Assignment completeness  ✗ NOT ESTABLISHED")
+    print("  Assignment disclosure    ✗ NOT ESTABLISHED")
     print(RULE)
     print(f"  CRYPTOGRAPHIC RESULT     {_established(disclosed_report.trustworthy)}")
     print("  EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED")
