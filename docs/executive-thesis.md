@@ -2,6 +2,8 @@
 
 *An evidence model for consequential automated executions: what can be established later about what a system did, and by which party.*
 
+When an automated system becomes the observable point where a consequential decision is made, the evidentiary function once supplied by the human decision-maker has to be supplied by something else. Semafide is testing whether independent custody can provide that function where the execution evidence cannot otherwise be reliably retained or reconstructed. That is the idea connecting the AVM wedge in Section 9.3 to the expansion markets in Section 9.4, without treating the expansion as already validated.
+
 ## Status of the Claims
 
 This document separates what is implemented from what Semafide is proposing and what remains commercially unproven:
