@@ -6,7 +6,7 @@
 [![Status: pre-alpha scaffold](https://img.shields.io/badge/status-pre--alpha%20scaffold-orange.svg)](#verification-status)
 [![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
 
-When an automated system becomes the observable point where a consequential decision is made, the evidentiary function once supplied by the human decision-maker has to be supplied by something else. Semafide is testing whether independent custody can provide that function where the execution evidence cannot otherwise be reliably retained or reconstructed.
+Appraisals and automated valuations get challenged years after they run. By then the data they used may have changed, been corrected, or disappeared, and rerunning the analysis can produce a different number. Semafide is testing whether independent custody can preserve enough evidence to establish what actually happened.
 
 **This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
@@ -28,9 +28,9 @@ When the capture layer exists, an analytical tool, automated valuation model, or
 
 Mortgage valuation increasingly relies on software and data sources that can change after an analysis runs. Automated valuation models can use public records, listings, market data, and other inputs. Appraisers can use statistical analysis and regression-based methods to support adjustments. The underlying data, tools, and model versions may change, be corrected, or become unavailable.
 
-When a repurchase demand, regulatory examination, or dispute arrives later, rerunning an analysis can produce a different result. The problem is not necessarily carelessness. The historical execution may have depended on a state that is no longer available in the same form.
+When a repurchase demand, regulatory examination, or dispute arrives later, rerunning the analysis can produce a different result. The historical execution may have depended on a state that is no longer available in the same form.
 
-The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Neither requirement should be read as establishing a general legal rule that a particular logging mechanism is insufficient. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
+The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
 
 ## Authorization and admissibility
 
@@ -78,7 +78,7 @@ The current repository implements the verification side of that model. It does n
 
 ## How the intended architecture integrates
 
-The intended integration is at the application boundary. Semafide is not intended to replace data scrapers, form-filling software, appraisal tools, or delivery pipelines. Upstream analytical software would submit an execution manifest carrying the evidence commitment, parameter set, tool and model version, and output.
+Semafide sits at the application boundary. Upstream analytical software would submit an execution manifest carrying the evidence commitment, parameter set, tool and model version, and output.
 
 The manifest can also carry a re-derivation recipe. The current schema requires a pinned endpoint and version, the exact invocation, the input reference, the expected output digest, and a service window. A verifier can later execute the recipe and compare the produced output with the sealed output when the partner still serves that environment.
 
@@ -100,7 +100,7 @@ The current package models these bounds but does not itself provide a production
 
 ## What it does not do
 
-Nothing blocks. Nothing evaluates quality. Nothing scores. Custody, not judgment.
+**Custody, not judgment.**
 
 The intended record is symmetric evidence. It should document a flawed analysis as faithfully as a sound one. It does not establish that the inputs were well chosen, that an appraisal conclusion was correct, or that an automated decision was substantively sound.
 
@@ -108,7 +108,7 @@ It also does not claim that successful re-derivation proves historical execution
 
 Custody carries costs that a file handed over does not. A production guarantee would depend on Semafide continuing to operate, a custodian preserving the records it received, and partners keeping pinned execution environments available. Those are operational and contractual dependencies, not consequences of cryptography alone.
 
-Nothing in the mathematics prevents a custodian from colluding with the party it is meant to constrain. An append-only log can make later equivocation detectable when its consistency proofs are checked. Independent witnesses can make conflicting views harder to maintain without detection. Neither mechanism eliminates the need to decide who the witnesses are, whether they are independent, and whether anyone checks what they signed.
+Collusion remains an operational question. An append-only log can make later equivocation detectable when its consistency proofs are checked. Independent witnesses can make conflicting views harder to maintain without detection. The deployment still has to establish who the witnesses are, whether they are independent, and whether anyone checks what they signed.
 
 ## About this repository
 
@@ -225,7 +225,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 The division of labour is deliberate: **SMT for mathematical invariants** forced by the construction, **property-based testing for input-shaped questions** quantified over arbitrary values, and **unit tests for explicit design rules** somebody chose and could have chosen differently. Each spec proves a safety property over unbounded histories *and* drives the real implementation over concrete traces, because a proof about a model that nothing ties to the code establishes nothing about the code.
 
-What this does **not** establish: that the scaffold is production-ready, that it has been independently audited, or that the capture and custody layers exist. They do not.
+What this establishes about the repository is limited to the checks above. The scaffold is not production-ready, the capture and custody layers do not exist, and independent audit has not been performed.
 
 ## Security
 
