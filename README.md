@@ -20,6 +20,8 @@ cd code
 python -m seal.demo
 ```
 
+For the same state space explored interactively rather than read as terminal output, see [the design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a): a five-decision panel showing which of the five propositions survive each of the 96 reachable combinations, driven by the real verifier rather than illustrative numbers. It speaks the verifier's own vocabulary directly (`REDERIVED`, `OPERATOR_CANNOT_HOLD`, `kc2_fires`), so it assumes the reader already has the propositions table below rather than explaining them from scratch.
+
 The rest of this README explains the problem, what the verifier can establish, what it cannot establish, and what remains unsolved.
 
 **For the broader architecture and commercial thesis, see [`docs/executive-thesis.md`](docs/executive-thesis.md).**
