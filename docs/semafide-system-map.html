@@ -5445,26 +5445,25 @@
       <div class="card">
         <div class="card-header">
           <div class="card-dot cyan"></div>
-          <h3>Object-level propositions (evaluated per object)</h3>
+          <h3>What a single record establishes (code/seal/verifier.py)</h3>
         </div>
         <ul>
-          <li>&bull; identity — a stable identifier pins this object. Not its contents.</li>
-          <li>&bull; precedence — committed before the execution seal naming it. Not consumption.</li>
-          <li>&bull; witness_attestation — an outside key signed its capture. Not that the witness is independent.</li>
+          <li>&bull; precedence — the evidence commitment predates the run seal naming it. Not that the analysis consumed it.</li>
+          <li>&bull; witness_attestation — an independently trusted witness key signed an observed-execution attestation binding the run, evidence, action, and capture reference. Not a signature over a supplied bundle.</li>
+          <li>&bull; recipe_available — a complete, version-pinned recipe is present and linked to the claimed evidence and action. Not that it ran.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot emerald"></div>
-          <h3>Execution and assignment level</h3>
+          <h3>What the assignment level adds</h3>
         </div>
         <ul>
-          <li>&bull; recipe_available — a version-pinned reproduction path exists. Not that it ran.</li>
-          <li>&bull; recipe_reproduced — a verifier reproduced the output. Not historical occurrence.</li>
-          <li>&bull; historical_execution_established — only via observed-execution witness. Never inferred.</li>
-          <li>&bull; external_time_bounds — the physical window. Not the content.</li>
-          <li>&bull; assignment_disclosure — short disclosure within the custodian-held set. Not completeness of the world.</li>
+          <li>&bull; recipe_reproduced — a verifier reproduced the sealed output from the recipe. Not historical occurrence.</li>
+          <li>&bull; historical_execution_established — true only via a valid observed-execution witness attestation. Never inferred from reproduction.</li>
+          <li>&bull; external time bounds (Anchoring) — UPPER_ONLY from RFC 3161, LOWER_ONLY from a published beacon, BOUNDED where both resolve. Not the record&#39;s content.</li>
+          <li>&bull; completeness and disclosure — completeness asks whether the supplied chain is whole; disclosure asks whether it is the whole assignment. Both default to UNCHECKED without an outside checkpoint.</li>
         </ul>
       </div>
 
@@ -5474,23 +5473,23 @@
           <h3>Non-implication rule</h3>
         </div>
         <ul>
-          <li>&bull; No property upgrades another. No object inherits another&#39;s verdict.</li>
+          <li>&bull; No property upgrades another. Each is established on its own evidence.</li>
           <li>&bull; Reproduction does not prove historical execution.</li>
           <li>&bull; A valid chain does not prove the disclosed set is whole.</li>
-          <li>&bull; input.precedence does not establish configuration.precedence.</li>
-          <li>&bull; Verdicts: ESTABLISHED, UNESTABLISHED, UNCHECKED, UNAVAILABLE. None is a weak pass.</li>
+          <li>&bull; The five propositions are boolean: ESTABLISHED or NOT ESTABLISHED, per EvidencePropositions.</li>
+          <li>&bull; UNCHECKED is the honest default for completeness and disclosure only. It is not a fourth value on every proposition.</li>
         </ul>
       </div>
 
       <div class="card">
         <div class="card-header">
           <div class="card-dot violet"></div>
-          <h3>The wedge, and its likely first verdict</h3>
+          <h3>The wedge, and its likely first result</h3>
         </div>
         <ul>
           <li>&bull; Configuration sits with the provider and is overwritten on revision.</li>
           <li>&bull; The lender cannot timestamp what it does not hold.</li>
-          <li>&bull; Likely first integration: configuration.identity ESTABLISHED, precedence and witness UNAVAILABLE.</li>
+          <li>&bull; Likely first integration establishes precedence and witness_attestation only where a cooperating provider commits to a configuration digest at execution time. Absent that cooperation, neither is established.</li>
           <li>&bull; That is weaker than the wedge needs. It depends on provider cooperation.</li>
         </ul>
       </div>
