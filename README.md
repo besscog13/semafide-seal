@@ -26,6 +26,8 @@ The rest of this README explains the problem, what the verifier can establish, w
 
 **For a one-file interactive map of the intended architecture — carrying the same BUILT / UNBUILT / OPEN distinctions used here — see [`docs/semafide-system-map.html`](docs/semafide-system-map.html), served at [besscog13.github.io/semafide-seal](https://besscog13.github.io/semafide-seal/). It is generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json), which is the inspectable source.**
 
+The map is a proposed model, checked only against itself in CI. Its proposition and verdict vocabulary, including a per-object `identity` proposition and the four-value set ESTABLISHED, UNESTABLISHED, UNCHECKED, UNAVAILABLE, is not what the verifier in this repository currently computes. The verifier computes the five propositions in the table below: precedence, witness attestation, recipe availability, recipe reproduction, and historical execution established.
+
 When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
 
 ## The problem
