@@ -8,6 +8,8 @@
 
 Appraisals and automated valuations get challenged years after they run. By then the data they used may have changed, been corrected, or disappeared, and rerunning the analysis can produce a different number. Semafide is testing whether independent custody can preserve enough evidence to establish what actually happened.
 
+Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test. The same structural gap recurs wherever an automated system executes a consequential decision that nobody observes and no independent record survives. Section 9.4 of the executive thesis names where that is expected to matter next, stated as a hypothesis rather than a claim.
+
 **This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
 **Run the demo**
