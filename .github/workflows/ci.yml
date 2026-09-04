@@ -75,6 +75,20 @@ jobs:
           sys.exit(1)
           PY
 
+      # README.md says docs/semafide-system-map.html is generated from
+      # docs/semafide.architecture.json. An unchecked generation claim is the
+      # defect this repository exists to name, so the relationship is asserted
+      # here rather than trusted.
+      #
+      # What this establishes is correspondence, not generation. It cannot show
+      # that the exporter ran. It shows that the rendered map and the source
+      # agree on every fact the source states, which is the weaker claim and the
+      # one being made. The script lives in a file because the Pages workflow
+      # runs the same assertion before it publishes the map, and two copies of
+      # a check are two checks that can disagree.
+      - name: The system map agrees with its source
+        run: python .github/scripts/check_system_map.py
+
       # The package claims to depend on cryptography and the standard library
       # and nothing else. That claim is load-bearing, since it is what lets the
       # live code be installed and run without any numerical or web stack, so it
