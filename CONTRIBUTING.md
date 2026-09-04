@@ -61,6 +61,27 @@ shipped a check that quietly asserted nothing while reporting green.
 
 Say in the pull request which mutations you ran and which test caught each.
 
+## The system map and its source
+
+`docs/semafide-system-map.html` is generated from
+`docs/semafide.architecture.json`. README.md says so, and nothing about the
+files themselves keeps it true, since either can be edited alone.
+
+`.github/scripts/check_system_map.py` asserts the relationship on every push,
+and again in the Pages workflow before the map is published. It compares
+geometry, node kind, label, responsibility, enclosing boundary, status tag,
+every edge and its direction, label and variant, the proposition cards in
+order, and the guided views. Every comparison is an equality rather than a
+substring test, because UNBUILT contains BUILT, and a substring test reports
+green on the single edit that most misleads a reader.
+
+The check establishes correspondence, not generation. It cannot show that the
+exporter ran. It shows that the map and the source agree on every fact the
+source states, which is the weaker claim and the one README.md makes.
+
+Change either file and you change both, or the check fails and names the field
+that disagrees.
+
 ## What this project will not accept
 
 These are not style preferences. Each one is load-bearing, and a change that
