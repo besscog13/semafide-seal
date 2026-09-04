@@ -1,0 +1,475 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Semafide: evidence custody for automated valuations",
+    "quality_profile": "showcase",
+    "visual_preset": "blueprint",
+    "animation": "trace",
+    "viewBox": [
+      1060,
+      560
+    ],
+    "views": [
+      {
+        "id": "execution-path",
+        "label": "Execution path",
+        "focus": [
+          "lender",
+          "cascade",
+          "avm",
+          "seal",
+          "log"
+        ],
+        "note": "A lender calls a cascade, the cascade runs a model, and a seal is written at the application boundary."
+      },
+      {
+        "id": "the-gap",
+        "label": "The gap",
+        "focus": [
+          "config",
+          "cascade",
+          "seal"
+        ],
+        "note": "The configuration that produced the valuation sits with the provider and is overwritten on revision."
+      },
+      {
+        "id": "custody-chain",
+        "label": "Custody chain",
+        "focus": [
+          "log",
+          "custodian",
+          "witness",
+          "anchor",
+          "verifier"
+        ],
+        "note": "Custody places the record outside the party being examined. Witness and custodian are unbuilt."
+      },
+      {
+        "id": "examination",
+        "label": "Examination",
+        "focus": [
+          "verifier",
+          "examiner",
+          "gse"
+        ],
+        "note": "Years later, a repurchase review asks what produced the value. The verifier reports what the evidence establishes and what it does not."
+      },
+      {
+        "id": "truth-conditions",
+        "label": "Truth conditions",
+        "focus": [
+          "config",
+          "seal",
+          "log",
+          "custodian",
+          "witness",
+          "verifier"
+        ],
+        "note": "What the verifier can establish, and what it refuses to infer. See the proposition cards."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "lender",
+      "type": "external",
+      "label": "Lender",
+      "sublabel": "Orders the valuation",
+      "pos": [
+        30,
+        165
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "cascade",
+      "type": "backend",
+      "label": "AVM cascade",
+      "sublabel": "Runs top model, stops on hit",
+      "pos": [
+        226,
+        165
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "config",
+      "type": "database",
+      "label": "Cascade configuration",
+      "sublabel": "Provider-held. Revised on cadence.",
+      "tag": "GAP \u00b7 FACT",
+      "pos": [
+        226,
+        300
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "avm",
+      "type": "cloud",
+      "label": "AVM model",
+      "sublabel": "Vendor weights and data",
+      "pos": [
+        226,
+        58
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "seal",
+      "type": "security",
+      "label": "Capture and seal",
+      "sublabel": "Manifest at application boundary",
+      "tag": "UNBUILT",
+      "pos": [
+        422,
+        165
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "log",
+      "type": "database",
+      "label": "Append-only log",
+      "sublabel": "Merkle-chained, sequenced",
+      "tag": "BUILT",
+      "pos": [
+        618,
+        165
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "custodian",
+      "type": "security",
+      "label": "Custodian",
+      "sublabel": "Holds the assignment checkpoint",
+      "tag": "OPEN",
+      "pos": [
+        618,
+        300
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "witness",
+      "type": "security",
+      "label": "Independent witness",
+      "sublabel": "Cosigns, refuses split views",
+      "tag": "OPEN",
+      "pos": [
+        618,
+        424
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "anchor",
+      "type": "cloud",
+      "label": "External time anchors",
+      "sublabel": "RFC 3161 upper, beacon lower",
+      "pos": [
+        422,
+        300
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "verifier",
+      "type": "backend",
+      "label": "Standalone verifier",
+      "sublabel": "Reports per object and property",
+      "tag": "BUILT",
+      "pos": [
+        814,
+        165
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "examiner",
+      "type": "external",
+      "label": "Examiner or reviewer",
+      "sublabel": "Asks what produced the value",
+      "pos": [
+        814,
+        300
+      ],
+      "size": [
+        156,
+        72
+      ]
+    },
+    {
+      "id": "gse",
+      "type": "external",
+      "label": "Repurchase review",
+      "sublabel": "Valuation is the contested item",
+      "pos": [
+        30,
+        424
+      ],
+      "size": [
+        156,
+        72
+      ],
+      "tag": "HYPOTHESIS"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "security-group",
+      "label": "Provider boundary. Not instrumentable today.",
+      "wraps": [
+        "avm",
+        "config"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "Outside the party being examined",
+      "wraps": [
+        "custodian",
+        "witness"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "lender-cascade",
+      "from": "lender",
+      "to": "cascade",
+      "label": "order",
+      "variant": "emphasis",
+      "labelDy": -24
+    },
+    {
+      "id": "cascade-avm",
+      "from": "cascade",
+      "to": "avm",
+      "label": "run",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        330,
+        142
+      ]
+    },
+    {
+      "id": "config-cascade",
+      "from": "config",
+      "to": "cascade",
+      "label": "governs",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        330,
+        262
+      ]
+    },
+    {
+      "id": "cascade-seal",
+      "from": "cascade",
+      "to": "seal",
+      "label": "value",
+      "variant": "emphasis",
+      "labelDy": -24
+    },
+    {
+      "id": "seal-log",
+      "from": "seal",
+      "to": "log",
+      "label": "commit",
+      "variant": "emphasis",
+      "labelDy": -24
+    },
+    {
+      "id": "log-custodian",
+      "from": "log",
+      "to": "custodian",
+      "label": "checkpoint",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        746,
+        262
+      ]
+    },
+    {
+      "id": "custodian-witness",
+      "from": "custodian",
+      "to": "witness",
+      "label": "cosign",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        722,
+        392
+      ]
+    },
+    {
+      "id": "anchor-seal",
+      "from": "anchor",
+      "to": "seal",
+      "label": "bounds",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [
+        526,
+        262
+      ]
+    },
+    {
+      "id": "log-verifier",
+      "from": "log",
+      "to": "verifier",
+      "label": "record",
+      "variant": "emphasis",
+      "labelDy": -24
+    },
+    {
+      "id": "custodian-verifier",
+      "from": "custodian",
+      "to": "verifier",
+      "variant": "dashed",
+      "fromSide": "right",
+      "toSide": "bottom",
+      "route": "auto"
+    },
+    {
+      "id": "verifier-examiner",
+      "from": "verifier",
+      "to": "examiner",
+      "label": "matrix",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        922,
+        262
+      ]
+    },
+    {
+      "id": "gse-lender",
+      "from": "gse",
+      "to": "lender",
+      "label": "demand",
+      "variant": "security",
+      "fromSide": "left",
+      "toSide": "left",
+      "via": [
+        [
+          16,
+          460
+        ],
+        [
+          16,
+          201
+        ]
+      ],
+      "labelAt": [
+        22,
+        330
+      ]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Object-level propositions (evaluated per object)",
+      "items": [
+        "identity \u2014 a stable identifier pins this object. Not its contents.",
+        "precedence \u2014 committed before the execution seal naming it. Not consumption.",
+        "witness_attestation \u2014 an outside key signed its capture. Not that the witness is independent."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Execution and assignment level",
+      "items": [
+        "recipe_available \u2014 a version-pinned reproduction path exists. Not that it ran.",
+        "recipe_reproduced \u2014 a verifier reproduced the output. Not historical occurrence.",
+        "historical_execution_established \u2014 only via observed-execution witness. Never inferred.",
+        "external_time_bounds \u2014 the physical window. Not the content.",
+        "assignment_disclosure \u2014 short disclosure within the custodian-held set. Not completeness of the world."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Non-implication rule",
+      "items": [
+        "No property upgrades another. No object inherits another's verdict.",
+        "Reproduction does not prove historical execution.",
+        "A valid chain does not prove the disclosed set is whole.",
+        "input.precedence does not establish configuration.precedence.",
+        "Verdicts: ESTABLISHED, UNESTABLISHED, UNCHECKED, UNAVAILABLE. None is a weak pass."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "The wedge, and its likely first verdict",
+      "items": [
+        "Configuration sits with the provider and is overwritten on revision.",
+        "The lender cannot timestamp what it does not hold.",
+        "Likely first integration: configuration.identity ESTABLISHED, precedence and witness UNAVAILABLE.",
+        "That is weaker than the wedge needs. It depends on provider cooperation."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Claim status, distinct from build status",
+      "items": [
+        "FACT \u2014 a real execution-evidence problem exists.",
+        "FACT \u2014 workflows exist where the operator cannot reconstruct execution state.",
+        "THESIS \u2014 independent custody establishes more than logging or timestamping.",
+        "HYPOTHESIS \u2014 a party bearing the loss will pay in advance to preserve it.",
+        "UNKNOWN \u2014 whether any provider will expose a configuration digest at execution."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Open, and named rather than hidden",
+      "items": [
+        "Capture at execution time is not implemented.",
+        "Boundary establishment: nothing prevents execution outside the instrumented path.",
+        "Who the witness is, and whether anyone checks what they signed.",
+        "Money is spent because this evidence is absent. Established.",
+        "That spend converts into a pre-loss purchase. Untested."
+      ]
+    }
+  ]
+}

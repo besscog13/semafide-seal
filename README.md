@@ -22,6 +22,8 @@ The rest of this README explains the problem, what the verifier can establish, w
 
 **For the broader architecture and commercial thesis, see [`docs/executive-thesis.md`](docs/executive-thesis.md).**
 
+**For a one-file interactive map of the intended architecture — carrying the same BUILT / UNBUILT / OPEN distinctions used here — see [`docs/semafide-system-map.html`](docs/semafide-system-map.html) (download and open locally; GitHub does not render it in-browser). It is generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json), which is the inspectable source.**
+
 When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
 
 ## The problem
