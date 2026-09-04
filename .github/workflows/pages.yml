@@ -1,0 +1,77 @@
+name: Pages
+
+# The system map is one self-contained HTML file. GitHub does not render it in
+# the repository view, so a reader has to clone or download to open it. This
+# publishes that same committed file at a URL instead.
+#
+# It publishes the map and nothing else. This is not the product site: it exists
+# for the reader who has already come to the repository to check whether the
+# thing is real.
+
+on:
+  push:
+    branches:
+      - main
+    # Only the files the site is built from. A README edit does not redeploy.
+    paths:
+      - docs/semafide-system-map.html
+      - docs/semafide.architecture.json
+      - .github/scripts/check_system_map.py
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+# One deployment at a time, and a superseded run is cancelled rather than
+# racing an older map onto the URL.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    name: publish the system map
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # The same assertion CI makes, made again here because this job is what
+      # puts the map at a public URL. A deployment that skipped it could serve
+      # a rendering that no longer agrees with its source, which is the failure
+      # this repository is about. Deploying only after it passes is the point,
+      # so this step must stay ahead of the upload.
+      - name: The system map agrees with its source
+        run: python .github/scripts/check_system_map.py
+
+      # The map is the site. It is copied at build time rather than duplicated
+      # in the repository, so git keeps exactly one canonical copy and the
+      # published page cannot drift from the committed one.
+      #
+      # The source is published beside it. README.md tells a reader the map is
+      # generated from that file, and serving it here means the reader can read
+      # the source from the same place they read the map.
+      - name: Assemble the site
+        run: |
+          mkdir site
+          cp docs/semafide-system-map.html site/index.html
+          cp docs/semafide.architecture.json site/semafide.architecture.json
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
