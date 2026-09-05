@@ -132,6 +132,44 @@ It is recorded here as the closest instance found to date of the same
 underlying pain being felt and answered from inside a lending organization
 rather than from outside it.
 
+## Zero-knowledge verifiable machine learning, a different route to the same question
+
+A precedence commitment proves an input hash existed in the log before the
+run seal that names it. It does not prove the run consumed that input rather
+than something else entirely: a partner can commit hash A, run on dataset B,
+and post a result naming A. A research field exists to close exactly that
+gap by a different route than a witness. [ZKML, zero-knowledge verifiable
+machine learning](https://kudelskisecurity.com/modern-ciso-blog/zkml-verifiable-machine-learning-using-zero-knowledge-proof),
+uses zero-knowledge proofs to demonstrate mathematically that a specific
+output came from running a specific committed model on a specific committed
+input, without requiring anyone to have observed the run. [A 2026 survey of
+the field](https://arxiv.org/pdf/2502.18535) frames the target statements
+directly: proving that a prediction equals the output of a committed model
+on a declared input, or that updated parameters came from a declared
+training procedure on a committed dataset.
+
+The gap it closes and the one it does not are both worth stating plainly. A
+mature zero-knowledge proof would establish computational faithfulness for
+one execution more strongly than a witness attestation does, since it would
+be a mathematical certainty rather than a signed statement from a trusted
+party. It would not establish completeness. A valid proof over one honest
+execution says nothing about how many other executions were run and
+discarded before that one was submitted, because the proof is scoped to the
+single computation it was generated for. KC3 survives a world where every
+proof in it is true.
+
+The approach is also some distance from deployable at the scale this
+project targets. Generating a zero-knowledge proof over a real model's
+inference is expensive, and the same survey states that membership itself,
+whether a specific record was part of what a model consumed, can be
+neither reliably confirmed nor refuted for large overparameterized models
+by inspecting the model alone. That finding motivates pre-commitment
+mechanisms of exactly the kind this project already uses, rather than
+proving consumption after the fact through the model's behavior. The
+witness attestation here is a cheaper, more practical answer to the same
+worry, at the cost of requiring a trusted third party where a mature
+zero-knowledge proof would require none.
+
 ## What this does not establish
 
 Finding no product that asks the exact same question, at the same scope, is
