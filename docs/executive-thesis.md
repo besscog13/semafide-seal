@@ -62,9 +62,7 @@ The technical proposition is narrower than a claim that every automated action n
 
 > Semafide is building independently verifiable evidence for consequential automated executions, starting where the cost of being unable to prove what happened is high and the underlying evidence cannot simply be retained by the party responsible for the decision.
 
-Semafide is not needed wherever software makes a decision. It becomes commercially interesting where four conditions converge:
-
-> **Necessity = Consequence × Opacity × Adversarial Verification × Evidence Unretainability**
+Semafide is not needed wherever software makes a decision. It becomes commercially interesting where four conditions hold together, and dropping any one of them removes the case. None of the four is a number, so this is a joint requirement rather than a formula that could be computed.
 
 **Consequence.** The decision carries meaningful financial, legal, regulatory, or safety impact, such as a mortgage loan, an insurance denial, or a credit price.
 
