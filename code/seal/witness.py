@@ -45,6 +45,7 @@ parties are not all captured," which is a better position and is not a proof.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -85,6 +86,7 @@ class Witness:
     name: str
     key: ec.EllipticCurvePrivateKey
     _seen: dict[str, dict[str, Any]] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     @property
     def public_key(self) -> str:
@@ -98,32 +100,43 @@ class Witness:
         Refuses rather than returning a failure value, because a caller who
         ignores a return code produces exactly the rubber stamp this exists to
         prevent.
+
+        Checking `_seen` and writing to it are one locked step. No standalone
+        witness daemon exists yet, so nothing in this repository calls this
+        concurrently, but the day one does, two requests for the same log
+        arriving together must not both read the same prior head, each pass
+        its own consistency check against it, and both write, since that is
+        exactly the rubber stamp `_seen` exists to prevent, reintroduced
+        through a race rather than through a missing check.
         """
         if not head_signature_valid(head):
             raise WitnessRefusal("the head does not verify against its own key")
 
         log_id = head["log_id"]
-        prior = self._seen.get(log_id)
 
-        if prior is not None:
-            if prior["public_key"].strip() != head["public_key"].strip():
-                raise WitnessRefusal(
-                    "a different key is signing for this log than before")
-            if head["size"] == prior["size"] and head["root"] != prior["root"]:
-                raise WitnessRefusal(
-                    f"already signed a different root at size {head['size']}; "
-                    "this is an equivocation")
-            if head["size"] < prior["size"]:
-                raise WitnessRefusal(
-                    f"log shrank from {prior['size']} to {head['size']}")
-            if head["size"] > prior["size"]:
-                if not verify_consistency(prior["size"], prior["root"],
-                                          head["size"], head["root"],
-                                          consistency or []):
+        with self._lock:
+            prior = self._seen.get(log_id)
+
+            if prior is not None:
+                if prior["public_key"].strip() != head["public_key"].strip():
                     raise WitnessRefusal(
-                        "the new head is not an extension of the last one seen")
+                        "a different key is signing for this log than before")
+                if head["size"] == prior["size"] and head["root"] != prior["root"]:
+                    raise WitnessRefusal(
+                        f"already signed a different root at size {head['size']}; "
+                        "this is an equivocation")
+                if head["size"] < prior["size"]:
+                    raise WitnessRefusal(
+                        f"log shrank from {prior['size']} to {head['size']}")
+                if head["size"] > prior["size"]:
+                    if not verify_consistency(prior["size"], prior["root"],
+                                              head["size"], head["root"],
+                                              consistency or []):
+                        raise WitnessRefusal(
+                            "the new head is not an extension of the last one seen")
 
-        self._seen[log_id] = dict(head)
+            self._seen[log_id] = dict(head)
+
         raw = canonical_bytes(_head_core(head))
         return {
             "witness": self.name,

@@ -1029,6 +1029,7 @@ def test_a_tampered_head_does_not_verify():
 # ==========================================================================
 
 import json  # noqa: E402
+import threading  # noqa: E402
 
 import pytest  # noqa: E402
 
@@ -1069,6 +1070,47 @@ def test_a_witness_refuses_a_second_root_at_the_same_size():
     w.cosign(honest)
     with pytest.raises(WitnessRefusal, match="equivocation"):
         w.cosign(other)
+
+
+def test_a_witness_refuses_a_split_view_offered_concurrently():
+    """
+    The lock in `cosign`, put under real load. Two threads race to be first
+    to cosign two conflicting roots at one size for a log this witness has
+    never seen. Without the lock, both could read no prior state, both pass,
+    and both sign, an equivocation reintroduced through a race rather than
+    through a missing check. Whichever request the witness serializes first
+    wins; the other must be refused, and both must never succeed.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    _, head_a = _log_of(4, key, log_id="race")
+    forked = TransparencyLog("race")
+    for i in (0, 1, 2, 99):
+        forked.append({"run": i})
+    head_b = sign_head(forked.head(T0 + 1), key)
+
+    w = Witness("race-witness", ec.generate_private_key(ec.SECP256R1()))
+    results: list[str] = []
+    results_lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def attempt(head):
+        barrier.wait()
+        try:
+            w.cosign(head)
+            outcome = "ok"
+        except WitnessRefusal:
+            outcome = "refused"
+        with results_lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=attempt, args=(head_a,)),
+              threading.Thread(target=attempt, args=(head_b,))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results) == ["ok", "refused"]
 
 
 def test_a_witness_refuses_a_head_that_is_not_an_extension():
