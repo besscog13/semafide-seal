@@ -355,119 +355,134 @@ def _verify(
     bindings = [e for e in entries if e.kind is EntryKind.WORKFILE_BINDING]
 
     if not runs:
-        report.findings.append(Finding("no_runs", "Artifact seals no analysis."))
-        return report
-
-    # Primitives, per the three properties. Reported over the last run.
-    # Worst case across every run rather than whichever happened to be last.
-    # Reporting only runs[-1] let a dirty run hide behind a clean one sealed
-    # after it, including the retention read that decides KC2 above.
-    def _worst(kind: PrimitiveKind) -> dict[str, Any]:
-        recs = [(r.body.get("primitives", {}) or {}).get(kind.value) or {}
-                for r in runs]
-        absent = [r for r in recs if not r.get("commitment")]
-        if absent:
-            return absent[0]
-        floating = [r for r in recs
-                    if r.get("pinning") == Pinning.FLOATING.value]
-        if floating:
-            return floating[0]
-        unreachable = [r for r in recs
-                       if r.get("holder") not in ("appraiser", "custodian")]
-        return unreachable[0] if unreachable else recs[0]
-
-    for kind in PrimitiveKind:
-        rec = _worst(kind)
-        present = bool(rec and rec.get("commitment"))
-        report.primitives_present[kind.value] = present
-        report.primitives_pinned[kind.value] = (
-            rec.get("pinning") if rec else Pinning.ABSENT.value
-        )
-        report.primitives_reachable[kind.value] = bool(
-            rec and rec.get("holder") in ("appraiser", "custodian")
-        )
-        if not present:
-            report.findings.append(
-                Finding("primitive_absent", f"{kind.value} carries no commitment.",
-                        "existence")
-            )
-        elif rec.get("pinning") == Pinning.FLOATING.value:
+        # No completed run does not mean nothing happened. An evidence
+        # commitment can exist for an attempt that failed before it produced
+        # a run seal, and coverage below still has to see it: a binding that
+        # does not name that sequence number is silently short by exactly the
+        # amount this artifact cannot otherwise show. Falling through rather
+        # than returning here is what makes that visible instead of skipped.
+        if commitments:
             report.findings.append(
                 Finding(
-                    "primitive_floating",
-                    f"{kind.value} points at a live surface and resolves to present state.",
-                    "pinning",
+                    "no_completed_runs",
+                    f"Artifact carries {len(commitments)} evidence commitment(s) "
+                    "and no completed run. Every attempt sealed into this chain "
+                    "failed before producing a run seal.",
                 )
             )
-
-    # Evidence propositions are independently evaluated for every run. The
-    # legacy binding level is only a derived, lossy projection of this matrix.
-    report.evidence = EvidencePropositions.across(
-        _run_evidence(run, commitments, report, rederive, trusted_witness_keys)
-        for run in runs
-    )
-    report.binding_level = report.evidence.binding_level()
-
-    # Whether a commodity timestamping service could have produced the same
-    # evidentiary force. See BindingLevel and kc2_fires for the reasoning.
-    if report.evidence.witness_attestation:
-        report.timestamp_replicable = False
-    elif not report.evidence.recipe_reproduced:
-        report.timestamp_replicable = True
-        report.findings.append(
-            Finding(
-                "kc2_fires",
-                "Artifact does not establish an independent witness attestation "
-                "or successful recipe reproduction. Two independent timestamps over "
-                "local files reach PRECEDENCE, so nothing here exceeds a "
-                "commodity timestamping service.",
-                "KC2",
-            )
-        )
+        else:
+            report.findings.append(Finding("no_runs", "Artifact seals no analysis."))
     else:
-        # Re-derivation only escapes the timestamp if the input cannot be held
-        # locally. A locally retainable input set can be timestamped and re-run
-        # without a custodian.
-        #
-        # This used to read `primitives.evidence.retention` out of the run
-        # body. That field records what the artifact carries, meaning bytes or
-        # a commitment, which is a different fact from whether the operator can
-        # hold the raw input, and only the second decides KC2. Reading one and
-        # calling it the other let nine characters in a field the sealer writes
-        # clear a kill condition, which is the defect `witness_mode` already
-        # demonstrates elsewhere in this function.
-        #
-        # Fails closed and reads across every run, not just the last. A run
-        # whose tool is unsourced makes the whole artifact replicable, so an
-        # artifact recording less cannot grade better.
-        holdings = [assess_holding(r, entries, retention_determinations)
+        # Primitives, per the three properties. Reported over the last run.
+        # Worst case across every run rather than whichever happened to be last.
+        # Reporting only runs[-1] let a dirty run hide behind a clean one sealed
+        # after it, including the retention read that decides KC2 above.
+        def _worst(kind: PrimitiveKind) -> dict[str, Any]:
+            recs = [(r.body.get("primitives", {}) or {}).get(kind.value) or {}
                     for r in runs]
-        cleared = [h for h in holdings if h.clears_kc2]
-        report.timestamp_replicable = len(cleared) != len(holdings)
+            absent = [r for r in recs if not r.get("commitment")]
+            if absent:
+                return absent[0]
+            floating = [r for r in recs
+                        if r.get("pinning") == Pinning.FLOATING.value]
+            if floating:
+                return floating[0]
+            unreachable = [r for r in recs
+                           if r.get("holder") not in ("appraiser", "custodian")]
+            return unreachable[0] if unreachable else recs[0]
 
-        worst = next((h for h in holdings if not h.clears_kc2), holdings[0])
-        report.input_provenance = worst.provenance
-        report.input_holding = worst.holding
-
-        for h in holdings:
-            for detail in h.findings:
+        for kind in PrimitiveKind:
+            rec = _worst(kind)
+            present = bool(rec and rec.get("commitment"))
+            report.primitives_present[kind.value] = present
+            report.primitives_pinned[kind.value] = (
+                rec.get("pinning") if rec else Pinning.ABSENT.value
+            )
+            report.primitives_reachable[kind.value] = bool(
+                rec and rec.get("holder") in ("appraiser", "custodian")
+            )
+            if not present:
                 report.findings.append(
-                    Finding(f"input_{h.provenance.value}", detail, "KC2")
+                    Finding("primitive_absent", f"{kind.value} carries no commitment.",
+                            "existence")
                 )
-        if report.timestamp_replicable:
+            elif rec.get("pinning") == Pinning.FLOATING.value:
+                report.findings.append(
+                    Finding(
+                        "primitive_floating",
+                        f"{kind.value} points at a live surface and resolves to present state.",
+                        "pinning",
+                    )
+                )
+
+        # Evidence propositions are independently evaluated for every run. The
+        # legacy binding level is only a derived, lossy projection of this matrix.
+        report.evidence = EvidencePropositions.across(
+            _run_evidence(run, commitments, report, rederive, trusted_witness_keys)
+            for run in runs
+        )
+        report.binding_level = report.evidence.binding_level()
+
+        # Whether a commodity timestamping service could have produced the same
+        # evidentiary force. See BindingLevel and kc2_fires for the reasoning.
+        if report.evidence.witness_attestation:
+            report.timestamp_replicable = False
+        elif not report.evidence.recipe_reproduced:
+            report.timestamp_replicable = True
             report.findings.append(
                 Finding(
                     "kc2_fires",
-                    "Artifact successfully reproduces its recipe, and nothing outside it "
-                    "establishes that the operator cannot hold the raw input. "
-                    "Where the input can be held, the same folder can be "
-                    "timestamped and re-run locally, so re-derivation adds "
-                    "nothing a commodity service could not.",
+                    "Artifact does not establish an independent witness attestation "
+                    "or successful recipe reproduction. Two independent timestamps over "
+                    "local files reach PRECEDENCE, so nothing here exceeds a "
+                    "commodity timestamping service.",
                     "KC2",
                 )
             )
-    for detail in retention_conflicts(retention_determinations or ()):
-        report.findings.append(Finding("retention_contested", detail, "KC2"))
+        else:
+            # Re-derivation only escapes the timestamp if the input cannot be held
+            # locally. A locally retainable input set can be timestamped and re-run
+            # without a custodian.
+            #
+            # This used to read `primitives.evidence.retention` out of the run
+            # body. That field records what the artifact carries, meaning bytes or
+            # a commitment, which is a different fact from whether the operator can
+            # hold the raw input, and only the second decides KC2. Reading one and
+            # calling it the other let nine characters in a field the sealer writes
+            # clear a kill condition, which is the defect `witness_mode` already
+            # demonstrates elsewhere in this function.
+            #
+            # Fails closed and reads across every run, not just the last. A run
+            # whose tool is unsourced makes the whole artifact replicable, so an
+            # artifact recording less cannot grade better.
+            holdings = [assess_holding(r, entries, retention_determinations)
+                        for r in runs]
+            cleared = [h for h in holdings if h.clears_kc2]
+            report.timestamp_replicable = len(cleared) != len(holdings)
+
+            worst = next((h for h in holdings if not h.clears_kc2), holdings[0])
+            report.input_provenance = worst.provenance
+            report.input_holding = worst.holding
+
+            for h in holdings:
+                for detail in h.findings:
+                    report.findings.append(
+                        Finding(f"input_{h.provenance.value}", detail, "KC2")
+                    )
+            if report.timestamp_replicable:
+                report.findings.append(
+                    Finding(
+                        "kc2_fires",
+                        "Artifact successfully reproduces its recipe, and nothing outside it "
+                        "establishes that the operator cannot hold the raw input. "
+                        "Where the input can be held, the same folder can be "
+                        "timestamped and re-run locally, so re-derivation adds "
+                        "nothing a commodity service could not.",
+                        "KC2",
+                    )
+                )
+        for detail in retention_conflicts(retention_determinations or ()):
+            report.findings.append(Finding("retention_contested", detail, "KC2"))
 
     # Coverage, which is design question three.
     #
