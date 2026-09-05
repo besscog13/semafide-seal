@@ -55,11 +55,22 @@ class AssignmentError(Exception):
 
 @dataclass
 class _OpenAssignment:
-    """One assignment's chain, and the lock that serialises appends to it."""
+    """
+    One assignment's chain, and the lock that serialises appends to it.
+
+    `in_flight` counts calls that have committed their evidence but not yet
+    appended their run seal, the gap `seal_execution` now leaves unlocked
+    while it waits on a witness. `close_assignment` reads it to refuse
+    certifying while it is nonzero, rather than letting a run seal land after
+    a binding that already claimed to be complete. See
+    `context/RECORD.md`, 2026-09-05, for the race this closes and the
+    alternative that does not.
+    """
 
     chain: SealChain
     lock: threading.Lock = field(default_factory=threading.Lock)
     runs: int = 0
+    in_flight: int = 0
 
 
 _REGISTRY: dict[str, _OpenAssignment] = {}
@@ -186,19 +197,32 @@ def close_assignment(
     gap in it. See the module docstring.
 
     Returns the final manifest and what the real verifier concluded about it.
+
+    Refuses rather than certifying if a call is between committing its
+    evidence and appending its run seal, the gap `seal_execution` leaves
+    unlocked while it waits on a witness. Certifying through that gap would
+    let the run land after a binding that already claimed to cover the
+    chain, an omission the binding itself could never reveal. See
+    `_OpenAssignment.in_flight`'s docstring and `context/RECORD.md`,
+    2026-09-05, for the two-lock alternative that was tried, tested, and
+    found to reopen exactly this, and for why this check, not that split,
+    is the fix.
     """
     with _REGISTRY_LOCK:
-        state = _REGISTRY.pop(assignment_id, None)
-        if state is not None:
-            # Marked in the same locked step as the pop, since the pop is
-            # already the point of no return: nothing rolls it back if
-            # certification fails afterward, so recording the closure here
-            # rather than at the end adds no new failure mode.
-            _CLOSED.add(assignment_id)
+        state = _REGISTRY.get(assignment_id)
     if state is None:
-        raise AssignmentError(f"assignment {assignment_id} is not open")
+        detail = " (already certified and closed)" if assignment_id in _CLOSED else ""
+        raise AssignmentError(f"assignment {assignment_id} is not open{detail}")
 
     with state.lock:
+        if state.in_flight:
+            raise AssignmentError(
+                f"assignment {assignment_id} has {state.in_flight} call(s) "
+                "still sealing, most likely waiting on a witness response; "
+                "certifying now could produce a binding that does not cover "
+                "a run about to land. Wait for in-flight calls to finish, "
+                "then retry.")
+
         chain = state.chain
         covered = [e.seq for e in chain.entries]
         ts = certified_ns if certified_ns is not None else chain.entries[-1].ts_ns
@@ -221,6 +245,17 @@ def close_assignment(
         # context/RECORD.md, 2026-09-05, for the confirmed reproduction.
         if output_dir:
             write_manifest(assignment_id, manifest, output_dir)
+
+        # Removed from the registry and marked closed only now, atomically
+        # with the binding above, while still holding state.lock: nothing
+        # can have appended past in_flight==0 without this same lock, so no
+        # caller can observe this assignment as still open once this step
+        # runs, and the pop being conditional on the in_flight check above
+        # is what makes a refusal here leave the assignment retryable rather
+        # than silently discarded.
+        with _REGISTRY_LOCK:
+            _REGISTRY.pop(assignment_id, None)
+            _CLOSED.add(assignment_id)
 
     report = verify(manifest, trusted_keys=keys,
                     trusted_witness_keys=trusted_witness_keys)

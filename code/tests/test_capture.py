@@ -489,3 +489,96 @@ def test_manifest_write_happens_inside_the_assignment_lock(tmp_path, monkeypatch
     sealed("B")
 
     assert lock_held_during_write == [True, True]
+
+
+def test_two_calls_to_one_assignment_run_their_witness_requests_concurrently(monkeypatch):
+    """
+    Proves genuine concurrency deterministically rather than by wall-clock
+    timing, which would be flaky in CI. Each call's witness request blocks
+    on a two-party barrier that only releases once both calls have reached
+    it. Under the single lock this replaces, held across the whole append
+    including the witness round trip, the second call could never even
+    acquire the lock to start its own witness request until the first
+    call's entire locked section finished, so the first call's own
+    `barrier.wait()` would never see a second party and would time out.
+    Under the fix, both calls reach their witness request independently and
+    the barrier releases quickly.
+    """
+    from seal.capture import decorator as decorator_module
+
+    barrier = threading.Barrier(2, timeout=5)
+
+    def blocking_witness(url, payload, timeout_s=5.0):
+        barrier.wait()
+        return None
+
+    monkeypatch.setattr(decorator_module, "request_witness_signature", blocking_witness)
+
+    sealed = seal_execution(assignment_id="ASG-2026-concurrent-witness", model_id="m",
+                            output_dir=None, witness_url="http://fake-witness",
+                            trusted_witness_keys=[])(lambda tag: {"x": tag})
+
+    results = []
+    results_lock = threading.Lock()
+
+    def run(tag):
+        try:
+            sealed(tag)
+            outcome = "ok"
+        except threading.BrokenBarrierError:
+            outcome = "timed out waiting for a second concurrent call"
+        with results_lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=run, args=(t,)) for t in ("A", "B")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert results == ["ok", "ok"]
+
+
+def test_close_assignment_refuses_while_a_call_is_between_evidence_and_run_seal(monkeypatch):
+    """
+    The gap `state.in_flight` exists to guard: a call that has committed its
+    evidence but not yet appended its run seal, while it waits on a witness.
+    `close_assignment` must refuse to certify through that gap rather than
+    produce a binding that does not cover the run about to land, which is
+    exactly what a prior, rejected version of this fix (splitting the lock
+    without tracking in-flight calls) was found to do, confirmed with a real
+    reproduction before this design was chosen instead
+    (`context/RECORD.md`, 2026-09-05).
+    """
+    from seal.capture import decorator as decorator_module
+
+    witness_reached = threading.Event()
+    release_witness = threading.Event()
+
+    def blocking_witness(url, payload, timeout_s=5.0):
+        witness_reached.set()
+        release_witness.wait(timeout=5)
+        return None
+
+    monkeypatch.setattr(decorator_module, "request_witness_signature", blocking_witness)
+
+    sealed = seal_execution(assignment_id="ASG-2026-close-while-inflight", model_id="m",
+                            output_dir=None, witness_url="http://fake-witness",
+                            trusted_witness_keys=[])(lambda tag: {"x": tag})
+
+    t = threading.Thread(target=sealed, args=("A",))
+    t.start()
+    assert witness_reached.wait(timeout=5), "the call never reached its witness request"
+
+    with pytest.raises(AssignmentError, match="still sealing"):
+        close_assignment("ASG-2026-close-while-inflight", certification_ref="c1",
+                         effective_date="2026-09-05", output_dir=None)
+
+    release_witness.set()
+    t.join()
+
+    manifest, report = close_assignment(
+        "ASG-2026-close-while-inflight", certification_ref="c1",
+        effective_date="2026-09-05", output_dir=None)
+    assert report.coverage is Coverage.CONTIGUOUS
+    assert manifest["entries"][-1]["body"]["covered_seqs"] == [0, 1, 2]
