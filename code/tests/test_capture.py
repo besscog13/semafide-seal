@@ -294,6 +294,46 @@ def test_a_removed_run_is_detectable_after_certification(tmp_path):
     assert not verify(renumbered, trusted_keys=[key]).trustworthy
 
 
+def test_a_raised_call_seals_the_attempt_and_re_raises(tmp_path):
+    """
+    A call that raised used to leave no trace anywhere in the chain: no
+    evidence commitment, no run seal, and `runs_in_assignment` never moved.
+    It now seals the evidence commitment for the attempt, reports
+    `last_capture.succeeded` as False, and still re-raises the caller's own
+    exception unchanged rather than swallowing or replacing it.
+    """
+    def flaky(x: int) -> int:
+        if x < 0:
+            raise ValueError("comp set rejected")
+        return x * 2
+
+    sealed = seal_execution(
+        assignment_id="ASG-2026-4403", model_id="AVM-v4.2",
+        output_dir=str(tmp_path))(flaky)
+
+    sealed(5)
+    assert sealed.last_capture.succeeded
+    assert sealed.last_capture.runs_in_assignment == 1
+
+    with pytest.raises(ValueError, match="comp set rejected"):
+        sealed(-1)
+    assert sealed.last_capture.succeeded is False
+    assert sealed.last_capture.output is None
+    assert sealed.last_capture.runs_in_assignment == 2
+
+    sealed(10)
+    assert sealed.last_capture.succeeded
+    assert sealed.last_capture.runs_in_assignment == 3
+
+    manifest, report = close_assignment(
+        "ASG-2026-4403", certification_ref="cert-1",
+        effective_date="2026-03-14", output_dir=str(tmp_path))
+    kinds = [e["kind"] for e in manifest["entries"]]
+    assert kinds.count("run_seal") == 2
+    assert kinds.count("evidence_commitment") == 3
+    assert report.coverage is Coverage.CONTIGUOUS
+
+
 def test_a_second_signing_key_for_an_open_assignment_is_refused():
     """
     A chain carries one key. Accepting a second decorator's key silently would
