@@ -102,11 +102,42 @@ every disclosed chain is internally continuous. That narrower question, not
 the existence of any third-party check at all, is what Semafide's layer is
 built to isolate.
 
+## A mortgage-lending instance, found 2026-09-05
+
+A search run specifically against the mortgage-lending wedge, rather than
+the general AI-agent-provenance category above, found
+[custody-ledger](https://github.com/Himansh97/custody), a single-maintainer
+Python library published to PyPI the same day this search was run. It wraps
+a lender's AI/ML model calls, logs each decision into a signed, append-only
+hash chain, and produces a compliance disclosure packet, built directly
+against Fannie Mae Lender Letter LL-2026-04's requirement that a lender
+using AI/ML disclose, on request, what it uses and what safeguards exist.
+Its own documentation states its limits in language close to this project's
+own: an inventory can read as complete when it is not, and its verifier
+cannot prove that nothing was withheld.
+
+It sits closer to Semafide's domain than anything above and differs on the
+same axis SLSA and Aevum do. The ledger is deployed and operated by the
+lender being examined. Its documentation recommends externalizing an anchor
+hash somewhere its own operator cannot edit and states plainly that an
+anchor kept in the same database protects nothing, but nothing in the design
+requires that step or names the outside party who would hold it. Every
+record it produces is self-issued, in the sense this repository's own demo
+tests directly: the same fact, asserted by the party being examined rather
+than by an outside custodian, does not clear the same bar. The project is
+early, a single maintainer, minimal adoption to date, and scoped to AI/ML
+lending decisions generally rather than to the specific configuration
+retention question described in Section 8.1 of `docs/executive-thesis.md`.
+It is recorded here as the closest instance found to date of the same
+underlying pain being felt and answered from inside a lending organization
+rather than from outside it.
+
 ## What this does not establish
 
 Finding no product that asks the exact same question, at the same scope, is
-evidence about this search and the wider pass that followed it, not proof
-that the category will never contain one. The field is active: the survey
+evidence about this search, the wider pass that followed it, and the
+mortgage-specific search that followed both, not proof that the category
+will never contain one. The field is active: the survey
 cited above alone references dozens of adjacent efforts this document does
 not enumerate, and standards work covering the same ground, including the
 SCITT profile above, is still in progress at the IETF. A search run again
