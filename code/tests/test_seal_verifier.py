@@ -946,6 +946,34 @@ def test_inclusion_and_consistency_hold_at_every_shape():
                 consistency_proof(leaves[:size], old))
 
 
+def test_malformed_proof_entries_fail_rather_than_crash():
+    """
+    `proof` is submitted by the party being checked, in both functions, so a
+    non-hex or otherwise garbage sibling is exactly the input an examiner
+    should expect from a hostile or corrupted custodian. Both functions must
+    resolve that to False rather than let `bytes.fromhex` raise past them,
+    the same guarantee `head_signature_valid` already gives a hostile
+    signature.
+    """
+    leaves = [leaf_hash({"run": i}) for i in range(8)]
+    r = log_root(leaves)
+    garbage = ["not-hex-zz", "also-garbage", "more-garbage"]
+
+    assert verify_inclusion(0, 8, leaves[0], r, garbage) is False
+    assert verify_consistency(3, log_root(leaves[:3]), 8, r, garbage) is False
+
+    key = ec.generate_private_key(ec.SECP256R1())
+    log = TransparencyLog("x")
+    for i in range(5):
+        log.append({"i": i})
+    old = sign_head(log.head(0), key)
+    for i in range(5, 12):
+        log.append({"i": i})
+    new = sign_head(log.head(1), key)
+    ok, reason = heads_consistent(old, new, garbage)
+    assert ok is False and reason
+
+
 def test_a_custodian_rewriting_its_own_log_is_detected():
     """
     The finding this module exists for. The custodian removes a run it dislikes
@@ -1177,6 +1205,22 @@ def test_cosignature_count_ignores_duplicates_and_strangers():
 
     tampered = dict(head, size=head["size"] + 1)
     assert count_witnesses(tampered, cosigs, trusted) == 0
+
+
+def test_cosignature_count_skips_a_malformed_entry_rather_than_crashing():
+    """
+    `count_witnesses` is called directly against a bundle an examiner
+    received from the party under examination, not only through the
+    fail-closed `verify` wrapper, so a hostile or corrupted entry in the list
+    must be skipped rather than raising. `resolve_bounds` already gives
+    `time_anchors` this treatment; this is the same guarantee here.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    _, head = _log_of(3, key)
+    honest = Witness("board", ec.generate_private_key(ec.SECP256R1()))
+    cosigs = [honest.cosign(head), None, "garbage", 42, {"no_key_field": True}]
+
+    assert count_witnesses(head, cosigs) == 1
 
 
 def test_two_heads_at_one_size_are_a_final_contradiction():
@@ -1721,6 +1765,48 @@ def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
                                 T0 + 3, "custodian"), chain.entries)
 
 
+def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment():
+    """
+    The lock in `Issuer.issue`, put under real load. Two threads race to be
+    first to issue conflicting checkpoints, same size and different head, for
+    an assignment this issuer has never signed for before. Without the lock,
+    both could read no prior state, both skip every check, and both sign, an
+    equivocation reintroduced through a race rather than through a missing
+    check. Whichever request the issuer serializes first wins; the other must
+    be refused, and both must never succeed.
+    """
+    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    a = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="race-a")
+    b = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="race-b")
+    assert len(a.entries) == len(b.entries) and a.head != b.head
+
+    results: list[str] = []
+    results_lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def attempt(chain, ts):
+        barrier.wait()
+        try:
+            issuer.issue(
+                Checkpoint("assignment-race", len(chain.entries), chain.head,
+                          ts, "custodian"),
+                chain.entries)
+            outcome = "ok"
+        except CheckpointRefusal:
+            outcome = "refused"
+        with results_lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=attempt, args=(a, T0)),
+              threading.Thread(target=attempt, args=(b, T0 + 1))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results) == ["ok", "refused"]
+
+
 def test_growth_without_the_entries_cannot_be_established():
     """An issuer given nothing to check against must refuse, because assuming
     an extension is the failure being corrected."""
@@ -1770,6 +1856,48 @@ def test_an_assignment_issuer_refuses_to_drop_a_chain_it_recorded():
     grown = refs + (ChainRef(extra.chain_id, extra.head, len(extra.entries)),)
     assert issuer.issue(
         AssignmentCheckpoint("assignment-1", grown, T0 + 2, "custodian"))
+
+
+def test_an_assignment_issuer_refuses_a_dropped_chain_offered_concurrently():
+    """
+    The same race, one level out. Two threads race to be first to issue for
+    an assignment this issuer has never signed for, with overlapping but
+    unequal chain sets, {0,1,2} and {2,3,4}: whichever is recorded first, the
+    other is missing a chain the first one named and must be refused.
+    Without the lock, both could read no prior statement, both skip the
+    dropped-chain check, and both sign, hiding exactly the sibling-chain
+    omission this class exists to make visible.
+    """
+    issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    chains = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+                     chain_label=f"race-{i}") for i in range(5)]
+    refs = [ChainRef(c.chain_id, c.head, len(c.entries)) for c in chains]
+    left = tuple(refs[0:3])
+    right = tuple(refs[2:5])
+
+    results: list[str] = []
+    results_lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def attempt(refs, ts):
+        barrier.wait()
+        try:
+            issuer.issue(AssignmentCheckpoint("assignment-race", refs, ts,
+                                              "custodian"))
+            outcome = "ok"
+        except AssignmentRefusal:
+            outcome = "refused"
+        with results_lock:
+            results.append(outcome)
+
+    threads = [threading.Thread(target=attempt, args=(left, T0)),
+              threading.Thread(target=attempt, args=(right, T0 + 1))]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert sorted(results) == ["ok", "refused"]
 
 
 def test_an_assignment_issuer_refuses_a_chain_that_lost_entries():
