@@ -280,6 +280,71 @@ def test_removing_an_entry_breaks_the_chain():
     assert not r.trustworthy
 
 
+def test_concurrent_append_never_lets_two_entries_share_a_sequence_number(monkeypatch):
+    """
+    `append` reads `seq` and `prev_hash` from the current chain state, signs
+    over them, and only then appends the result, as three separate steps.
+    Without a lock, two concurrent callers can both read the same `seq` and
+    the same `prev_hash` before either has appended, and both then sign and
+    append an entry claiming that same position and predecessor. Reproduced
+    directly against this class (widening the window the same way
+    `test_append_serializes_the_write_and_its_index_read` does for
+    `TransparencyLog`, since ordinary threaded hammering does not land in a
+    nanosecond-wide window reliably): five threads appending concurrently
+    with no lock produced a chain with entries [0, 1, 1, 1, 1, 1] instead of
+    [0, 1, 2, 3, 4, 5], four different entries all claiming sequence 1 and
+    all claiming the same `prev_hash`.
+
+    This is a more serious failure than a missing entry. A verifier walking
+    a chain notices a hole in the sequence; it has no reason to expect two
+    validly signed entries at the same position, which is exactly the linkage
+    the whole chain exists to make unforgeable.
+
+    Existing callers in `capture/` already serialize every `append` under a
+    coarser lock (`_OpenAssignment.lock`), so this has not been reachable
+    through the capture layer. `SealChain` is exported directly, though, and
+    nothing stops a caller from building one and calling `append` from more
+    than one thread without knowing they need to add that lock themselves.
+    """
+    import threading as _threading
+    import time as _time
+
+    from seal import artifact as _artifact_module
+
+    chain = SealChain("ASG-concurrent-append")
+    real_signing_payload = _artifact_module.signing_payload
+    delay = 0.02
+
+    def slow_signing_payload(kind, seq, prev, body, ts_ns):
+        _time.sleep(delay)
+        return real_signing_payload(kind, seq, prev, body, ts_ns)
+
+    monkeypatch.setattr(_artifact_module, "signing_payload", slow_signing_payload)
+
+    n = 5
+
+    def worker(i):
+        chain.append(EntryKind.EVIDENCE_COMMITMENT, {"i": i}, i)
+
+    threads = [_threading.Thread(target=worker, args=(i,)) for i in range(n)]
+    t0 = _time.perf_counter()
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    elapsed = _time.perf_counter() - t0
+
+    assert elapsed >= delay * n * 0.8, (
+        f"{n} appends took {elapsed:.3f}s for a {delay}s signing step each; "
+        "they overlapped rather than being serialized by the lock")
+
+    seqs = sorted(e.seq for e in chain.entries)
+    assert seqs == list(range(n + 1)), (
+        f"expected sequence numbers {list(range(n + 1))}, got {seqs}: "
+        "two callers claimed the same position")
+    assert len({e.block_hash for e in chain.entries}) == n + 1
+
+
 def test_signature_validity_does_not_establish_identity():
     """Anyone can sign anything with a key they generated."""
     chain = _build(WitnessMode.INDEPENDENT)
@@ -1046,6 +1111,69 @@ def test_a_tampered_head_does_not_verify():
     head["size"] = 99
     ok, why = heads_consistent(head, head, [])
     assert not ok
+
+
+def test_append_serializes_the_write_and_its_index_read(monkeypatch):
+    """
+    `append` writes the leaf and reads back the list length to compute its own
+    index as two separate steps. Each step alone is safe under the GIL; the
+    pair is not, because a second append can land between them and leave the
+    first caller holding an index that actually belongs to the second. This
+    is corruption rather than a missed optimisation: `inclusion_proof(index)`
+    would then prove the wrong leaf's membership.
+
+    Ordinary threaded hammering essentially never catches this, because the
+    unsafe window between the two steps is nanoseconds wide and CPython's GIL
+    switches threads too rarely to land in it by luck; a stress test over
+    thousands of concurrent appends found zero corrupted indices even with no
+    lock at all. Widening the window deliberately, the same way a slow
+    witness response was used to force the earlier `close_assignment` race
+    (`context/RECORD.md`, 2026-09-05), is what actually exercises it: slow
+    `leaf_hash` down and measure whether two overlapping calls to `append` ran
+    serialized or in parallel. Serialized wall-clock time is what a correct
+    lock produces; parallel time is what an unlocked, or incorrectly scoped,
+    critical section produces, and is also the shape a wrong-index race takes.
+
+    No caller in this repository appends to one `TransparencyLog` from more
+    than one thread today, matching `Witness.cosign`'s own note that nothing
+    here calls it concurrently yet either. The lock exists for the same
+    reason that one does: the day something does, a claimed index must
+    actually be that leaf's position.
+    """
+    import threading as _threading
+    import time as _time
+
+    from seal import log as _log_module
+
+    log = TransparencyLog("serialize")
+    real_leaf_hash = _log_module.leaf_hash
+    delay = 0.05
+
+    def slow_leaf_hash(payload):
+        _time.sleep(delay)
+        return real_leaf_hash(payload)
+
+    monkeypatch.setattr(_log_module, "leaf_hash", slow_leaf_hash)
+
+    results = {}
+
+    def worker(name):
+        results[name] = log.append(name)
+
+    threads = [_threading.Thread(target=worker, args=(n,)) for n in ("a", "b")]
+    t0 = _time.perf_counter()
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join()
+    elapsed = _time.perf_counter() - t0
+
+    assert elapsed >= delay * 1.8, (
+        f"two appends took {elapsed:.3f}s for a {delay}s hash each; they ran "
+        "concurrently rather than serialized by the lock")
+    assert {results["a"], results["b"]} == {0, 1}
+    assert log._leaves[results["a"]] == leaf_hash("a")
+    assert log._leaves[results["b"]] == leaf_hash("b")
 
 
 # ==========================================================================
