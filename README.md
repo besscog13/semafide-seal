@@ -227,7 +227,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 | Check | Status |
 |---|---|
-| Unit and adversarial tests (`code/tests/`) | **135 passing** |
+| Unit and adversarial tests (`code/tests/`) | **136 passing** |
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
