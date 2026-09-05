@@ -339,16 +339,33 @@ class _SealedFunction:
         else:
             run_body["witness_attestation"] = None
 
-        # One lock for the whole append. The evidence commitment and the run
-        # that names it must land adjacent: a concurrent call interleaving
-        # between them would not corrupt the chain, it would make a run
-        # appear to consume evidence committed for a different call, and the
-        # verifier reads precedence off exactly that ordering.
+        # Two locked steps rather than one held across the witness round
+        # trip, which a load test measured serialising an assignment's
+        # concurrent calls behind whatever the slowest one's witness
+        # response took. The gap between them is real: it is exactly where
+        # a run has committed its evidence but not yet sealed, and
+        # state.in_flight marks it so close_assignment can refuse to
+        # certify through it rather than let this run's seal land after a
+        # binding that already claimed to be complete. A prior attempt at
+        # this same split, without in_flight, was tested and found to do
+        # exactly that. See context/RECORD.md, 2026-09-05, for both the
+        # measured cost of the single lock and the confirmed failure of the
+        # split alone.
+        #
+        # Adjacency of the two appends was never what made this correct.
+        # This run's evidence_commitment_hash is fixed to a real block hash
+        # the moment the first append below returns, so it names its own
+        # commitment regardless of what else lands in the chain in between;
+        # another call's entries interleaving here does not change which
+        # commitment this run points to.
         with state.lock:
             chain = state.chain
             evidence_commitment_hash = chain.append(
                 EntryKind.EVIDENCE_COMMITMENT, evidence.to_body(), t_start
             ).block_hash
+            state.in_flight += 1
+
+        try:
             run_body["evidence_commitment_hash"] = evidence_commitment_hash
 
             if witness_url:
@@ -359,9 +376,23 @@ class _SealedFunction:
                     run_body["witness_mode"] = WitnessMode.INDEPENDENT.value
                 else:
                     run_body["witness_attestation"] = None
+        except BaseException:
+            # request_witness_signature is documented to fail closed and
+            # never raise for a network reason, but state.in_flight must
+            # never get stuck incremented on the strength of that alone: a
+            # counter that can only go up on some unanticipated exception
+            # here would permanently refuse close_assignment for this
+            # assignment, which is a worse failure than the one this
+            # mechanism exists to prevent.
+            with state.lock:
+                state.in_flight -= 1
+            raise
 
+        with state.lock:
+            chain = state.chain
             chain.append(EntryKind.RUN_SEAL, run_body, t_end)
             state.runs += 1
+            state.in_flight -= 1
             manifest = export_artifact(chain)
             chain_key = chain.public_key_pem
             runs_so_far = state.runs
