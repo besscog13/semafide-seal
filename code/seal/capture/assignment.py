@@ -207,6 +207,16 @@ def close_assignment(
     2026-09-05, for the two-lock alternative that was tried, tested, and
     found to reopen exactly this, and for why this check, not that split,
     is the fix.
+
+    Also refuses two concurrent calls closing the same assignment. The
+    lookup below is a peek, not a claim: nothing stops a second call
+    finding the same open assignment before the first has finished. The
+    claim, popping the id from `_REGISTRY` and marking it in `_CLOSED`, has
+    to happen as one locked step with the `in_flight` check for the same
+    reason the check exists at all, so it is made before any of the
+    certification work below rather than after. A second call arriving
+    after the claim finds the id already gone and is refused, rather than
+    both calls appending their own `workfile_binding` to one chain.
     """
     with _REGISTRY_LOCK:
         state = _REGISTRY.get(assignment_id)
@@ -215,13 +225,24 @@ def close_assignment(
         raise AssignmentError(f"assignment {assignment_id} is not open{detail}")
 
     with state.lock:
-        if state.in_flight:
-            raise AssignmentError(
-                f"assignment {assignment_id} has {state.in_flight} call(s) "
-                "still sealing, most likely waiting on a witness response; "
-                "certifying now could produce a binding that does not cover "
-                "a run about to land. Wait for in-flight calls to finish, "
-                "then retry.")
+        with _REGISTRY_LOCK:
+            if assignment_id not in _REGISTRY:
+                raise AssignmentError(
+                    f"assignment {assignment_id} was already certified and "
+                    "closed by a concurrent call")
+            if state.in_flight:
+                raise AssignmentError(
+                    f"assignment {assignment_id} has {state.in_flight} "
+                    "call(s) still sealing, most likely waiting on a "
+                    "witness response; certifying now could produce a "
+                    "binding that does not cover a run about to land. Wait "
+                    "for in-flight calls to finish, then retry.")
+            # Claimed now, atomically with both checks above: a second
+            # concurrent call, whether it is still waiting on state.lock or
+            # has not reached it yet, finds the id gone from _REGISTRY and
+            # is refused rather than appending a second binding.
+            _REGISTRY.pop(assignment_id, None)
+            _CLOSED.add(assignment_id)
 
         chain = state.chain
         covered = [e.seq for e in chain.entries]
@@ -245,17 +266,6 @@ def close_assignment(
         # context/RECORD.md, 2026-09-05, for the confirmed reproduction.
         if output_dir:
             write_manifest(assignment_id, manifest, output_dir)
-
-        # Removed from the registry and marked closed only now, atomically
-        # with the binding above, while still holding state.lock: nothing
-        # can have appended past in_flight==0 without this same lock, so no
-        # caller can observe this assignment as still open once this step
-        # runs, and the pop being conditional on the in_flight check above
-        # is what makes a refusal here leave the assignment retryable rather
-        # than silently discarded.
-        with _REGISTRY_LOCK:
-            _REGISTRY.pop(assignment_id, None)
-            _CLOSED.add(assignment_id)
 
     report = verify(manifest, trusted_keys=keys,
                     trusted_witness_keys=trusted_witness_keys)
