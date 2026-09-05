@@ -43,6 +43,26 @@ def report(name: str, ok: bool, detail: str = "") -> None:
         FAILURES.append(f"{name}: {detail}" if detail else name)
 
 
+CALLED_PROVE_FUNCTIONS: set[str] = set()
+
+
+def _call(fn) -> None:
+    """
+    Run a `prove_*` function and record that it ran.
+
+    `main` lists these calls explicitly rather than discovering them, which
+    keeps the printed order deliberate. The cost is that a `prove_*` function
+    added later and never added to that list would simply never run, silently
+    reducing what this file checks while still printing VERIFICATION SUCCESS,
+    the exact failure mode the CI `specs` job already guards against one level
+    up for a spec file going missing entirely. `main`'s closing check compares
+    this set against every `prove_*` name actually defined in the module, so
+    the same mistake at the function level fails loudly instead.
+    """
+    CALLED_PROVE_FUNCTIONS.add(fn.__name__)
+    fn()
+
+
 def cosigns(has_prior, prior_size, prior_root, size, root, consistent,
             same_key, *, z3=True):
     """
@@ -208,11 +228,17 @@ def conformance() -> None:
 
 def main() -> int:
     print("\nSPEC_witness_cosigning: O(1) witness state is sufficient\n")
-    prove_one_witness_never_signs_two_truths_at_one_size()
-    prove_a_rotated_key_cannot_reset_the_memory()
-    prove_not_vacuous()
-    prove_bounded_traces_are_clean()
+    _call(prove_one_witness_never_signs_two_truths_at_one_size)
+    _call(prove_a_rotated_key_cannot_reset_the_memory)
+    _call(prove_not_vacuous)
+    _call(prove_bounded_traces_are_clean)
     conformance()
+
+    defined = {name for name, obj in globals().items()
+              if name.startswith("prove_") and callable(obj)}
+    missed = defined - CALLED_PROVE_FUNCTIONS
+    report("every prove_* function this file defines was actually run",
+          not missed, f"defined but never called: {sorted(missed)}")
 
     print()
     if FAILURES:

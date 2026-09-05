@@ -73,6 +73,26 @@ def report(name: str, ok: bool, detail: str = "") -> None:
         FAILURES.append(f"{name}: {detail}" if detail else name)
 
 
+CALLED_PROVE_FUNCTIONS: set[str] = set()
+
+
+def _call(fn) -> None:
+    """
+    Run a `prove_*` function and record that it ran.
+
+    `main` lists these calls explicitly rather than discovering them, which
+    keeps the printed order deliberate. The cost is that a `prove_*` function
+    added later and never added to that list would simply never run, silently
+    reducing what this file checks while still printing VERIFICATION SUCCESS,
+    the exact failure mode the CI `specs` job already guards against one level
+    up for a spec file going missing entirely. `main`'s closing check compares
+    this set against every `prove_*` name actually defined in the module, so
+    the same mistake at the function level fails loudly instead.
+    """
+    CALLED_PROVE_FUNCTIONS.add(fn.__name__)
+    fn()
+
+
 # ---------------------------------------------------------------------------
 # The idealised hash. Injective and domain-separated by construction.
 # ---------------------------------------------------------------------------
@@ -358,11 +378,17 @@ def conformance() -> None:
 
 def main() -> int:
     print("\nSPEC_merkle_consistency: a rewritten log has no proof\n")
-    prove_honest_proofs_verify()
-    prove_no_forged_proof_is_accepted()
-    prove_a_shrunken_or_swapped_head_is_refused()
-    prove_the_verifier_is_not_vacuous()
+    _call(prove_honest_proofs_verify)
+    _call(prove_no_forged_proof_is_accepted)
+    _call(prove_a_shrunken_or_swapped_head_is_refused)
+    _call(prove_the_verifier_is_not_vacuous)
     conformance()
+
+    defined = {name for name, obj in globals().items()
+              if name.startswith("prove_") and callable(obj)}
+    missed = defined - CALLED_PROVE_FUNCTIONS
+    report("every prove_* function this file defines was actually run",
+          not missed, f"defined but never called: {sorted(missed)}")
 
     print()
     if FAILURES:
