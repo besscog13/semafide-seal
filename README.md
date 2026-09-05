@@ -10,7 +10,7 @@ Appraisals and automated valuations get challenged years after they run. By then
 
 Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test. The same structural gap recurs wherever an automated system executes a consequential decision that nobody observes and no independent record survives. Section 9.4 of the executive thesis names where that is expected to matter next, stated as a hypothesis rather than a claim.
 
-**This repository is the verification core.** It defines and tests what evidence a record needs to support claims about an automated execution. It does not yet capture executions or provide production custody. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
+**This repository is the verification core, and it now includes a capture scaffold.** It defines and tests what evidence a record needs to support claims about an automated execution, and `code/seal/capture/` seals a live function call into a real artifact against that verifier. What it does not yet do is enforce that every run in an assignment reaches the chain, or provide a hosted, production custody service. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
 
 **Run the demo**
 
@@ -32,7 +32,7 @@ The rest of this README explains the problem, what the verifier can establish, w
 
 The map's proposition vocabulary matches the five propositions in the table below, checked directly against `code/seal/verifier.py`. The CI check in this repository verifies the map against its own JSON source only, not against the code, so a later edit to either file can drift without CI catching it.
 
-When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
+In the intended integration, an analytical tool, automated valuation model, or regression script submits an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. `code/seal/capture/` shows this working for a decorated function call. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
 
 ## The problem
 
@@ -84,7 +84,7 @@ The intended custody architecture addresses that problem by putting assignment-l
 
 The same limit applies to watermarks and to Content Credentials, which travel attached to the artifact and therefore remain with whoever chooses which artifacts to hand over. Longer version in [`docs/watermarking.md`](docs/watermarking.md).
 
-The current repository implements the verification side of that model. It does not yet implement the capture mechanism or the production custody service.
+The current repository implements the verification side of that model, plus a capture scaffold that seals a decorated function call into a chain and self-checks it against that verifier. It does not implement a hosted production custody service, and the capture scaffold does not enforce that every run in an assignment reaches the chain: an undecorated call is invisible, and a manifest never handed to a custodian is not one anybody can count.
 
 ## How the intended architecture integrates
 
@@ -122,7 +122,7 @@ Collusion remains an operational question. An append-only log can make later equ
 
 ## About this repository
 
-`code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, and standalone verifier. It is a pre-build scaffold. The capture path is not implemented.
+`code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, standalone verifier, and a capture scaffold (`code/seal/capture/`) that seals a live function call into a real artifact and self-checks it against the verifier. It holds one chain open per assignment so that sequence numbers and prev-hash linkage run unbroken across calls, which makes an omitted run detectable rather than merely undesirable. What it does not do is site a witness on the operator's machine or establish how many runs an assignment holds: the decorator is opt-in per function, an undecorated call is invisible, and a chain never handed to a custodian is not a chain anybody can count. There is no hosted production custody service.
 
 The verifier reports the epistemic propositions above. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:
 
@@ -227,7 +227,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 | Check | Status |
 |---|---|
-| Unit and adversarial tests (`code/tests/`) | **136 passing** |
+| Unit and adversarial tests (`code/tests/`) | **148 passing** |
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
@@ -235,7 +235,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 The division of labour is deliberate: **SMT for mathematical invariants** forced by the construction, **property-based testing for input-shaped questions** quantified over arbitrary values, and **unit tests for explicit design rules** somebody chose and could have chosen differently. Each spec proves a safety property over unbounded histories *and* drives the real implementation over concrete traces, because a proof about a model that nothing ties to the code establishes nothing about the code.
 
-What this establishes about the repository is limited to the checks above. The scaffold is not production-ready, the capture and custody layers do not exist, and independent audit has not been performed.
+What this establishes about the repository is limited to the checks above. The scaffold is not production-ready, no hosted custody service exists, the capture layer does not enforce completeness, and independent audit has not been performed.
 
 ## Security
 
