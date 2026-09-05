@@ -102,24 +102,32 @@ def verify_inclusion(index: int, size: int, leaf: str, expected_root: str,
     proof, which verified only where the tree happened to be symmetric. An
     exhaustive check over every index at every size to thirty-three caught it;
     spot-checking a balanced tree would not have.
+
+    `proof` comes from whoever is being checked, not from the caller's own
+    log, so a non-hex or otherwise malformed sibling must fail the check
+    rather than crash it. `_node` raises on that, so the whole computation is
+    guarded the same way `head_signature_valid` guards a hostile signature.
     """
     if not 0 <= index < size:
         return False
-    fn, sn = index, size - 1
-    node = leaf
-    for sibling in proof:
-        if sn == 0:
-            return False
-        if fn & 1 or fn == sn:
-            node = _node(sibling, node)
-            while fn != 0 and fn & 1 == 0:
-                fn >>= 1
-                sn >>= 1
-        else:
-            node = _node(node, sibling)
-        fn >>= 1
-        sn >>= 1
-    return sn == 0 and node == expected_root
+    try:
+        fn, sn = index, size - 1
+        node = leaf
+        for sibling in proof:
+            if sn == 0:
+                return False
+            if fn & 1 or fn == sn:
+                node = _node(sibling, node)
+                while fn != 0 and fn & 1 == 0:
+                    fn >>= 1
+                    sn >>= 1
+            else:
+                node = _node(node, sibling)
+            fn >>= 1
+            sn >>= 1
+        return sn == 0 and node == expected_root
+    except Exception:  # noqa: BLE001 - hostile input is expected
+        return False
 
 
 def consistency_proof(leaves: list[str], old_size: int) -> list[str]:
@@ -154,46 +162,55 @@ def verify_consistency(old_size: int, old_root: str,
 
     Returns False when the older tree was rewritten rather than appended to,
     which is the property the custodian is being held to.
+
+    `proof` is the custodian's own submission, offered to prove it did not
+    rewrite history, so it is exactly the input most likely to be hostile or
+    malformed. A non-hex sibling must resolve to False rather than crash the
+    examiner's check, for the same reason `head_signature_valid` guards a
+    hostile signature.
     """
-    if old_size > new_size:
-        return False
-    if old_size == new_size:
-        return proof == [] and old_root == new_root
-    if old_size == 0:
-        return proof == []
-
-    fn, sn = old_size - 1, new_size - 1
-    while fn & 1:
-        fn >>= 1
-        sn >>= 1
-
-    if not proof:
-        return False
-
-    # A tree whose size is a power of two is already a complete subtree, so its
-    # root is used directly instead of consuming a proof element.
-    if old_size & (old_size - 1) == 0:
-        fr = sr = old_root
-        rest = proof
-    else:
-        fr = sr = proof[0]
-        rest = proof[1:]
-
-    for sibling in rest:
-        if sn == 0:
+    try:
+        if old_size > new_size:
             return False
-        if fn & 1 or fn == sn:
-            fr = _node(sibling, fr)
-            sr = _node(sibling, sr)
-            while fn != 0 and fn & 1 == 0:
-                fn >>= 1
-                sn >>= 1
-        else:
-            sr = _node(sr, sibling)
-        fn >>= 1
-        sn >>= 1
+        if old_size == new_size:
+            return proof == [] and old_root == new_root
+        if old_size == 0:
+            return proof == []
 
-    return fr == old_root and sr == new_root and sn == 0
+        fn, sn = old_size - 1, new_size - 1
+        while fn & 1:
+            fn >>= 1
+            sn >>= 1
+
+        if not proof:
+            return False
+
+        # A tree whose size is a power of two is already a complete subtree, so
+        # its root is used directly instead of consuming a proof element.
+        if old_size & (old_size - 1) == 0:
+            fr = sr = old_root
+            rest = proof
+        else:
+            fr = sr = proof[0]
+            rest = proof[1:]
+
+        for sibling in rest:
+            if sn == 0:
+                return False
+            if fn & 1 or fn == sn:
+                fr = _node(sibling, fr)
+                sr = _node(sibling, sr)
+                while fn != 0 and fn & 1 == 0:
+                    fn >>= 1
+                    sn >>= 1
+            else:
+                sr = _node(sr, sibling)
+            fn >>= 1
+            sn >>= 1
+
+        return fr == old_root and sr == new_root and sn == 0
+    except Exception:  # noqa: BLE001 - hostile input is expected
+        return False
 
 
 @dataclass(frozen=True)

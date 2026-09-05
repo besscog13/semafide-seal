@@ -32,6 +32,7 @@ which parts of it the examiner learns about.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Iterable, Optional
@@ -111,26 +112,36 @@ class Issuer:
     name: str
     key: ec.EllipticCurvePrivateKey
     _last: dict[str, AssignmentCheckpoint] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def issue(self, checkpoint: AssignmentCheckpoint) -> dict[str, Any]:
-        prior = self._last.get(checkpoint.assignment_id)
-        if prior is not None:
-            now = {c.chain_id: c for c in checkpoint.chains}
-            dropped = sorted({c.chain_id for c in prior.chains} - set(now))
-            if dropped:
-                raise AssignmentRefusal(
-                    f"{len(dropped)} chain or chains previously recorded under "
-                    f"assignment {checkpoint.assignment_id} are absent from "
-                    "this statement")
-            for old in prior.chains:
-                if now[old.chain_id].entry_count < old.entry_count:
+        """
+        Checking `_last` and writing to it are one locked step, for the same
+        reason `witness.Witness.cosign` locks: two concurrent requests for the
+        same assignment must not both read the same prior statement, each
+        pass their own consistency check against it, and both get signed,
+        since that reintroduces the dropped-chain equivocation this class
+        exists to prevent through a race rather than through a missing check.
+        """
+        with self._lock:
+            prior = self._last.get(checkpoint.assignment_id)
+            if prior is not None:
+                now = {c.chain_id: c for c in checkpoint.chains}
+                dropped = sorted({c.chain_id for c in prior.chains} - set(now))
+                if dropped:
                     raise AssignmentRefusal(
-                        f"chain {old.chain_id[:12]} shrank from "
-                        f"{old.entry_count} to "
-                        f"{now[old.chain_id].entry_count} entries")
-        signed = issue(checkpoint, self.key)
-        self._last[checkpoint.assignment_id] = checkpoint
-        return signed
+                        f"{len(dropped)} chain or chains previously recorded "
+                        f"under assignment {checkpoint.assignment_id} are "
+                        "absent from this statement")
+                for old in prior.chains:
+                    if now[old.chain_id].entry_count < old.entry_count:
+                        raise AssignmentRefusal(
+                            f"chain {old.chain_id[:12]} shrank from "
+                            f"{old.entry_count} to "
+                            f"{now[old.chain_id].entry_count} entries")
+            signed = issue(checkpoint, self.key)
+            self._last[checkpoint.assignment_id] = checkpoint
+            return signed
 
 
 def issue(checkpoint: AssignmentCheckpoint,

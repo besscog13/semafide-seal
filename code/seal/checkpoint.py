@@ -48,6 +48,7 @@ for these exact roles. Use the specifications rather than reimplementing them.
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
@@ -137,6 +138,7 @@ class Issuer:
     name: str
     key: ec.EllipticCurvePrivateKey
     _last: dict[str, Checkpoint] = field(default_factory=dict)
+    _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def issue(self, checkpoint: Checkpoint,
               entries: Optional[list] = None) -> dict[str, Any]:
@@ -146,28 +148,36 @@ class Issuer:
         Refuses rather than returning a failure value, for the reason
         `Witness.cosign` does: a caller who ignores a return code produces the
         rubber stamp this exists to prevent.
-        """
-        prior = self._last.get(checkpoint.assignment_id)
-        if prior is not None:
-            if (checkpoint.entry_count == prior.entry_count
-                    and checkpoint.chain_head != prior.chain_head):
-                raise CheckpointRefusal(
-                    f"already signed a different chain at size "
-                    f"{prior.entry_count} for assignment "
-                    f"{checkpoint.assignment_id}; this is an equivocation")
-            if checkpoint.entry_count < prior.entry_count:
-                raise CheckpointRefusal(
-                    f"assignment {checkpoint.assignment_id} shrank from "
-                    f"{prior.entry_count} to {checkpoint.entry_count}")
-            if checkpoint.entry_count > prior.entry_count:
-                if not _extends(entries, prior, checkpoint):
-                    raise CheckpointRefusal(
-                        "the chain offered is not an extension of the one last "
-                        "signed for this assignment")
 
-        signed = issue(checkpoint, self.key)
-        self._last[checkpoint.assignment_id] = checkpoint
-        return signed
+        Checking `_last` and writing to it are one locked step, for the same
+        reason `Witness.cosign` locks: two concurrent requests for the same
+        assignment must not both read the same prior checkpoint, each pass its
+        own consistency check against it, and both get signed, since that
+        reintroduces the equivocation this class exists to prevent through a
+        race rather than through a missing check.
+        """
+        with self._lock:
+            prior = self._last.get(checkpoint.assignment_id)
+            if prior is not None:
+                if (checkpoint.entry_count == prior.entry_count
+                        and checkpoint.chain_head != prior.chain_head):
+                    raise CheckpointRefusal(
+                        f"already signed a different chain at size "
+                        f"{prior.entry_count} for assignment "
+                        f"{checkpoint.assignment_id}; this is an equivocation")
+                if checkpoint.entry_count < prior.entry_count:
+                    raise CheckpointRefusal(
+                        f"assignment {checkpoint.assignment_id} shrank from "
+                        f"{prior.entry_count} to {checkpoint.entry_count}")
+                if checkpoint.entry_count > prior.entry_count:
+                    if not _extends(entries, prior, checkpoint):
+                        raise CheckpointRefusal(
+                            "the chain offered is not an extension of the one "
+                            "last signed for this assignment")
+
+            signed = issue(checkpoint, self.key)
+            self._last[checkpoint.assignment_id] = checkpoint
+            return signed
 
 
 def _extends(entries: Optional[list], prior: Checkpoint,

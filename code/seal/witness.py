@@ -166,10 +166,18 @@ def count_witnesses(head: dict[str, Any], cosigs: list[dict[str, Any]],
     chose. Untrusted keys are not counted at all: an examiner who accepts
     witnesses they cannot name has reintroduced the problem, because the
     custodian can generate as many keys as it likes.
+
+    Guards against a malformed entry in `cosigs`, since this is called
+    directly against a bundle an examiner received from the party under
+    examination rather than only through the fail-closed `verify` wrapper. A
+    non-dict entry is skipped rather than raising, matching the same
+    hostile-input handling `resolve_bounds` already gives `time_anchors`.
     """
     seen: set[str] = set()
     allow = {k.strip() for k in trusted} if trusted is not None else None
     for c in cosigs or []:
+        if not isinstance(c, dict):
+            continue
         pem = (c.get("public_key") or "").strip()
         if not pem or pem in seen:
             continue

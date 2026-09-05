@@ -352,3 +352,140 @@ def test_closing_an_assignment_that_is_not_open_raises():
     with pytest.raises(AssignmentError):
         close_assignment("ASG-never-opened", certification_ref="c",
                          effective_date="2026-03-14", output_dir=None)
+
+
+def test_reopening_a_certified_assignment_is_refused_not_silently_restarted(tmp_path):
+    """
+    Before this fix, `_open` found nothing in `_REGISTRY` for a closed
+    assignment id and silently started a brand new, disconnected,
+    unlabelled chain under the same id. Since `manifest_filename` is keyed
+    only on the assignment id, the new chain's first write overwrote the
+    certified manifest on disk with a chain carrying no workfile binding and
+    no link back to what it replaced. `AssignmentAnchor.chain_label` is the
+    documented way to legitimately open a second chain under one
+    assignment at the `artifact.py` level; `seal_execution` does not expose
+    it, so the refusal, not a retry with a label, is what a caller of this
+    layer actually gets.
+    """
+    sealed = seal_execution(assignment_id="ASG-2026-reuse", model_id="m",
+                            output_dir=str(tmp_path))(lambda x: {"x": x})
+    sealed(1)
+    manifest, _ = close_assignment("ASG-2026-reuse", certification_ref="c1",
+                                   effective_date="2026-09-05",
+                                   output_dir=str(tmp_path))
+    certified_entry_count = len(manifest["entries"])
+
+    with pytest.raises(AssignmentError, match="already certified"):
+        sealed(2)
+
+    on_disk = json.loads(
+        (tmp_path / "ASG-2026-reuse.manifest.json").read_text())
+    assert len(on_disk["entries"]) == certified_entry_count
+    assert any(e["kind"] == "workfile_binding" for e in on_disk["entries"])
+
+
+def test_last_capture_is_isolated_per_thread():
+    """
+    A single shared `last_capture` cannot answer "what did my call just
+    seal" once two callers overlap: whichever call finishes last wins, and a
+    caller reading in between two overlapping calls sees the wrong one under
+    its own name. Confirmed as a real race against the prior bare-function
+    implementation by widening the window between the sealing logic and the
+    return with a temporary added delay (`context/RECORD.md`, 2026-09-05
+    entry holds the reproduction), standing in for what a slower witness
+    round-trip or a networked manifest write would do on its own.
+
+    Rather than re-chasing that timing window here, which is exactly the
+    kind of test that can pass by luck against a still-broken
+    implementation, this checks the actual mechanism directly and
+    deterministically: a thread that never called the sealed function must
+    read back `None`, not the calling thread's result, which a shared
+    attribute could never guarantee and `threading.local()` guarantees by
+    construction.
+    """
+    sealed = seal_execution(assignment_id="ASG-2026-thread-local",
+                            model_id="m", output_dir=None)(
+        lambda tag: {"x": tag})
+
+    sealed("main-thread-call")
+    assert sealed.last_capture.output == {"x": "main-thread-call"}
+
+    other_thread_saw = {}
+
+    def other_thread():
+        other_thread_saw["value"] = sealed.last_capture
+
+    t = threading.Thread(target=other_thread)
+    t.start()
+    t.join()
+
+    assert other_thread_saw["value"] is None
+    assert sealed.last_capture.output == {"x": "main-thread-call"}
+
+
+def test_seal_execution_binds_self_when_decorating_a_method():
+    """
+    `_SealedFunction.__get__` must bind `self` the way a real function's own
+    `__get__` would, so this decorator works as a method decorator and not
+    only on module-level functions. This checks the descriptor mechanics in
+    isolation, not a full capture: hashing a bound `self` argument is a
+    separate, pre-existing limitation of the argument-commitment step
+    (present identically before this fix, since a bare function decorating a
+    method receives `self` as a bound argument the same way), not something
+    `__get__` is responsible for or something this test should paper over.
+    """
+    class Valuer:
+        def value(self, x):
+            return (self, x)
+
+    sealed = seal_execution(assignment_id="ASG-2026-method", model_id="m",
+                            output_dir=None)(Valuer.value)
+    Valuer.value = sealed
+    v = Valuer()
+
+    bound = Valuer.__dict__["value"].__get__(v, Valuer)
+    assert bound.__self__ is v
+    assert Valuer.value.__name__ == "value"
+
+
+def test_manifest_write_happens_inside_the_assignment_lock(tmp_path, monkeypatch):
+    """
+    `write_manifest`'s own docstring says it writes the whole chain,
+    replacing the previous state of this assignment. Before this fix, that
+    write ran outside `state.lock`, so two concurrent calls to the same
+    assignment could write manifest.json out of order: an earlier, shorter
+    snapshot's write landing after a later, longer one's left the file on
+    disk short of what the chain actually held, even though the in-memory
+    chain was correct the whole time (`context/RECORD.md`, 2026-09-05, has
+    the confirmed reproduction).
+
+    Rather than trying to force that ordering externally, which the fix
+    itself makes impossible (both writes now serialize behind the same
+    lock, so an external ordering trick would just deadlock), this checks
+    the actual mechanism directly: `state.lock` must already be held by the
+    calling thread at the moment `write_manifest` runs. `threading.Lock` is
+    not reentrant, so a non-blocking acquire attempt from inside the write
+    can only fail if the lock is genuinely held right now.
+    """
+    from seal.capture import decorator as decorator_module
+    from seal.capture.assignment import _REGISTRY
+
+    real_write_manifest = decorator_module.write_manifest
+    lock_held_during_write = []
+
+    def checking_write_manifest(assignment_id, manifest, output_dir):
+        state = _REGISTRY.get(assignment_id)
+        acquired = state.lock.acquire(blocking=False)
+        lock_held_during_write.append(not acquired)
+        if acquired:
+            state.lock.release()
+        return real_write_manifest(assignment_id, manifest, output_dir)
+
+    monkeypatch.setattr(decorator_module, "write_manifest", checking_write_manifest)
+
+    sealed = seal_execution(assignment_id="ASG-2026-manifest-lock", model_id="m",
+                            output_dir=str(tmp_path))(lambda tag: {"x": tag})
+    sealed("A")
+    sealed("B")
+
+    assert lock_held_during_write == [True, True]
