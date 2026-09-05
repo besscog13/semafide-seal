@@ -27,6 +27,7 @@ appraiser's workflow, is KC3 and remains open.
 from __future__ import annotations
 
 import hashlib
+import threading
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
@@ -217,6 +218,7 @@ class SealChain:
         )
         self._entries: list[Entry] = []
         self._assignment_id = assignment_id
+        self._lock = threading.Lock()
         self.append(
             EntryKind.ASSIGNMENT_ANCHOR,
             AssignmentAnchor(assignment_id, chain_label, beacon).to_body(),
@@ -251,25 +253,41 @@ class SealChain:
         return list(self._entries)
 
     def append(self, kind: EntryKind, body: dict[str, Any], ts_ns: int) -> Entry:
-        seq = len(self._entries)
-        prev = self.head
-        payload = signing_payload(kind, seq, prev, body, ts_ns)
-        raw = canonical_bytes(payload)
-        block_hash = hashlib.sha256(raw).hexdigest()
-        sig = self._sk.sign(raw, ec.ECDSA(hashes.SHA256())).hex()
+        """
+        Seal one entry onto the chain.
 
-        entry = Entry(
-            kind=kind,
-            seq=seq,
-            prev_hash=prev,
-            body=body,
-            ts_ns=ts_ns,
-            block_hash=block_hash,
-            signature=sig,
-            public_key=self._pub_pem,
-        )
-        self._entries.append(entry)
-        return entry
+        Reading `seq` and `prev_hash`, signing over them, and appending the
+        result are one locked step. Two concurrent callers computing `seq`
+        and `prev` before either appends would both sign an entry claiming
+        the same sequence number and the same predecessor: two different
+        entries, both validly signed, both asserting they are position N
+        extending the same prior entry. That is not a missing entry, which
+        the verifier is built to notice; it is two entries occupying one
+        position, which breaks the linkage this whole chain exists to
+        provide. Existing callers in `capture/` already hold a coarser lock
+        around every `append`, so this is a second, independent guard for any
+        caller that constructs a `SealChain` directly.
+        """
+        with self._lock:
+            seq = len(self._entries)
+            prev = self.head
+            payload = signing_payload(kind, seq, prev, body, ts_ns)
+            raw = canonical_bytes(payload)
+            block_hash = hashlib.sha256(raw).hexdigest()
+            sig = self._sk.sign(raw, ec.ECDSA(hashes.SHA256())).hex()
+
+            entry = Entry(
+                kind=kind,
+                seq=seq,
+                prev_hash=prev,
+                body=body,
+                ts_ns=ts_ns,
+                block_hash=block_hash,
+                signature=sig,
+                public_key=self._pub_pem,
+            )
+            self._entries.append(entry)
+            return entry
 
 
 @dataclass(frozen=True)

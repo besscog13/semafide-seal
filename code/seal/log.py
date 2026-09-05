@@ -34,6 +34,7 @@ operational: who the witnesses are and whether anyone checks.
 from __future__ import annotations
 
 import hashlib
+import threading
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -293,13 +294,24 @@ class TransparencyLog:
     def __init__(self, log_id: str = "semafide") -> None:
         self._leaves: list[str] = []
         self.log_id = log_id
+        self._lock = threading.Lock()
 
     def __len__(self) -> int:
         return len(self._leaves)
 
     def append(self, payload: Any) -> int:
-        self._leaves.append(leaf_hash(payload))
-        return len(self._leaves) - 1
+        """
+        Append a leaf and return its index.
+
+        The append and the length read that derives the index are one locked
+        step. Separately, each is safe under the GIL; together, a second
+        append landing between them hands the first caller back the second
+        caller's index, which is a leaf silently reporting the wrong position
+        in the tree it was supposedly appended to.
+        """
+        with self._lock:
+            self._leaves.append(leaf_hash(payload))
+            return len(self._leaves) - 1
 
     def root(self) -> str:
         return root(self._leaves)
