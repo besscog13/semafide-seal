@@ -215,6 +215,8 @@ The condition that creates a seat is the opposite one. A hedonic automated valua
 
 This is the first condition Semafide has identified under which independent custody exceeds what a commodity service provides. It has not yet been confirmed by a party outside Semafide, and Section 9 records what that confirmation requires.
 
+A second, independent route to the same condition is sharper and easier to put to a real contact, because it requires no knowledge of model internals. Institutional automated valuation often runs as a cascade: several models or providers tried in a configured order, each checked against a confidence threshold, stopping at the first one that clears it. The configuration governing that cascade, which provider is tried first, what threshold triggers a fallback, which model actually produced a given valuation, is held by the provider and revised on its own schedule rather than versioned per transaction on the lender's side. Under this framing, a lender may not hold the model weights and may also not hold a record of which model in the cascade fired for one specific valuation, or under what configuration, because the configuration is provider infrastructure rather than a per-transaction artifact. This does not restate the finding above. It is a second, independent path to the same unretainability condition, and it asks a narrower, more answerable question of a real contact: not what a model does internally, but what a lender's own vendor integration hands back for one valuation. Like the finding above it, this has not yet been confirmed by a party outside Semafide.
+
 ### 8.2 The discriminating test
 
 For any candidate market, ask what the mechanism sees that the layer beneath it does not.
