@@ -582,3 +582,51 @@ def test_close_assignment_refuses_while_a_call_is_between_evidence_and_run_seal(
         effective_date="2026-09-05", output_dir=None)
     assert report.coverage is Coverage.CONTIGUOUS
     assert manifest["entries"][-1]["body"]["covered_seqs"] == [0, 1, 2]
+
+
+def test_concurrent_close_assignment_calls_produce_exactly_one_binding():
+    """
+    Found while auditing the in_flight fix itself, not a pre-existing bug:
+    that fix replaced close_assignment's original atomic
+    `_REGISTRY.pop(assignment_id, None)`, which found `None` and refused a
+    second concurrent call outright, with a non-destructive `.get()` so the
+    `in_flight` check could run first. That left the same window open a
+    step later: two calls could both see the assignment open, both pass the
+    `in_flight` check, and both append their own `workfile_binding` to one
+    chain. Confirmed as a real race with a two-thread barrier before being
+    fixed by making the claim (removing the id from `_REGISTRY`, marking it
+    in `_CLOSED`) one locked step together with the `in_flight` check,
+    rather than something done afterward.
+    """
+    sealed = seal_execution(assignment_id="ASG-2026-double-close",
+                            model_id="m", output_dir=None)(lambda x: {"x": x})
+    sealed(1)
+
+    results = []
+    results_lock = threading.Lock()
+    barrier = threading.Barrier(2)
+
+    def do_close():
+        barrier.wait()
+        try:
+            manifest, _ = close_assignment(
+                "ASG-2026-double-close", certification_ref="c",
+                effective_date="2026-09-05", output_dir=None)
+            bindings = sum(1 for e in manifest["entries"]
+                          if e["kind"] == "workfile_binding")
+            with results_lock:
+                results.append(("ok", bindings))
+        except AssignmentError:
+            with results_lock:
+                results.append(("refused", None))
+
+    threads = [threading.Thread(target=do_close) for _ in range(2)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    successes = [r for r in results if r[0] == "ok"]
+    assert len(successes) == 1
+    assert successes[0][1] == 1
+    assert sorted(r[0] for r in results) == ["ok", "refused"]
