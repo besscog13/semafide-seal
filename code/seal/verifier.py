@@ -515,7 +515,30 @@ def _verify(
         covered = set(binding.body.get("covered_seqs", []))
         expected = {e.seq for e in entries if e.seq < binding.seq}
         present = {e.seq for e in entries}
-        head_ok = binding.body.get("chain_head") == entries[binding.seq - 1].block_hash
+
+        # binding.seq names the position one past the entry it certifies. A
+        # well-formed artifact always has 1 <= binding.seq <= len(entries),
+        # since the binding is itself an entry naming an earlier one. Nothing
+        # stops a hostile artifact naming an out-of-range value, and this used
+        # to fall through to entries[binding.seq - 1] and rely on verify()'s
+        # outer try/except to catch the resulting IndexError. That still fails
+        # closed, but as an unnamed "malformed_artifact" rather than a finding
+        # that says what is actually wrong, unlike every other piece of
+        # hostile input this function checks explicitly (see
+        # log.verify_inclusion for the same discipline applied to a proof
+        # index).
+        if 1 <= binding.seq <= len(entries):
+            head_ok = binding.body.get("chain_head") == entries[binding.seq - 1].block_hash
+        else:
+            head_ok = False
+            report.findings.append(
+                Finding(
+                    "binding_seq_out_of_range",
+                    f"The binding names sequence number {binding.seq}, which "
+                    f"is not a position in a chain of {len(entries)} entries.",
+                    "KC3",
+                )
+            )
 
         # Runs sealed after the last binding are outside every binding.
         after = [e.seq for e in runs if e.seq > binding.seq]
