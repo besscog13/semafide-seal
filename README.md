@@ -28,6 +28,8 @@ The rest of this README explains the problem, what the verifier can establish, w
 
 **For a one-file interactive map of the intended architecture — carrying the same BUILT / UNBUILT / OPEN distinctions used here — see [`docs/semafide-system-map.html`](docs/semafide-system-map.html), served at [besscog13.github.io/semafide-seal](https://besscog13.github.io/semafide-seal/). It is generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json), which is the inspectable source.**
 
+**For one guide to all four of the above, in the order that builds the argument from a concrete example to the full architecture, see [`docs/demos/README.md`](docs/demos/README.md).**
+
 The map's proposition vocabulary matches the five propositions in the table below, checked directly against `code/seal/verifier.py`. The CI check in this repository verifies the map against its own JSON source only, not against the code, so a later edit to either file can drift without CI catching it.
 
 When the capture layer exists, an analytical tool, automated valuation model, or regression script will submit an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
