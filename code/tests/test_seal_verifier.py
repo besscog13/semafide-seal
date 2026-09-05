@@ -832,6 +832,29 @@ def test_binding_seq_past_the_end_does_not_crash():
     assert not r.trustworthy
 
 
+def test_binding_seq_out_of_range_is_a_named_finding_not_a_generic_crash_catch():
+    """
+    Before this check, an out-of-range binding.seq fell through to
+    entries[binding.seq - 1]. A large value raised IndexError, caught by
+    verify()'s outer try/except and reported only as the generic
+    "malformed_artifact", losing the specific cause. A seq of exactly 0 was
+    worse: Python's negative indexing turned it into entries[-1] silently,
+    with no exception and no finding at all, working correctly here only
+    because the binding happens to be the chain's last entry -- an accident
+    of this fixture's shape, not a property the code established.
+
+    All three should now name the actual problem.
+    """
+    for seq in (999, 0, -5):
+        chain = _build(WitnessMode.SELF_ATTESTED)
+        doc = export_artifact(chain)
+        doc["entries"][-1]["seq"] = seq
+        r = verify(doc)
+        codes = [f.code for f in r.findings]
+        assert "binding_seq_out_of_range" in codes, (seq, codes)
+        assert "malformed_artifact" not in codes, (seq, codes)
+
+
 def test_timestamp_regression_is_reported():
     """Clock values are signed and were never read."""
     chain = SealChain("assignment-1", opened_ns=T0)
