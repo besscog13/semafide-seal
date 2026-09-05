@@ -9,6 +9,14 @@ on:
     branches:
       - main
 
+# Neither job below pushes, comments, or publishes anything. The default
+# GITHUB_TOKEN scope is an organisation setting this file cannot see, so
+# stating the minimum explicitly, read-only, means a compromised step or a
+# malicious dependency pulled in by pip has nothing to write with, regardless
+# of what the default happens to be.
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # The seal package is the only live code in this repository.
