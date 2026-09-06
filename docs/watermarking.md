@@ -8,13 +8,11 @@ agent-attestation category, SLSA, in-toto, SCITT, and the rest, see
 
 Article 50 of the EU AI Act addresses marking synthetic output in a
 machine-readable and detectable form. The specific compliance dates and
-transitional terms attached to that requirement are not independently verified
-from this repository: `context/RECORD.md` records that EU AI Act Digital
-Omnibus dates could not be checked from here or confirmed against a primary
-source, and should not be relied on or repeated absent that confirmation, so
-they are omitted here rather than restated. What does not depend on any date
-is the effect: provenance is now a term most readers arrive with rather than
-one this repository has to introduce.
+transitional terms attached to that requirement, and the Digital Omnibus
+process around them, are not independently verified from this repository, so
+they are omitted here rather than stated as settled fact. What does not
+depend on any date is the effect: provenance is now a term most readers
+arrive with rather than one this repository has to introduce.
 
 That is useful and it is also a hazard. A technical reader may ask whether this
 repository is a watermarking scheme, or Content Credentials with extra steps. It
