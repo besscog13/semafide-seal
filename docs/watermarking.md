@@ -6,14 +6,13 @@ agent-attestation category, SLSA, in-toto, SCITT, and the rest, see
 
 ## Why this document exists
 
-Article 50 of the EU AI Act has applied since 2 August 2026, requiring providers
-of generative systems to mark synthetic output in a machine-readable and
-detectable form. Systems already on the market before that date have until
-2 December 2026 to meet the machine-readable marking requirement in Article
-50(2), under the AI Omnibus provisional agreement of May 2026, and the European
-Commission has published guidelines on the transparency obligations. The effect
-is that provenance is now a term most readers arrive with rather than one this
-repository has to introduce.
+Article 50 of the EU AI Act addresses marking synthetic output in a
+machine-readable and detectable form. The specific compliance dates and
+transitional terms attached to that requirement, and the Digital Omnibus
+process around them, are not independently verified from this repository, so
+they are omitted here rather than stated as settled fact. What does not
+depend on any date is the effect: provenance is now a term most readers
+arrive with rather than one this repository has to introduce.
 
 That is useful and it is also a hazard. A technical reader may ask whether this
 repository is a watermarking scheme, or Content Credentials with extra steps. It
