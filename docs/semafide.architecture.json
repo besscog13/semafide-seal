@@ -21,7 +21,7 @@
           "seal",
           "log"
         ],
-        "note": "A lender calls a cascade, the cascade runs a model, and a seal is written at the application boundary."
+        "note": "A lender calls a cascade; the cascade runs a model. Capture at the application boundary is not implemented."
       },
       {
         "id": "the-gap",
@@ -31,7 +31,7 @@
           "cascade",
           "seal"
         ],
-        "note": "The configuration that produced the valuation sits with the provider and is overwritten on revision."
+        "note": "The configuration that produced the valuation sits with the provider and is overwritten on revision. It does not enter the record."
       },
       {
         "id": "custody-chain",
@@ -43,7 +43,7 @@
           "anchor",
           "verifier"
         ],
-        "note": "Custody places the record outside the party being examined. Witness and custodian are unbuilt."
+        "note": "Custody places the record outside the party being examined. Witness and custodian are open: who they are is not decided."
       },
       {
         "id": "examination",
@@ -104,7 +104,7 @@
       "type": "database",
       "label": "Cascade configuration",
       "sublabel": "Provider-held. Revised on cadence.",
-      "tag": "GAP \u00b7 FACT",
+      "tag": "GAP · FACT",
       "pos": [
         226,
         300
@@ -206,7 +206,7 @@
       "id": "verifier",
       "type": "backend",
       "label": "Standalone verifier",
-      "sublabel": "Reports per object and property",
+      "sublabel": "Independent claims about a sealed run",
       "tag": "BUILT",
       "pos": [
         814,
@@ -244,15 +244,21 @@
         156,
         72
       ],
-      "tag": "HYPOTHESIS"
+      "tag": "FACT"
     }
   ],
   "boundaries": [
     {
       "kind": "security-group",
+      "label": "Vendor model. Not held.",
+      "wraps": [
+        "avm"
+      ]
+    },
+    {
+      "kind": "security-group",
       "label": "Provider boundary. Not instrumentable today.",
       "wraps": [
-        "avm",
         "config"
       ]
     },
@@ -303,8 +309,8 @@
       "id": "cascade-seal",
       "from": "cascade",
       "to": "seal",
-      "label": "value",
-      "variant": "emphasis",
+      "label": "if captured",
+      "variant": "dashed",
       "labelDy": -24
     },
     {
@@ -375,7 +381,7 @@
       "id": "verifier-examiner",
       "from": "verifier",
       "to": "examiner",
-      "label": "matrix",
+      "label": "report",
       "fromSide": "bottom",
       "toSide": "top",
       "labelAt": [
@@ -412,26 +418,26 @@
       "dot": "cyan",
       "title": "What a single record establishes (code/seal/verifier.py)",
       "items": [
-        "precedence \u2014 the evidence commitment predates the run seal naming it. Not that the analysis consumed it.",
-        "witness_attestation \u2014 an independently trusted witness key signed an observed-execution attestation binding the run, evidence, action, and capture reference. Not a signature over a supplied bundle.",
-        "recipe_available \u2014 a complete, version-pinned recipe is present and linked to the claimed evidence and action. Not that it ran."
+        "precedence — the evidence commitment predates the run seal naming it. Not that the analysis consumed it.",
+        "witness_attestation — an independently trusted witness key signed an observed-execution attestation binding the run, evidence, action, and capture reference. Not a signature over a supplied bundle.",
+        "recipe_available — a complete, version-pinned recipe is present and linked to the claimed evidence and action. Not that it ran.",
+        "recipe_reproduced — a verifier reproduced the sealed output from the recipe. Not historical occurrence.",
+        "historical_execution_established — true only via a valid observed-execution witness attestation. Never inferred from reproduction."
       ]
     },
     {
       "dot": "emerald",
-      "title": "What the assignment level adds",
+      "title": "Reported separately from the five propositions",
       "items": [
-        "recipe_reproduced \u2014 a verifier reproduced the sealed output from the recipe. Not historical occurrence.",
-        "historical_execution_established \u2014 true only via a valid observed-execution witness attestation. Never inferred from reproduction.",
-        "external time bounds (Anchoring) \u2014 UPPER_ONLY from RFC 3161, LOWER_ONLY from a published beacon, BOUNDED where both resolve. Not the record's content.",
-        "completeness and disclosure \u2014 completeness asks whether the supplied chain is whole; disclosure asks whether it is the whole assignment. Both default to UNCHECKED without an outside checkpoint."
+        "external time bounds (Anchoring) — UPPER_ONLY from RFC 3161, LOWER_ONLY from a published beacon, BOUNDED where both resolve. Not the record's content.",
+        "completeness and disclosure — completeness asks whether the supplied chain is whole; disclosure asks whether it is the whole assignment. Both default to UNCHECKED without an outside checkpoint."
       ]
     },
     {
       "dot": "slate",
       "title": "Non-implication rule",
       "items": [
-        "No property upgrades another. Each is established on its own evidence.",
+        "No claim upgrades another. Each is established on its own evidence.",
         "Reproduction does not prove historical execution.",
         "A valid chain does not prove the disclosed set is whole.",
         "The five propositions are boolean: ESTABLISHED or NOT ESTABLISHED, per EvidencePropositions.",
@@ -444,19 +450,19 @@
       "items": [
         "Configuration sits with the provider and is overwritten on revision.",
         "The lender cannot timestamp what it does not hold.",
-        "Likely first integration establishes precedence and witness_attestation only where a cooperating provider commits to a configuration digest at execution time. Absent that cooperation, neither is established.",
-        "That is weaker than the wedge needs. It depends on provider cooperation."
+        "Likely first integration establishes precedence and witness_attestation only where a cooperating provider commits to a configuration digest at execution time. Absent that cooperation, none of the claims can be established for that configuration.",
+        "That is a gap in what the provider makes available, not a value this instrument computes."
       ]
     },
     {
       "dot": "amber",
       "title": "Claim status, distinct from build status",
       "items": [
-        "FACT \u2014 a real execution-evidence problem exists.",
-        "FACT \u2014 workflows exist where the operator cannot reconstruct execution state.",
-        "THESIS \u2014 independent custody establishes more than logging or timestamping.",
-        "HYPOTHESIS \u2014 a party bearing the loss will pay in advance to preserve it.",
-        "UNKNOWN \u2014 whether any provider will expose a configuration digest at execution."
+        "FACT — a real execution-evidence problem exists.",
+        "FACT — workflows exist where the operator cannot reconstruct execution state.",
+        "THESIS — independent custody establishes more than logging or timestamping.",
+        "HYPOTHESIS — a party bearing the loss will pay in advance to preserve it.",
+        "UNKNOWN — whether any provider will expose a configuration digest at execution."
       ]
     },
     {
