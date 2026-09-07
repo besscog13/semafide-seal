@@ -13,12 +13,17 @@ implement on the other end, so it is speculative by construction. It is kept
 deliberately narrow and fails closed:
 
 * One POST, one JSON body, a short timeout.
-* Any failure — connection refused, non-200, malformed JSON, a response
-  missing a required field — returns `None`. It never raises past this
-  module for network reasons, and it never fabricates a signature to paper
-  over an unreachable endpoint. A capture wrapper that did that would be
-  exactly the failure mode `demo_60s.py`'s docstring warns against: inventing
-  a witness signature to make the screen look clean.
+* Any failure — connection refused, non-200, a connection that drops
+  mid-response leaving less than the promised Content-Length, malformed
+  JSON, a response missing a required field — returns `None`. It never
+  raises past this module for network reasons, and it never fabricates a
+  signature to paper over an unreachable endpoint. A capture wrapper that
+  did that would be exactly the failure mode `demo_60s.py`'s docstring
+  warns against: inventing a witness signature to make the screen look
+  clean. A witness that answers with a truncated body is caught the same
+  way as one that never answers at all, since `http.client.IncompleteRead`
+  is not a subclass of `OSError` and reading the response is not covered
+  by the exceptions `urlopen` itself raises for a connection failure.
 * It signs nothing itself and trusts nothing itself. It reports what the
   endpoint returned; whether that signature is valid over the right payload
   and whether the signing key is trusted is decided later, by the real
@@ -30,6 +35,7 @@ deliberately narrow and fails closed:
 """
 from __future__ import annotations
 
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -76,7 +82,8 @@ def request_witness_signature(
             if response.status != 200:
                 return None
             raw = response.read()
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError,
+            http.client.HTTPException):
         return None
 
     try:

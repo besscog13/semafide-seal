@@ -10,6 +10,7 @@ bug that made the wrapper lie about its own output would still be caught.
 from __future__ import annotations
 
 import json
+import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -119,6 +120,83 @@ def test_unreachable_witness_degrades_to_self_attested_without_raising(tmp_path)
     sealed({"median_sqft": 250}, {"sqft": 1800})
     cap = sealed.last_capture
 
+    assert cap.witness_attempted
+    assert not cap.witness_attestation_established
+    run_body = cap.manifest["entries"][-1]["body"]
+    assert run_body["witness_mode"] == "self_attested"
+    assert run_body["witness_attestation"] is None
+
+
+@pytest.fixture
+def truncating_witness():
+    """
+    A witness endpoint that claims a body longer than what it actually sends,
+    then closes the connection.
+
+    `request_witness_signature` is documented to fail closed and return
+    `None` for any network failure, including "connection refused" and a
+    non-200 status. A connection that answers with a `Content-Length` header
+    and then hangs up before delivering that many bytes is a different
+    failure than either of those: `urllib.request.urlopen` succeeds and
+    returns a 200 response, and the failure only surfaces on `response.read()`
+    as `http.client.IncompleteRead`, which is not a subclass of `OSError` and
+    was not one of the exceptions the client caught.
+    """
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.bind(("127.0.0.1", 0))
+    port = sock.getsockname()[1]
+    sock.listen(1)
+
+    def serve():
+        try:
+            conn, _ = sock.accept()
+        except OSError:
+            return
+        try:
+            conn.recv(65536)
+            conn.sendall(
+                b"HTTP/1.1 200 OK\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Content-Length: 1000\r\n"
+                b"\r\n"
+                b"{\"witness\": \"trunc"
+            )
+        finally:
+            conn.close()
+
+    thread = threading.Thread(target=serve, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{port}/witness"
+    finally:
+        sock.close()
+        thread.join(timeout=2)
+
+
+def test_witness_response_truncated_mid_body_degrades_to_self_attested_without_raising(
+    tmp_path, truncating_witness
+):
+    """
+    Companion to `test_unreachable_witness_degrades_to_self_attested_without_raising`,
+    covering a distinct failure mode: the endpoint is reachable and answers
+    200, but the connection drops before the promised body arrives. Before
+    the fix, this raised `http.client.IncompleteRead` out of
+    `request_witness_signature`, through `seal_execution`'s witness-request
+    try/except (which re-raises after bookkeeping, since it exists for
+    counter integrity rather than to swallow errors), and out of the
+    decorated call itself -- the opposite of the documented "never raises
+    past this module for network reasons" contract.
+    """
+    sealed = seal_execution(
+        assignment_id="ASG-2026-9901", model_id="AVM-CoreLogic-v4.2",
+        witness_url=truncating_witness,
+        output_dir=str(tmp_path),
+    )(_valuation)
+
+    result = sealed({"median_sqft": 250}, {"sqft": 1800})
+
+    assert result == {"valuation": 450_000, "confidence": 0.93}
+    cap = sealed.last_capture
     assert cap.witness_attempted
     assert not cap.witness_attestation_established
     run_body = cap.manifest["entries"][-1]["body"]
