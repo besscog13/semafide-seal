@@ -20,6 +20,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from seal import BindingLevel, Coverage, canonical_bytes, verify
 from seal.capture.assignment import (
     AssignmentError,
+    _open,
     close_assignment,
     reset_assignments,
 )
@@ -382,6 +383,64 @@ def test_reopening_a_certified_assignment_is_refused_not_silently_restarted(tmp_
         (tmp_path / "ASG-2026-reuse.manifest.json").read_text())
     assert len(on_disk["entries"]) == certified_entry_count
     assert any(e["kind"] == "workfile_binding" for e in on_disk["entries"])
+
+
+def test_a_call_that_finishes_after_its_assignment_closes_raises_rather_than_returning_unsealed():
+    """
+    A call still has no way to seal itself if the assignment it targets
+    gets closed by a concurrent `close_assignment` while its own `fn` is
+    still running, before evidence is ever committed -- a gap
+    `state.in_flight` does not cover, because `in_flight` only starts
+    counting after the evidence-commitment append, and this call never
+    gets that far before the close lands.
+
+    This is deliberate, not a bug: `fn` can genuinely succeed and compute a
+    real result, and the call still raises `AssignmentError` instead of
+    returning it. The result is not silently handed back unsealed. See
+    decorator.py's module docstring for why: returning it anyway would let
+    an unsealed result flow through the caller's system indistinguishable
+    from a sealed one, which is the selective-sealing attack this package
+    exists to catch, reintroduced through a race rather than a missing
+    check.
+    """
+    ran = threading.Event()
+    release = threading.Event()
+
+    @seal_execution(assignment_id="ASG-close-mid-flight", model_id="m",
+                    output_dir=None)
+    def slow(x):
+        ran.set()
+        release.wait(timeout=5)
+        return {"x": x}
+
+    result = {}
+
+    def worker():
+        try:
+            result["output"] = slow(7)
+        except AssignmentError as e:
+            result["error"] = e
+
+    t = threading.Thread(target=worker)
+    t.start()
+    assert ran.wait(timeout=5), "fn never started"
+
+    # Open the registry entry directly, the way the wrapper would once fn
+    # returns, so close_assignment has something to find and close while
+    # fn is still blocked on release.wait above -- the exact window
+    # in_flight does not cover, since evidence has not been committed yet.
+    _open("ASG-close-mid-flight", 0, None)
+    close_assignment("ASG-close-mid-flight", certification_ref="c1",
+                     effective_date="2026-09-07", output_dir=None)
+
+    release.set()
+    t.join(timeout=5)
+
+    assert "error" in result, (
+        "fn's real output was returned despite the assignment closing "
+        "before it could be sealed")
+    assert isinstance(result["error"], AssignmentError)
+    assert "output" not in result
 
 
 def test_last_capture_is_isolated_per_thread():
