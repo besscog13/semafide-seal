@@ -941,9 +941,22 @@ def _witness_attestation_valid(
     if key.strip() not in trusted:
         return False, (f"Run {run_body.get('run_id')} names an untrusted witness key; "
                        "the supplied bundle does not establish independent observation.")
+    signature = attestation.get("signature")
+    if not isinstance(signature, str):
+        # The same gap `public_key` was guarded against above, one field
+        # over: `bytes.fromhex` raises `TypeError` on anything that is not
+        # a string, not the `ValueError` this function already catches for
+        # a malformed-but-string signature. Left unguarded, a manifest
+        # carrying `witness_attestation.signature: null` (or any other
+        # non-string JSON value) reached the outer `verify()` try/except as
+        # an unnamed "malformed_artifact" quoting a raw `TypeError` instead
+        # of this finding. Confirmed directly with `signature: None`.
+        return False, (f"Run {run_body.get('run_id')}'s witness attestation names a "
+                       "signature that is not a string; nothing here establishes "
+                       "independent observation.")
     try:
         pub = serialization.load_pem_public_key(key.encode("ascii"))
-        pub.verify(bytes.fromhex(attestation.get("signature", "")),
+        pub.verify(bytes.fromhex(signature),
                    canonical_bytes(witness_attestation_payload(run_body)),
                    ec.ECDSA(hashes.SHA256()))
         return True, ""
