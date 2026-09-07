@@ -317,8 +317,23 @@ class _SealedFunction:
         try:
             output = fn(*args, **kwargs)
         except BaseException:
-            _seal_failed_attempt(fn, assignment_id, this_run_id, inputs,
-                                 t_start, private_key, output_dir, self)
+            # Sealing the failed attempt must never replace the caller's own
+            # exception with one raised by the sealing machinery itself. If
+            # the assignment was closed by a concurrent close_assignment
+            # call while fn was still running, _seal_failed_attempt's own
+            # call to _open raises AssignmentError, and an unguarded call
+            # here would let that supersede fn's real exception -- a caller
+            # with `except ValueError` for their own bad-input case would
+            # never see it, only an unrelated AssignmentError. Unlike the
+            # same race on the success path (see the module docstring),
+            # there is no output to protect here: fn already failed on its
+            # own, so nothing dangerous is hidden by letting the seal
+            # attempt fail quietly and re-raising fn's exception regardless.
+            try:
+                _seal_failed_attempt(fn, assignment_id, this_run_id, inputs,
+                                     t_start, private_key, output_dir, self)
+            except BaseException:
+                pass
             raise
         t_end = time.time_ns()
 
