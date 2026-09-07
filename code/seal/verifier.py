@@ -795,8 +795,17 @@ def _run_evidence(
                 return evidence
 
         if not RederivationRecipe.is_complete(recipe):
+            # `recipe or {}` only substitutes `{}` for a falsy recipe. A
+            # hostile artifact can name a truthy non-dict here (a string, a
+            # list), which is exactly the input that reaches this branch --
+            # is_complete() just said it is not a complete dict -- and
+            # `.get(f)` on that non-dict raises AttributeError, the same
+            # crash-to-generic-finding gap is_complete() itself used to
+            # have. Confirmed directly: fixing only is_complete() left this
+            # second, independent site still reachable with the same input.
+            recipe_fields = recipe if isinstance(recipe, dict) else {}
             missing = [f for f in RederivationRecipe.REQUIRED
-                       if not (recipe or {}).get(f)]
+                       if not recipe_fields.get(f)]
             report.findings.append(
                 Finding(
                     "incomplete_recipe",

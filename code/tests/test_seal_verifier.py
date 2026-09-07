@@ -486,6 +486,33 @@ def test_incomplete_recipe_does_not_count():
     assert any(f.code == "incomplete_recipe" for f in r.findings)
 
 
+def test_a_non_dict_rederivation_recipe_is_a_specific_finding_not_a_crash():
+    """
+    `RederivationRecipe.is_complete` checked only `not d`, which catches a
+    falsy recipe (None, "", {}) but not a truthy value of the wrong type --
+    a bare string or a list, which a hostile artifact can name here just as
+    easily as a proper dict. `d.get(f)` on a non-dict truthy value raises
+    AttributeError. Fixing only `is_complete` was not enough: the
+    `incomplete_recipe` branch in `verifier.py` computed its own `missing`
+    list with `(recipe or {}).get(f)`, which only substitutes `{}` for a
+    falsy recipe too, so the identical crash was still reachable one level
+    further in even after `is_complete` itself was fixed. Both were caught
+    by `verify()`'s outer try/except before this fix, failing closed
+    (`trustworthy` stays False either way) but as an unnamed
+    "malformed_artifact" rather than the specific `incomplete_recipe`
+    finding this hostile input should produce -- the same category of gap
+    `binding_seq_out_of_range` and the non-string witness key closed
+    earlier. Checked both a string and a list, since the bug was never
+    specific to one wrong type.
+    """
+    for hostile_recipe in ("just a string, not a recipe dict", ["not", "a", "dict"]):
+        chain = _build(WitnessMode.REDERIVABLE, recipe_override=hostile_recipe)
+        r = verify(export_artifact(chain))
+        assert r.binding_level is BindingLevel.PRECEDENCE, hostile_recipe
+        assert any(f.code == "incomplete_recipe" for f in r.findings), hostile_recipe
+        assert not any(f.code == "malformed_artifact" for f in r.findings), hostile_recipe
+
+
 def test_rederivable_claim_without_a_recipe_does_not_count():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=False)
     r = verify(export_artifact(chain))
