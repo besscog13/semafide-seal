@@ -377,7 +377,19 @@ class RederivationRecipe:
 
     @staticmethod
     def is_complete(d: Optional[dict[str, Any]]) -> bool:
-        if not d:
+        """
+        `d` comes from a run body a hostile artifact controls, not only a
+        dict this package wrote itself. A JSON document can name any type
+        here -- a string, a list, a number -- and `not d` alone only
+        catches the falsy ones (None, "", 0, {}), not a truthy value that
+        is the wrong type. `d.get(f)` on a non-dict truthy value raises
+        AttributeError, reaching `verify()`'s outer try/except and failing
+        closed as an unnamed "malformed_artifact" rather than the specific
+        `incomplete_recipe` finding this hostile input should produce.
+        Confirmed directly with `rederivation_recipe` set to a bare
+        string.
+        """
+        if not isinstance(d, dict) or not d:
             return False
         return all(d.get(f) for f in RederivationRecipe.REQUIRED)
 
