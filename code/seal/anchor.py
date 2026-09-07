@@ -239,7 +239,12 @@ def resolve_bounds(
             lower = int(actual[1])
 
     upper: Optional[int] = None
-    block_hashes = {e.block_hash for e in entries}
+    # (seq, time_ns) for every anchor that matched an entry in this chain and
+    # verified. Kept per-position rather than folded into a single global
+    # bound immediately, because the entry an anchor names is the only one
+    # whose predecessors it constrains -- see the per-entry check below.
+    anchored: list[tuple[int, int]] = []
+    block_hash_to_seq = {e.block_hash: e.seq for e in entries}
     allow = ({k.strip() for k in trusted_authorities}
              if trusted_authorities is not None else None)
     for doc in list(time_anchors or []):
@@ -260,13 +265,15 @@ def resolve_bounds(
                     f"A time anchor claiming to be {doc.get('authority')!r} is "
                     "signed by an unrecognised key and is not counted.")
                 continue
-            if doc["digest"] not in block_hashes:
+            anchored_seq = block_hash_to_seq.get(doc["digest"])
+            if anchored_seq is None:
                 report.findings.append(
                     "A time anchor names a digest that is not an entry in this "
                     "chain, so it timestamps some other document.")
                 continue
             t = int(doc["time_ns"])
             upper = t if upper is None else min(upper, t)
+            anchored.append((anchored_seq, t))
         except Exception:  # noqa: BLE001
             report.findings.append("A time anchor could not be read.")
 
@@ -288,10 +295,23 @@ def resolve_bounds(
             "does not close KC1.")
         report.state = Anchoring.INCONSISTENT
         return report
-    if upper is not None and max(stamps) > upper:
+    # An anchor over entry k bounds every entry AT OR BEFORE k, per the
+    # docstring above, not entries sealed afterward. Comparing the whole
+    # chain's latest timestamp against the single tightest anchor, as this
+    # used to, manufactured a false accusation of backdating against a chain
+    # that simply kept growing, honestly, after an early entry -- an
+    # evidence commitment, say -- was externally timestamped for precedence.
+    # That is the ordinary shape of an assignment committed early and
+    # certified later, not the KC1 attack this check exists to catch.
+    violations = sorted({
+        e.seq for e in entries
+        for seq, t in anchored
+        if e.seq <= seq and e.ts_ns > t
+    })
+    if violations:
         report.findings.append(
-            f"Entries claim instants after {upper}, which is when an authority "
-            "recorded the chain as already existing.")
+            f"Entries at {violations} claim instants after an authority "
+            "recorded an entry at or after them as already existing.")
         report.state = Anchoring.INCONSISTENT
         return report
 

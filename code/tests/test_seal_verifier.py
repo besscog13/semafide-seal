@@ -2007,6 +2007,57 @@ def test_a_tampered_token_does_not_verify():
     assert any("does not verify" in f.detail for f in r.findings)
 
 
+def test_a_chain_that_keeps_growing_after_an_early_anchor_is_not_backdated():
+    """
+    An anchor over entry k bounds every entry AT OR BEFORE k, per this
+    module's own docstring, not entries sealed afterward -- the chain is
+    allowed to keep growing honestly past the moment an early entry (the
+    evidence commitment, say) was externally timestamped for precedence.
+
+    This used to compare the whole chain's LATEST timestamp against the
+    single tightest anchor, regardless of which entry that anchor actually
+    named. An anchor over the evidence commitment (entry 1) then flagged the
+    run seal and workfile binding sealed afterward -- with entirely ordinary,
+    later timestamps -- as `instant_outside_anchor`, manufacturing a false
+    accusation of backdating against a chain that never claimed anything
+    inconsistent. `_build`'s default shape is exactly this: evidence
+    committed at T0, the run sealed a second later, the binding a second
+    after that.
+    """
+    tsa = ec.generate_private_key(ec.SECP256R1())
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    # Anchors the evidence commitment (seq 1) shortly after it was sealed,
+    # well before the run (T0 + 1s) and binding (T0 + 2s) that honestly
+    # follow it.
+    token = _stamp(chain, tsa, T0 + 500_000_000, entry=1)
+
+    r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
+               trusted_authorities=[_pem(tsa)])
+    assert r.anchoring is not Anchoring.INCONSISTENT
+    assert not any(f.code == "instant_outside_anchor" for f in r.findings)
+
+
+def test_an_entry_at_or_before_the_anchored_one_is_still_caught_if_it_lies():
+    """
+    Companion to the test above: the fix narrows the check's scope, it does
+    not remove it. An entry at or before the anchored position that claims a
+    timestamp later than the anchor is still exactly the KC1 attack this
+    module exists to catch.
+    """
+    tsa = ec.generate_private_key(ec.SECP256R1())
+    far_future = T0 + 999_000_000_000
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+                   base_ns=far_future)
+    # Anchors the run seal (seq 2) at a time before the evidence commitment
+    # (seq 1, base_ns) it is supposed to follow claims to have existed.
+    token = _stamp(chain, tsa, T0 + 500_000_000, entry=2)
+
+    r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
+               trusted_authorities=[_pem(tsa)])
+    assert r.anchoring is Anchoring.INCONSISTENT
+    assert any(f.code == "instant_outside_anchor" for f in r.findings)
+
+
 def test_the_earliest_recognised_anchor_is_the_one_that_binds():
     """Several tokens are not several bounds. The tightest one is the claim."""
     tsa = ec.generate_private_key(ec.SECP256R1())
