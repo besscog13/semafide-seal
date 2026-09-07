@@ -22,7 +22,7 @@ from .artifact import EntryKind, EvidenceCommitment, RunSeal, SealChain, Witness
 from .primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit, merkle_root
 from .retention import Holding, RetentionDetermination
 from .retention import issue as issue_determination
-from .verifier import verify
+from .verifier import Completeness, verify
 
 T0 = 1_753_200_000_000_000_000
 RULE = "-" * 72
@@ -124,6 +124,15 @@ def _evidentiary_reliance(report) -> bool:
     question. This display intentionally keeps that result separate from the
     evidentiary propositions rather than relabeling cryptographic integrity as
     historical reliance.
+
+    Compares against ``Completeness.CONSISTENT`` by identity rather than
+    against the string ``"COMPLETE"``, which is not a member of the
+    ``Completeness`` enum at all (the real members are UNCHECKED, CONSISTENT,
+    SHORT, MISMATCHED, UNUSABLE) and so could never match. This runner never
+    currently supplies a checkpoint, so completeness stays UNCHECKED and this
+    bug was invisible in every scenario the demo actually runs; confirmed
+    directly that a real checkpoint making completeness reach CONSISTENT, the
+    best real state, still compared false against the nonexistent value.
     """
     evidence = report.evidence
     return all((
@@ -132,7 +141,7 @@ def _evidentiary_reliance(report) -> bool:
         evidence.recipe_available,
         evidence.recipe_reproduced,
         evidence.historical_execution_established,
-        report.completeness.name == "COMPLETE",
+        report.completeness is Completeness.CONSISTENT,
     ))
 
 
@@ -160,7 +169,7 @@ def main() -> None:
     print(f"  Recipe available        {_established(report.evidence.recipe_available)}")
     print(f"  Recipe reproduced       {_established(report.evidence.recipe_reproduced)}")
     print(f"  Historical execution    {_established(report.evidence.historical_execution_established)}")
-    print(f"  Completeness            {_established(report.completeness.name == 'COMPLETE')}")
+    print(f"  Completeness            {_established(report.completeness is Completeness.CONSISTENT)}")
     print(RULE)
     _print_verdict(report)
 
