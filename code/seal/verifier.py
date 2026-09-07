@@ -911,6 +911,20 @@ def _witness_attestation_valid(
         return False, (f"Run {run_body.get('run_id')} declares an independent witness, "
                        "but carries no attestation that it observed this execution.")
     key = attestation.get("public_key")
+    if not isinstance(key, str):
+        # A hostile artifact can name any JSON type here, not only a string
+        # or an absent field. Left unguarded, `key.strip()` below raises
+        # AttributeError on anything else -- a real crash reaching this
+        # function, not a hypothetical one: confirmed with a manifest
+        # carrying `witness_attestation.public_key: 12345`. verify()'s
+        # outer try/except still catches it and fails closed, but as an
+        # unnamed "malformed_artifact" quoting a raw Python exception
+        # rather than a finding that says what is actually wrong, the same
+        # gap `binding_seq_out_of_range` closed for an out-of-range
+        # binding.seq.
+        return False, (f"Run {run_body.get('run_id')}'s witness attestation names a "
+                       "public_key that is not a string; nothing here establishes "
+                       "independent observation.")
     if not key or key.strip() == run_key.strip():
         return False, (f"Run {run_body.get('run_id')} has no distinct witness key; "
                        "a self-authored signature over a supplied bundle is not independent.")

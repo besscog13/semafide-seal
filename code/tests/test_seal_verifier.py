@@ -393,6 +393,32 @@ def test_self_declared_witness_does_not_clear_kc2():
     assert any(f.code == "witness_self_declared" for f in r.findings)
 
 
+def test_a_witness_attestation_naming_a_non_string_public_key_is_a_specific_finding_not_a_crash():
+    """
+    `attestation.get("public_key")` used to be checked only with `not key`,
+    which passes any truthy, non-string JSON value straight through to
+    `key.strip()` a line later -- an int, a list, a dict, all raise
+    AttributeError there. `verify()`'s outer try/except still catches it
+    and fails closed (`trustworthy` stays False), but as an unnamed
+    "malformed_artifact" quoting a raw Python exception rather than a
+    finding that says what is actually wrong, the same gap
+    `binding_seq_out_of_range` closed for an out-of-range `binding.seq`.
+    Confirmed this reached `verify()` through a real, otherwise well-formed
+    artifact before fixing it, not only against a hand-built dict.
+    """
+    witness_key = ec.generate_private_key(ec.SECP256R1())
+    chain = _build(WitnessMode.INDEPENDENT, witness_key=witness_key)
+    doc = export_artifact(chain)
+    for e in doc["entries"]:
+        if e["kind"] == "run_seal":
+            e["body"]["witness_attestation"]["public_key"] = 12345
+    r = verify(doc, trusted_keys=[chain.public_key_pem],
+               trusted_witness_keys=["whatever"])
+    assert not r.trustworthy
+    assert any(f.code == "witness_self_declared" for f in r.findings)
+    assert not any(f.code == "malformed_artifact" for f in r.findings)
+
+
 def test_independent_observer_attestation_establishes_historical_execution():
     witness_key = ec.generate_private_key(ec.SECP256R1())
     witness_pem = witness_key.public_key().public_bytes(
