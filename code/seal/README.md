@@ -78,10 +78,26 @@ The experimental append-only log and witness code in this repository should not 
 
 The package includes unit, property-based, and formal checks for the artifact and verifier state machines. A green test gate means the implementation satisfies the encoded models and test properties. It does not establish that those models are complete descriptions of the real-world custody or capture problem.
 
-To run the demo:
+Three demos, each scoped to a different question rather than one script
+covering everything:
 
 ```bash
 pip install -r code/seal/requirements.txt
 cd code
-python -m seal.demo
+python -m seal.demo           # what the verifier establishes about one sealed artifact
+python -m seal.demo_60s       # the same story, compressed for a live walkthrough
+python -m seal.demo_custody   # the custody chain: can the custodian be caught
+                               # rewriting its own history, and what a witness buys
 ```
+
+`demo.py` walks nine scenarios against a single artifact, one decision
+changed at a time, ending on the second kill condition. `demo_60s.py` is
+the presentation-length version of the same artifact-level story: an
+honest execution, a tampered one, and a selective-disclosure attack.
+Neither ever builds a `TransparencyLog` or asks a `Witness` to cosign
+anything. Both stand in `checkpoint.py`'s simpler per-chain `Checkpoint`
+for the outside party. `demo_custody.py` is one level up from either: it
+answers whether the custodian's own history can be shown never to have
+been rewritten, and what a witness cosignature buys against two
+examiners being shown different heads, using `log.py` and `witness.py`
+directly.
