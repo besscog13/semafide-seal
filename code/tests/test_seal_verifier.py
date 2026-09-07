@@ -419,6 +419,37 @@ def test_a_witness_attestation_naming_a_non_string_public_key_is_a_specific_find
     assert not any(f.code == "malformed_artifact" for f in r.findings)
 
 
+def test_a_witness_attestation_naming_a_non_string_signature_is_a_specific_finding_not_a_crash():
+    """
+    Sibling to the `public_key` bug above, one field over. `signature` used
+    to reach `bytes.fromhex(attestation.get("signature", ""))` unguarded.
+    `fromhex` raises `TypeError` on anything that is not a string -- not the
+    `ValueError` the surrounding `except` clause already catches for a
+    malformed-but-string signature -- so a manifest carrying
+    `witness_attestation.signature: null` (or any other non-string JSON
+    value) crashed past this function's own fail-closed finding and reached
+    `verify()`'s outer try/except as an unnamed "malformed_artifact" quoting
+    a raw `TypeError`. Confirmed against a real, otherwise well-formed
+    artifact with a trusted witness key, matching the `public_key` test's
+    own discipline, before fixing it.
+    """
+    witness_key = ec.generate_private_key(ec.SECP256R1())
+    witness_pem = witness_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    chain = _build(WitnessMode.INDEPENDENT, witness_key=witness_key)
+    doc = export_artifact(chain)
+    for e in doc["entries"]:
+        if e["kind"] == "run_seal":
+            e["body"]["witness_attestation"]["signature"] = None
+    r = verify(doc, trusted_keys=[chain.public_key_pem],
+               trusted_witness_keys=[witness_pem])
+    assert not r.trustworthy
+    assert any(f.code == "witness_self_declared" for f in r.findings)
+    assert not any(f.code == "malformed_artifact" for f in r.findings)
+
+
 def test_independent_observer_attestation_establishes_historical_execution():
     witness_key = ec.generate_private_key(ec.SECP256R1())
     witness_pem = witness_key.public_key().public_bytes(
