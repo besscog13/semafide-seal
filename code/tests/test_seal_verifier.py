@@ -1411,6 +1411,37 @@ def test_a_missing_consistency_proof_is_recorded_as_rebuttable():
     assert equivocation(early, later, log.consistency_proof(3)) is None
 
 
+def test_rebut_refuses_a_proof_whose_heads_do_not_verify_even_with_no_consistency_offered():
+    """
+    `equivocation` returns `None` both when a consistency proof reconciles
+    two heads and when it cannot construct evidence at all -- an invalid
+    signature is one of the reasons it refuses, since an unsigned document
+    proves nothing about anyone. `rebut` used to read that `None` as an
+    unconditional "yes," which meant a party unable to produce any real
+    consistency proof could rebut an UNRECONCILED finding for free by
+    handing back the accused heads with one signature byte flipped: the
+    corrupted signature alone made `equivocation` return `None` regardless
+    of what `consistency` contained, here literally empty. Confirmed this
+    was reachable through the real `equivocation()` -> `rebut()` path
+    before fixing it, not only against a hand-built proof dict.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    log, early = _log_of(3, key)
+    for i in range(3, 9):
+        log.append({"run": i})
+    later = sign_head(log.head(T0 + 1), key)
+
+    proof = equivocation(early, later)
+    assert proof and proof["finality"] == UNRECONCILED
+
+    tampered = json.loads(json.dumps(proof))
+    good_sig = tampered["head_b"]["signature"]
+    tampered["head_b"]["signature"] = ("0" if good_sig[0] != "0" else "1") + good_sig[1:]
+
+    assert not rebut(tampered, [])
+    assert not rebut(tampered, log.consistency_proof(3))
+
+
 def test_an_unsigned_or_mismatched_pair_accuses_nobody():
     key = ec.generate_private_key(ec.SECP256R1())
     _, head = _log_of(3, key)
