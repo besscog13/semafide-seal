@@ -313,14 +313,43 @@ class TransparencyLog:
             self._leaves.append(leaf_hash(payload))
             return len(self._leaves) - 1
 
+    def _snapshot(self) -> list[str]:
+        """
+        A consistent copy of the leaves, taken as one locked step.
+
+        `root`, `inclusion_proof`, and `consistency_proof` are recursive
+        module-level functions that slice their input across many separate
+        steps -- `len(leaves)`, then `leaves[:k]`, then `leaves[k:]`, then
+        the same again inside each recursive call. None of that is one
+        atomic operation, so a concurrent `append` can land between two of
+        those steps and hand the computation a tree that grew partway
+        through being measured: `leaves[:k]` reflects the size read before
+        the append, `leaves[k:]` reflects the list after it, and the two
+        halves no longer sum to the `n` the split point `k` was chosen
+        for. Reproduced directly: a `head()` call stalled mid-computation
+        while two more entries were appended returned a `(size, root)`
+        pair where the root did not match what any real tree of that size
+        actually hashes to -- internally inconsistent, signed, and
+        indistinguishable from a corrupted history to anyone who later
+        tries to check it. Copying under the same lock `append` holds,
+        before any of that computation starts, gives every read method a
+        single, real state of the tree to compute over. The computation
+        itself stays outside the lock, since it can be arbitrarily
+        expensive at real log sizes and nothing about it needs to block a
+        concurrent append.
+        """
+        with self._lock:
+            return list(self._leaves)
+
     def root(self) -> str:
-        return root(self._leaves)
+        return root(self._snapshot())
 
     def head(self, observed_ns: int) -> TreeHead:
-        return TreeHead(len(self._leaves), self.root(), observed_ns, self.log_id)
+        leaves = self._snapshot()
+        return TreeHead(len(leaves), root(leaves), observed_ns, self.log_id)
 
     def inclusion_proof(self, index: int) -> list[str]:
-        return inclusion_proof(self._leaves, index)
+        return inclusion_proof(self._snapshot(), index)
 
     def consistency_proof(self, old_size: int) -> list[str]:
-        return consistency_proof(self._leaves, old_size)
+        return consistency_proof(self._snapshot(), old_size)

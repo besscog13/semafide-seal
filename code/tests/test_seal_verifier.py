@@ -1225,6 +1225,83 @@ def test_append_serializes_the_write_and_its_index_read(monkeypatch):
     assert log._leaves[results["b"]] == leaf_hash("b")
 
 
+def test_head_stalled_mid_computation_does_not_corrupt_against_a_concurrent_append(monkeypatch):
+    """
+    `root`, `inclusion_proof`, and `consistency_proof` are recursive
+    functions that slice their input across many separate steps -- reading
+    the length, then `leaves[:k]`, then `leaves[k:]`, then the same again
+    inside each recursive call. None of that was one atomic operation.
+    `append` already serializes the write and its own index read for
+    exactly this reason (the test above), but the read methods took no
+    lock at all, so a concurrent `append` landing mid-recursion handed the
+    computation a tree that grew partway through being measured:
+    `leaves[:k]` reflecting the size read before the append, `leaves[k:]`
+    reflecting the list after it, the two halves no longer summing to the
+    `n` the split point `k` was chosen for.
+
+    Widened deliberately, the same way the append-index race above is
+    widened, since ordinary threaded hammering does not reliably land in a
+    window this narrow: stall the module-level `root` function on its
+    first call (the outermost `head()` invocation) with a
+    `threading.Event`, append two more entries from the main thread while
+    it is stalled, then release it and check whether the returned
+    `TreeHead`'s `(size, root)` pair is internally consistent -- whether
+    the root actually matches what a real tree of `size` leaves hashes to.
+
+    Before the fix, this reliably returned a head whose root did not
+    match its own claimed size: an internally inconsistent, signable
+    statement, indistinguishable from a corrupted history to anyone who
+    later tried to check it. The fix takes one locked snapshot of the
+    leaves before any recursive computation starts, so the computation
+    always runs over one real, whole state of the tree.
+    """
+    import threading as _threading
+
+    from seal import log as _log_module
+
+    log = TransparencyLog("stalled-head")
+    for i in range(7):
+        log.append({"i": i})
+
+    real_root = _log_module.root
+    stalled = _threading.Event()
+    release = _threading.Event()
+    call_count = [0]
+
+    def stalling_root(leaves):
+        call_count[0] += 1
+        if call_count[0] == 1:
+            stalled.set()
+            release.wait(timeout=5)
+        return real_root(leaves)
+
+    monkeypatch.setattr(_log_module, "root", stalling_root)
+
+    result = {}
+
+    def read_head():
+        result["head"] = log.head(observed_ns=1)
+
+    t = _threading.Thread(target=read_head)
+    t.start()
+    assert stalled.wait(timeout=5), "head() never reached the stalled root computation"
+
+    log.append({"i": 7})
+    log.append({"i": 8})
+
+    release.set()
+    t.join(timeout=5)
+    monkeypatch.setattr(_log_module, "root", real_root)
+
+    head = result["head"]
+    independent_root = log_root(log._leaves[:head.size])
+    assert head.root == independent_root, (
+        f"head() returned size={head.size} with a root that does not match "
+        "any real tree of that size -- an internally inconsistent, "
+        "signable (size, root) pair produced by a concurrent append landing "
+        "mid-computation")
+
+
 # ==========================================================================
 # The split view. A custodian running a correct append-only log can still show
 # one head to one examiner and another to a second, and each is internally
