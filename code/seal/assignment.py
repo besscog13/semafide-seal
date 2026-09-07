@@ -291,6 +291,19 @@ def assess(artifacts: Iterable[dict[str, Any]],
     # it degrades the state rather than only raising a finding. WHOLE has to
     # mean the disclosure is whole, or a caller reading one field gets a pass
     # on a truncated hand-over, which is the mistake `signatures_valid` made.
+    #
+    # A chain is allowed to grow past what the checkpoint recorded --
+    # `Issuer.issue`'s own docstring says so: sizes may only grow between
+    # two statements, since a chain open when the first was made is longer
+    # by the second. The head comparison below therefore checks the entry
+    # AT the recorded position, not the last entry disclosed. Comparing
+    # against the last entry instead, as this used to, meant any chain
+    # that simply grew after its checkpoint -- the ordinary shape of a
+    # checkpoint issued mid-assignment followed by more work before final
+    # disclosure -- compared a newer head against an older one and always
+    # disagreed, degrading a strictly more complete disclosure to PARTIAL.
+    # That manufactures a false accusation rather than a false clearance,
+    # which is the wrong direction for this check to fail in.
     short = []
     for cid, entries in seen.items():
         ref = expected.get(cid)
@@ -301,11 +314,13 @@ def assess(artifacts: Iterable[dict[str, Any]],
             findings.append(
                 f"Chain {cid[:12]} was recorded with {ref.entry_count} entries "
                 f"and {len(entries)} were disclosed.")
-        elif ref.head != (entries[-1].block_hash if entries else ""):
+        elif (ref.entry_count < 1
+              or entries[ref.entry_count - 1].block_hash != ref.head):
             short.append(cid)
             findings.append(
-                f"Chain {cid[:12]} does not end where the custodian recorded "
-                "it ending.")
+                f"Chain {cid[:12]} does not match what the custodian recorded "
+                f"at entry {ref.entry_count}. The chain has diverged from the "
+                "checkpointed state.")
 
     report = DisclosureReport(
         expected=len(expected),
