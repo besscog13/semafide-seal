@@ -143,6 +143,55 @@ def _open(assignment_id: str, opened_ns: int,
         return existing
 
 
+def _refuse_if_closed(assignment_id: str) -> None:
+    """
+    Raise `AssignmentError` if this assignment was certified and closed.
+
+    `_open` returns a live `_OpenAssignment` without holding any lock across
+    the return, and `seal_execution` builds an evidence commitment and, on
+    the raise path, a failed-attempt evidence commitment before it ever
+    acquires `state.lock` itself. A concurrent `close_assignment` can run to
+    completion, in full, inside that gap: it needs only `state.lock`, which
+    nothing holds yet, and `state.in_flight`, which is still 0 because this
+    call has not reached the block that increments it. `close_assignment`
+    returns a clean CONTIGUOUS, trustworthy report to its own caller and
+    writes a matching manifest to disk. The stalled call then resumes,
+    still holding its own reference to the same `_OpenAssignment` object,
+    and appends to the same chain regardless -- the certification that
+    already returned is silently no longer what the chain, or the file on
+    disk, actually holds.
+
+    On the success path this shows up as `runs_after_certification`, since
+    the appended entry is a run seal. On the failure path it does not: a
+    lone evidence commitment stranded after the binding, with no run seal
+    naming it, satisfies every coverage check `verify()` runs, `binding.seq`
+    still names the entry that was last when the binding was written and
+    `after` only counts run seals, so the corrupted file re-verifies as
+    CONTIGUOUS and trustworthy with no finding at all. That is exactly the
+    "omission the binding itself could never reveal" the `in_flight` guard
+    exists to rule out, reached by a different gap: before the first append
+    of the call rather than between two of its own.
+
+    Called from inside `state.lock`, in the same locked step as the append
+    it protects, so it is atomic with `close_assignment`'s own claim (pop
+    from `_REGISTRY`, mark in `_CLOSED`), which is made under the same lock.
+    Whichever of the two reaches `state.lock` first completes entirely
+    before the other proceeds: a call that wins the race finds nothing
+    closed and continues normally, raising `state.in_flight` so a
+    `close_assignment` that arrives afterward is refused by the existing
+    check instead; a call that loses it finds the assignment already in
+    `_CLOSED` and raises here before touching the chain, rather than
+    silently mutating a chain a certification has already left behind.
+    """
+    with _REGISTRY_LOCK:
+        if assignment_id in _CLOSED:
+            raise AssignmentError(
+                f"assignment {assignment_id} was already certified and "
+                "closed by a concurrent close_assignment call; this call's "
+                "evidence cannot be sealed into a chain that no longer "
+                "accepts entries")
+
+
 def write_manifest(assignment_id: str, manifest: dict[str, Any],
                    output_dir: str) -> Path:
     """Write the whole chain, replacing the previous state of this assignment."""
