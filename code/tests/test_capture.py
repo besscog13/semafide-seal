@@ -738,3 +738,166 @@ def test_concurrent_close_assignment_calls_produce_exactly_one_binding():
     assert len(successes) == 1
     assert successes[0][1] == 1
     assert sorted(r[0] for r in results) == ["ok", "refused"]
+
+
+def test_a_call_stalled_between_open_and_its_own_lock_does_not_corrupt_a_concurrent_certification(tmp_path, monkeypatch):
+    """
+    `_open` returns a live assignment without holding any lock across the
+    return, and `seal_execution` builds its evidence commitment before ever
+    acquiring `state.lock` itself. A `close_assignment` racing in that gap
+    needs only `state.lock`, free at this point, and `state.in_flight`,
+    still 0 since this call has not reached the block that increments it —
+    it runs to completion, returning a clean CONTIGUOUS, trustworthy report
+    to its own caller and writing a matching manifest to disk. Before this
+    fix, the stalled call then resumed regardless, appended its own
+    evidence commitment and run seal to the same chain object, and its own
+    later write silently regressed the file on disk from what
+    `close_assignment` had just certified to `runs_after_certification`, a
+    change invisible to `close_assignment`'s own caller since the manifest
+    it returned is a snapshot taken before the stalled call resumes.
+    `_refuse_if_closed` closes the gap: called from inside the same
+    `state.lock` `close_assignment`'s own claim is made under, it is atomic
+    with that claim, so whichever of the two reaches the lock first wins
+    outright, and this test checks the file on disk after both are done,
+    not only what either call was handed back directly.
+    """
+    from seal.capture import decorator as decorator_module
+
+    def valuation(x: int) -> dict:
+        return {"x": x}
+
+    output_dir = str(tmp_path)
+    sealed = seal_execution(assignment_id="ASG-2026-preflight-race",
+                            model_id="m", output_dir=output_dir)(valuation)
+    sealed(1)  # opens the assignment normally, before the patch below applies
+
+    stalled_reached = threading.Event()
+    release_stalled = threading.Event()
+    real_open = decorator_module._open
+
+    def stalling_open(*args, **kwargs):
+        state = real_open(*args, **kwargs)
+        stalled_reached.set()
+        release_stalled.wait(timeout=5)
+        return state
+
+    monkeypatch.setattr(decorator_module, "_open", stalling_open)
+
+    result = {}
+
+    def stalled_call():
+        try:
+            sealed(2)
+            result["outcome"] = "ok"
+        except AssignmentError as e:
+            result["outcome"] = "refused"
+            result["error"] = e
+
+    t = threading.Thread(target=stalled_call)
+    t.start()
+    assert stalled_reached.wait(timeout=5), "the call never reached the hold point"
+
+    manifest, report = close_assignment(
+        "ASG-2026-preflight-race", certification_ref="c",
+        effective_date="2026-09-07", output_dir=output_dir)
+    assert report.coverage is Coverage.CONTIGUOUS
+    assert report.trustworthy
+
+    release_stalled.set()
+    t.join(timeout=5)
+
+    assert result["outcome"] == "refused"
+    assert "already certified and closed" in str(result["error"])
+
+    # The file on disk, re-read after the stalled call has fully resumed
+    # and either appended or been refused, must still be exactly what
+    # close_assignment certified -- not a snapshot taken before the race
+    # resolved, which would pass whether or not the stalled call corrupted
+    # the chain behind it.
+    manifest_path = next(tmp_path.glob("*.manifest.json"))
+    on_disk = json.loads(manifest_path.read_text())
+    kinds = [e["kind"] for e in on_disk["entries"]]
+    assert kinds == ["assignment_anchor", "evidence_commitment",
+                     "run_seal", "workfile_binding"]
+    fresh = verify(on_disk, trusted_keys=[on_disk["entries"][0]["public_key"]])
+    assert fresh.coverage is Coverage.CONTIGUOUS
+    assert fresh.trustworthy
+
+
+def test_a_call_stalled_between_open_and_its_own_lock_on_the_failure_path_does_not_corrupt_a_concurrent_certification(tmp_path, monkeypatch):
+    """
+    The same gap as the success-path sibling above, reached through
+    `_seal_failed_attempt` instead: `fn` raises, and `_seal_failed_attempt`
+    calls `_open` and builds its own evidence commitment before acquiring
+    `state.lock`. Before this fix, a `close_assignment` racing in that gap
+    left the stalled call to append a lone evidence commitment after the
+    binding regardless -- and because that entry carries no run seal,
+    `verify()`'s coverage check, which only counts run seals against
+    `binding.seq`, found nothing to flag: the file on disk, re-read after
+    the stalled call resumed, re-verified as CONTIGUOUS and trustworthy
+    with no finding at all, the exact "omission the binding itself could
+    never reveal" the `in_flight` guard exists to rule out, reached by a
+    different gap than the one it guards. The caller's own exception
+    surfaces either way, since `_seal_failed_attempt` is already wrapped in
+    `except BaseException: pass`, so it alone would not have caught this;
+    what this test checks is the file on disk after the race resolves, not
+    what the caller was handed back.
+    """
+    from seal.capture import decorator as decorator_module
+
+    def flaky(x: int) -> dict:
+        if x < 0:
+            raise ValueError("bad input")
+        return {"x": x}
+
+    output_dir = str(tmp_path)
+    sealed = seal_execution(assignment_id="ASG-2026-preflight-race-fail",
+                            model_id="m", output_dir=output_dir)(flaky)
+    sealed(1)  # opens the assignment normally, before the patch below applies
+
+    stalled_reached = threading.Event()
+    release_stalled = threading.Event()
+    real_open = decorator_module._open
+
+    def stalling_open(*args, **kwargs):
+        state = real_open(*args, **kwargs)
+        stalled_reached.set()
+        release_stalled.wait(timeout=5)
+        return state
+
+    monkeypatch.setattr(decorator_module, "_open", stalling_open)
+
+    result = {}
+
+    def stalled_call():
+        try:
+            sealed(-1)
+        except BaseException as e:
+            result["exc"] = e
+
+    t = threading.Thread(target=stalled_call)
+    t.start()
+    assert stalled_reached.wait(timeout=5), "the call never reached the hold point"
+
+    manifest, report = close_assignment(
+        "ASG-2026-preflight-race-fail", certification_ref="c",
+        effective_date="2026-09-07", output_dir=output_dir)
+    assert report.coverage is Coverage.CONTIGUOUS
+    assert report.trustworthy
+
+    release_stalled.set()
+    t.join(timeout=5)
+
+    assert isinstance(result.get("exc"), ValueError), (
+        f"caller saw {type(result.get('exc')).__name__} instead of the "
+        "ValueError fn actually raised")
+    assert "bad input" in str(result["exc"])
+
+    manifest_path = next(tmp_path.glob("*.manifest.json"))
+    on_disk = json.loads(manifest_path.read_text())
+    kinds = [e["kind"] for e in on_disk["entries"]]
+    assert kinds == ["assignment_anchor", "evidence_commitment",
+                     "run_seal", "workfile_binding"]
+    fresh = verify(on_disk, trusted_keys=[on_disk["entries"][0]["public_key"]])
+    assert fresh.coverage is Coverage.CONTIGUOUS
+    assert fresh.trustworthy

@@ -13,20 +13,31 @@
 The wrapped function still returns exactly what it always returned —
 `result` above is the same dict `run_property_valuation` built. Sealing is a
 side effect, not a change to the caller's contract, with one deliberate
-exception: if the assignment was closed by a concurrent `close_assignment`
-call while `fn` was still running, sealing this run is no longer possible,
-and the call raises `AssignmentError` instead of returning `fn`'s output.
-`fn` may have completed and produced a real result; that result is
-discarded rather than handed back unsealed. The alternative, returning it
-silently while sealing quietly failed, is the cherry-picking attack this
-whole package exists to catch, reintroduced through a race between two
-calls into this module instead of through a missing check: an operator
-whose downstream system used the output would have no way to know the run
-was never recorded. Raising forces the caller to notice and decide, rather
-than letting an unsealed result flow through indistinguishable from a
-sealed one. This is the one case where the contract above does not hold,
-and it is documented rather than silently true; see
-`test_capture.py::test_a_call_that_finishes_after_its_assignment_closes_raises_rather_than_returning_unsealed`.
+exception: if the assignment is closed by a concurrent `close_assignment`
+call before this call's own evidence commitment is appended, sealing this
+run is no longer possible, and the call raises `AssignmentError` instead of
+returning `fn`'s output. That closure can land in either of two windows:
+before this call's own `_open` runs at all, or after `_open` has already
+returned a live assignment but before this call reaches its own lock to
+append -- `_open` returns without holding any lock across the return, so a
+`close_assignment` racing in that gap can finish entirely before this call
+resumes. Both are checked and both raise the same way, immediately before
+the append they would otherwise corrupt. `fn` may have completed and
+produced a real result; that result is discarded rather than handed back
+unsealed. The alternative, returning it silently while sealing quietly
+failed, is the cherry-picking attack this whole package exists to catch,
+reintroduced through a race between two calls into this module instead of
+through a missing check: an operator whose downstream system used the
+output would have no way to know the run was never recorded, and a chain a
+certification already returned CONTIGUOUS for would keep changing under
+it. Raising forces the caller to notice and decide, rather than letting an
+unsealed result flow through indistinguishable from a sealed one, or a
+certified chain keep growing past its own certification. This is the one
+case where the contract above does not hold, and it is documented rather
+than silently true; see
+`test_capture.py::test_a_call_that_finishes_after_its_assignment_closes_raises_rather_than_returning_unsealed`
+and
+`test_capture.py::test_a_call_stalled_between_open_and_its_own_lock_does_not_corrupt_a_concurrent_certification`.
 
 Everything sealed is reachable afterward on the wrapper itself:
 `run_property_valuation.last_capture` holds a `CaptureResult` with the
@@ -93,7 +104,7 @@ from ..artifact import (
     WitnessMode,
     export_artifact,
 )
-from .assignment import _open, write_manifest
+from .assignment import _open, _refuse_if_closed, write_manifest
 from ..primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit
 from ..verifier import VerificationReport, verify, witness_attestation_payload
 from .witness_client import request_witness_signature
@@ -207,6 +218,7 @@ def _seal_failed_attempt(
     )
 
     with state.lock:
+        _refuse_if_closed(assignment_id)
         chain = state.chain
         chain.append(EntryKind.EVIDENCE_COMMITMENT, evidence.to_body(), t_fail)
         state.runs += 1
@@ -390,6 +402,7 @@ class _SealedFunction:
         # another call's entries interleaving here does not change which
         # commitment this run points to.
         with state.lock:
+            _refuse_if_closed(assignment_id)
             chain = state.chain
             evidence_commitment_hash = chain.append(
                 EntryKind.EVIDENCE_COMMITMENT, evidence.to_body(), t_start
