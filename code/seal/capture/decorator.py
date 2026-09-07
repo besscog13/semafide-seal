@@ -12,10 +12,26 @@
 
 The wrapped function still returns exactly what it always returned —
 `result` above is the same dict `run_property_valuation` built. Sealing is a
-side effect, not a change to the caller's contract. Everything sealed is
-reachable afterward on the wrapper itself: `run_property_valuation.last_capture`
-holds a `CaptureResult` with the manifest, where it was written, and what the
-real verifier concluded about it.
+side effect, not a change to the caller's contract, with one deliberate
+exception: if the assignment was closed by a concurrent `close_assignment`
+call while `fn` was still running, sealing this run is no longer possible,
+and the call raises `AssignmentError` instead of returning `fn`'s output.
+`fn` may have completed and produced a real result; that result is
+discarded rather than handed back unsealed. The alternative, returning it
+silently while sealing quietly failed, is the cherry-picking attack this
+whole package exists to catch, reintroduced through a race between two
+calls into this module instead of through a missing check: an operator
+whose downstream system used the output would have no way to know the run
+was never recorded. Raising forces the caller to notice and decide, rather
+than letting an unsealed result flow through indistinguishable from a
+sealed one. This is the one case where the contract above does not hold,
+and it is documented rather than silently true; see
+`test_capture.py::test_a_call_that_finishes_after_its_assignment_closes_raises_rather_than_returning_unsealed`.
+
+Everything sealed is reachable afterward on the wrapper itself:
+`run_property_valuation.last_capture` holds a `CaptureResult` with the
+manifest, where it was written, and what the real verifier concluded about
+it.
 
 `last_capture` answers per calling thread, not globally. A single shared slot
 cannot answer "what did my call just seal" once two callers are running
