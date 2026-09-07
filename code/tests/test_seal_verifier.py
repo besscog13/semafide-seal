@@ -1578,6 +1578,59 @@ def test_disclosure_order_does_not_change_the_verdict():
     assert assess_disclosure(list(reversed(docs)), acp).state is Disclosure.WHOLE
 
 
+def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
+    """
+    `assignment.Issuer.issue`'s own docstring says sizes are allowed to
+    grow between two statements, since a chain open when the first was
+    made is longer by the second. The ordinary shape this covers: a
+    checkpoint gets issued mid-assignment, more runs happen, and the full,
+    grown chain is what actually reaches an examiner at final disclosure.
+
+    `assess` used to compare the checkpoint's recorded head against the
+    LAST entry disclosed rather than the entry at the recorded position,
+    so any chain that had simply grown past its own checkpoint -- with
+    the checkpointed prefix completely unchanged -- compared a newer head
+    against an older one, always disagreed, and degraded a strictly more
+    complete disclosure to PARTIAL. That manufactures a false accusation
+    (the examined party is hiding something) out of ordinary, honest
+    continued work, which is the wrong direction for a completeness check
+    to fail in.
+    """
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    acp = _assignment_checkpoint([chain])
+    checkpointed_head_index = len(chain.entries) - 1
+
+    # More legitimate work after the checkpoint was issued, before the
+    # chain is ever handed to an examiner.
+    root = merkle_root(_rows())
+    ev = chain.append(
+        EntryKind.EVIDENCE_COMMITMENT,
+        EvidenceCommitment(commitment_id="ev-grown", row_root=root, row_count=40,
+                           source="MLS-export", as_of="2026-03-14T09:00:00Z",
+                           query_descriptor={"radius_mi": "1.0", "months": 12}
+                           ).to_body(),
+        T0 + 10_000_000_000).block_hash
+    chain.append(
+        EntryKind.RUN_SEAL,
+        RunSeal(run_id="run-grown", primitives=_primitives(root),
+               evidence_commitment_hash=ev,
+               witness_mode=WitnessMode.SELF_ATTESTED).to_body(),
+        T0 + 11_000_000_000)
+
+    report = assess_disclosure([export_artifact(chain)], acp)
+    assert report.state is Disclosure.WHOLE, report.findings
+    assert report.findings == ()
+
+    # A genuine divergence at the checkpointed position must still be
+    # caught, even with the same later growth appended after it.
+    doc = export_artifact(chain)
+    doc["entries"][checkpointed_head_index]["block_hash"] = "f" * 64
+    diverged = assess_disclosure([doc], acp)
+    assert diverged.state is not Disclosure.WHOLE
+    assert any("diverged from the checkpointed state" in f
+              for f in diverged.findings)
+
+
 def test_a_chain_not_in_the_assignment_is_reported_rather_than_counted():
     """
     Answering a five-chain statement with a sixth chain nobody recorded is the
