@@ -270,11 +270,35 @@ def rebut(proof: dict[str, Any], consistency: list[str]) -> bool:
     True means the proof supplied reconciles the two heads and the accusation
     is spent. A CONTRADICTION cannot be rebutted, and this returns False for
     one however good the accompanying proof is.
+
+    Checks the heads themselves before trusting `equivocation`'s verdict on
+    them, rather than reading its `None` return as an unconditional "yes."
+    `equivocation` returns `None` both when a consistency proof reconciles
+    two heads and when it cannot construct evidence at all -- an invalid
+    signature, a mismatched `log_id`, or a mismatched signing key all
+    return `None` too, since none of those establishes misconduct either,
+    which is the right contract for *constructing* evidence and the wrong
+    one for *reading* a verdict. Without this check, a party unable to
+    produce a real consistency proof could rebut an UNRECONCILED finding
+    for free by handing back the same two heads with one signature byte
+    flipped: the corrupted signature alone makes `equivocation` return
+    `None` regardless of what `consistency` actually contains. Re-checking
+    both signatures, the `log_id`, and the signing key here first, the same
+    preconditions `equivocation` itself checks before anything else, means
+    a `None` verdict reached past them can only be the one case this
+    function's own docstring promises: the supplied `consistency` proof
+    genuinely reconciles two heads that were themselves genuine.
     """
     try:
         if proof.get("finality") != UNRECONCILED:
             return False
         lo, hi = proof["head_a"], proof["head_b"]
+        if not head_signature_valid(lo) or not head_signature_valid(hi):
+            return False
+        if lo["log_id"] != hi["log_id"]:
+            return False
+        if lo["public_key"].strip() != hi["public_key"].strip():
+            return False
         return equivocation(lo, hi, consistency) is None
     except Exception:  # noqa: BLE001
         return False
