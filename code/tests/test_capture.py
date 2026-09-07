@@ -335,6 +335,55 @@ def test_a_raised_call_seals_the_attempt_and_re_raises(tmp_path):
     assert report.coverage is Coverage.CONTIGUOUS
 
 
+def test_a_raised_call_s_own_exception_survives_a_concurrent_close():
+    """
+    If the assignment closes while `fn` is still running and about to
+    raise, `_seal_failed_attempt`'s own call to `_open` raises
+    `AssignmentError` for an unrelated reason: there is no chain left to
+    seal the failed attempt into. Before this fix, that exception replaced
+    the caller's own exception entirely -- a caller with
+    `except ValueError` for their own bad-input case would see
+    `AssignmentError` instead and never catch it. Unlike the equivalent
+    race on the success path, there is no output to protect by raising
+    loudly here: `fn` already failed on its own, so silently giving up on
+    sealing the attempt and re-raising `fn`'s real exception hides nothing.
+    """
+    ran = threading.Event()
+    release = threading.Event()
+
+    @seal_execution(assignment_id="ASG-fail-close-race", model_id="m",
+                    output_dir=None)
+    def flaky(x):
+        ran.set()
+        release.wait(timeout=5)
+        raise ValueError(f"bad input: {x}")
+
+    result = {}
+
+    def worker():
+        try:
+            flaky(7)
+        except Exception as e:
+            result["exc"] = e
+
+    t = threading.Thread(target=worker)
+    t.start()
+    assert ran.wait(timeout=5), "fn never started"
+
+    _open("ASG-fail-close-race", 0, None)
+    close_assignment("ASG-fail-close-race", certification_ref="c1",
+                     effective_date="2026-09-07", output_dir=None)
+
+    release.set()
+    t.join(timeout=5)
+
+    assert "exc" in result
+    assert isinstance(result["exc"], ValueError), (
+        f"caller saw {type(result['exc']).__name__} instead of the "
+        "ValueError fn actually raised")
+    assert "bad input: 7" in str(result["exc"])
+
+
 def test_a_second_signing_key_for_an_open_assignment_is_refused():
     """
     A chain carries one key. Accepting a second decorator's key silently would
