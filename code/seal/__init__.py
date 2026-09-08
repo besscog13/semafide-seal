@@ -115,6 +115,7 @@ __all__ = [
     "Beacon",
     "TimeAnchor",
     "issue_time_anchor",
+    "resolve_bounds",
     "AssignmentAnchor",
     "AssignmentCheckpoint",
     "AssignmentIssuer",
