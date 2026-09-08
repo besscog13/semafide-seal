@@ -2067,6 +2067,69 @@ def test_backdating_is_caught_by_the_lower_bound_and_only_by_it():
                for f in r.findings)
 
 
+def test_a_resolved_beacon_with_no_time_anchor_is_bounded_only_below():
+    """
+    `LOWER_ONLY` had no test anywhere: every existing beacon test either
+    supplies no resolver (UNANCHORED, the resolver-missing branch) or
+    supplies both a resolver and a time anchor (BOUNDED). This is the
+    remaining combination -- a beacon that genuinely resolves, with nothing
+    from an authority at all -- which is the mirror image of
+    `test_a_timestamp_alone_leaves_backdating_untouched`'s `UPPER_ONLY` on
+    the other side of the interval.
+    """
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    r = verify(export_artifact(chain), rederive=_ok, beacon_resolver=_resolver)
+    assert r.anchoring is Anchoring.LOWER_ONLY
+    assert r.anchor_interval_ns is None
+    assert any(f.code == "no_upper_time_bound" for f in r.findings)
+
+
+def test_a_beacon_resolver_that_raises_is_treated_as_unresolved():
+    """
+    `beacon_resolver` is a callback the caller supplies, reaching out to
+    whatever the examiner uses to check a published value -- a real network
+    call in practice, which can fail in ways beyond returning `None`. The
+    `except Exception` around that call had no test; without it, a resolver
+    raising would crash `verify()` outright rather than degrading to the
+    same "could not be resolved" position a resolver returning `None`
+    already reaches correctly.
+    """
+    def exploding_resolver(source, pulse):
+        raise RuntimeError("network error, not a documented None return")
+
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    r = verify(export_artifact(chain), rederive=_ok,
+              beacon_resolver=exploding_resolver)
+    assert r.anchoring is Anchoring.UNANCHORED
+    assert any("could not be resolved" in f.detail for f in r.findings)
+
+
+def test_a_time_anchor_with_an_unreadable_digest_does_not_crash_the_verifier():
+    """
+    `digest` is typed `str` on `TimeAnchor` and nothing enforces that at
+    runtime before signing -- an authority's own signing code could carry
+    the same class of bug this package has fixed elsewhere for a
+    `witness_attestation.public_key` or `.signature` naming the wrong JSON
+    type. Here the value survives signing (canonicalization accepts a list)
+    and only breaks later, at `block_hash_to_seq.get(doc["digest"])`, which
+    raises on an unhashable key. Confirmed this reaches a genuinely
+    signature-valid anchor first, not one rejected earlier for a bad
+    signature, which is what a naive version of this test would have
+    produced instead.
+    """
+    tsa = ec.generate_private_key(ec.SECP256R1())
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    token = issue_anchor(TimeAnchor("tsa", ["not", "a", "string"],
+                                    T0 + 60_000_000_000), tsa)
+    from seal.anchor import signature_valid
+    assert signature_valid(token)
+
+    r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
+              trusted_authorities=[_pem(tsa)])
+    assert r.anchoring is Anchoring.UNANCHORED
+    assert any(f.detail == "A time anchor could not be read." for f in r.findings)
+
+
 def test_a_beacon_nobody_resolves_is_the_sealer_talking_to_itself():
     """Same shape as `witness_mode: independent`. The value has to be looked up
     somewhere other than the document it constrains."""
