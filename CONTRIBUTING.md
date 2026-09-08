@@ -6,15 +6,20 @@ wrong.
 
 ## What this repository is
 
-The verification core. It defines and tests what evidence a record needs to
-support claims about an automated execution. It does not capture executions and
-it does not provide production custody, so a change that assumes either of those
-exists is working against a layer that has not been built.
+The verification core, and it now includes a capture scaffold. It defines and
+tests what evidence a record needs to support claims about an automated
+execution, and `code/seal/capture/` seals a live function call into a real
+artifact against that verifier. It does not enforce that every run in an
+assignment reaches the chain, since the decorator is opt-in per function and
+an undecorated call is invisible, and it does not provide production custody,
+so a change that assumes either of those exists is working against a layer
+that has not been built.
 
 `code/seal/` holds the artifact schema, the append-only log primitives, the
-checkpoint and witness machinery, the external time-bound models, and the
-standalone verifier. `code/tests/` holds the unit, adversarial, and
-property-based tests. `specs/` holds formal specifications checked with Z3.
+checkpoint and witness machinery, the external time-bound models, the
+standalone verifier, and a capture scaffold (`code/seal/capture/`).
+`code/tests/` holds the unit, adversarial, and property-based tests. `specs/`
+holds formal specifications checked with Z3.
 
 ## Running everything
 

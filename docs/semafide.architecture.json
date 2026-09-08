@@ -21,7 +21,7 @@
           "seal",
           "log"
         ],
-        "note": "A lender calls a cascade; the cascade runs a model. Capture at the application boundary is not implemented."
+        "note": "A lender calls a cascade; the cascade runs a model. Capture at the application boundary exists as an opt-in scaffold that nothing yet requires the cascade to call."
       },
       {
         "id": "the-gap",
@@ -133,7 +133,7 @@
       "type": "security",
       "label": "Capture and seal",
       "sublabel": "Manifest at application boundary",
-      "tag": "UNBUILT",
+      "tag": "SCAFFOLD",
       "pos": [
         422,
         165
@@ -469,7 +469,7 @@
       "dot": "rose",
       "title": "Open, and named rather than hidden",
       "items": [
-        "Capture at execution time is not implemented.",
+        "Capture exists as an opt-in scaffold; nothing enforces that every run reaches it.",
         "Boundary establishment: nothing prevents execution outside the instrumented path.",
         "Who the witness is, and whether anyone checks what they signed.",
         "Money is spent because this evidence is absent. Established.",
