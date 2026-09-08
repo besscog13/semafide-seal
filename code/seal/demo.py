@@ -404,6 +404,18 @@ def main() -> None:
         ("the same, on a backdated chain", backdated,
          [issue_anchor(TimeAnchor("tsa", backdated.entries[-1].block_hash,
                                   T0 + 60_000_000_000), tsa)], resolver),
+        # An anchor over the evidence commitment (entries[1], not the last
+        # entry), taken shortly after it was sealed and well before the run
+        # and binding that honestly follow it. An anchor bounds the entry it
+        # names and everything before it, not what a chain does afterward,
+        # so this must read BOUNDED rather than INCONSISTENT. It used to
+        # read INCONSISTENT: the check compared every entry's timestamp
+        # against the single tightest anchor regardless of which entry that
+        # anchor actually covered, so a chain honestly continuing past an
+        # early anchor was accused of the exact thing it did not do.
+        ("an early anchor, the chain grown honestly after", honest,
+         [issue_anchor(TimeAnchor("tsa", honest.entries[1].block_hash,
+                                  T0 + 500_000_000), tsa)], resolver),
     ]:
         r = verify(export_artifact(chain),
                    trusted_keys=[chain.public_key_pem],
@@ -421,6 +433,13 @@ def main() -> None:
     print("   which is the earlier side, and no authority can bound it. That")
     print("   needs a commitment to something not yet published, and the")
     print("   mechanism this project named for the job does the other half.")
+    print("\n   The fifth row is not the backdating attack. It is the ordinary")
+    print("   shape of real work: evidence committed early and timestamped")
+    print("   for precedence, the analysis and certification following")
+    print("   honestly afterward. An anchor over one entry bounds that entry")
+    print("   and everything before it, not what the chain does next, so")
+    print("   this reads BOUNDED. Reading it as INCONSISTENT would accuse an")
+    print("   honest chain of the one thing this mechanism exists to catch.")
 
     print(f"\n{RULE}")
     print("  Re-derivation clears KC2 only where the evidence cannot be kept")
