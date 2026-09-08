@@ -98,6 +98,8 @@ What crosses that boundary is a commitment rather than the evidence itself. The 
 
 **The read path.** An examiner receives the runs, plus a signed checkpoint issued by the custodian rather than by the sealer, stating how many runs the assignment holds and what the chain ends with. Verification without that checkpoint reports that completeness was never checked rather than reporting a pass, which is the difference between a custody product and an archive.
 
+The checkpoint issuer is stateful rather than stateless. It remembers what it last signed for an assignment and refuses to sign a shorter count or a conflicting one afterward. A custodian who tried anyway would produce two conflicting signed statements, and that pair is itself permanent, transferable evidence of the attempt, checkable by a party who was present for neither signing. That is what separates a checkpoint from the custodian's word: not that the custodian is trusted to be honest, but that dishonesty would leave proof.
+
 What is delivered is both a file and an address. The file is an offline-verifiable proof composing the checkpoint, the cosignatures, and the inclusion proof, and it can be handed to a party who trusts nobody and checked without contacting anyone. The address is the log it came from, which is what makes the count answerable at all.
 
 ### 3.2 Two moments, kept separate
@@ -167,7 +169,7 @@ Two consequences are load-bearing and easy to get wrong. Successful re-derivatio
 
 ## 5. Verification Boundaries and Cross-Cutting Guarantees
 
-- **Assignment disclosure:** Reports whether anything outside the supplied chain states how many chains the assignment holds. A per-chain checkpoint is honest about the chain it names and silent about every other, so five chains under one assignment can each verify perfectly and each carry a true checkpoint. Counting siblings is a question only the party holding all of them can answer, which is why the input is the custodian's rather than the sealer's. Absent that input the verifier reports the question as unchecked rather than as a pass, and it never establishes that no execution existed outside the records the custodian received.
+- **Assignment disclosure:** Reports whether anything outside the supplied chain states how many chains the assignment holds. A per-chain checkpoint is honest about the chain it names and silent about every other, so five chains under one assignment can each verify perfectly and each carry a true checkpoint. Counting siblings is a question only the party holding all of them can answer, which is why the input is the custodian's rather than the sealer's. Absent that input the verifier reports the question as unchecked rather than as a pass. This closes one half of completeness and states the other half rather than closing it: whether what was disclosed matches what the custodian holds is a question this mechanism answers; whether every run that happened ever reached the custodian in the first place is a question about the operator's own machine that nothing here observes. See Section 3.4.
 - **External time bounds:** Can anchor execution between verifiable physical boundaries, such as an RFC 3161 timestamp authority (upper bound) and an unpredictable published public value (lower bound).
 
 These mechanisms establish specific propositions. They should not be treated as proof of substantive business wisdom, appraisal accuracy, model quality, or legal correctness.
@@ -184,9 +186,10 @@ The goal is not to replace judgment. It is to make the factual substrate beneath
 - `code/seal/primitives.py`: The six constituents of a decision, canonical JSON encoding, and the commitment and Merkle-root functions everything else is built on.
 - `code/seal/artifact.py`: The record schema, meaning the entry kinds, the evidence commitment, the run seal, the re-derivation recipe, and the workfile binding.
 - `code/seal/log.py`: Append-only log primitives with inclusion and consistency proof machinery.
-- `code/seal/checkpoint.py` and `code/seal/anchor.py`: Signed log-state checkpoints, and the external time bounds that constrain when a chain was written.
+- `code/seal/checkpoint.py`: Signed log-state checkpoints, issued by a stateful signer that remembers what it last signed for an assignment and refuses to sign a shorter or conflicting count afterward. That refusal is proved over unbounded histories in `specs/SPEC_checkpoint_issuer.py`, not only tested against examples.
+- `code/seal/anchor.py`: The external time bounds that constrain when a chain was written.
 - `code/seal/witness.py`: Witness cosigning, equivocation detection, and the counting rules for a cosignature set.
-- `code/seal/assignment.py`: Assignment-level disclosure, meaning whether the disclosed chains are all the chains.
+- `code/seal/assignment.py`: Assignment-level disclosure, meaning whether the disclosed chains are all the chains, backed by the same non-equivocation guarantee as the per-chain checkpoint and proved the same way in `specs/SPEC_assignment_issuer.py`.
 - `code/seal/retention.py`: Third-party retention determinations, meaning whether the operator could have held the raw input, which decides whether re-derivation establishes anything beyond a locally retained and timestamped copy.
 - `code/seal/verifier.py`: The standalone verifier. It computes the five propositions, the disclosure and completeness states, the time bounds, and the findings that explain each.
 - `code/seal/evidence.py`: The relation-level reliance test, which is narrower than cryptographic trust and separate from it.
@@ -249,7 +252,15 @@ Every mechanism this project relies on exists as commodity infrastructure with p
 
 Three things survive that analysis, and they are commercial rather than cryptographic.
 
-**The namespace.** Establishing how many analyses an assignment holds is a statement only the party who owns the assignment identifier can make. A per-chain proof is honest about the chain it names and silent about every other, so the counting question is answerable exactly once, by whoever holds all of them. That position is structural rather than technical, and it is the property Section 9.1 identifies as surviving every check run so far.
+**The namespace.** Establishing how many analyses an assignment holds is a statement only the party who owns the assignment identifier can make, and a count worth trusting rests on exactly three properties, not on the cryptography inside any one of them.
+
+First, the party making the statement cannot be the party whose work is being counted. The verifier enforces this mechanically: a checkpoint sharing a signing key with the chains it names is refused, because a count signed by the party being examined is that party counting its own submissions.
+
+Second, the party making the statement cannot quietly revise it later. The checkpoint issuer remembers what it last signed for an assignment and refuses to sign a shorter or contradictory count afterward, a guarantee proved over unbounded histories in `specs/SPEC_checkpoint_issuer.py` and `specs/SPEC_assignment_issuer.py` rather than asserted in prose. A count the counter can rewrite whenever convenient is not a count.
+
+Third, the party making the statement can only count what actually reached it. This is where the property stops rather than where it is claimed to end. Whether a disclosed set matches what the custodian holds is answered; whether every run that happened ever reached the custodian at all is not, and Section 3.4 names that gap rather than obscuring it.
+
+The first two are implemented and formally specified. The third is open. That combination, not any primitive inside it, is the position Section 9.1 identifies as surviving every check run so far, and it is structural rather than technical: owning the namespace and being unable to revise what is said about it is what a competitor cannot obtain merely by copying the cryptography.
 
 **The domain integration.** Knowing which questions an examiner asks, which artifacts a workfile is required to contain, and where in a real workflow a record can be captured without breaking it is knowledge accumulated per market rather than written once.
 
