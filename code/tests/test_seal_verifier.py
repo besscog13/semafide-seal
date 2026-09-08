@@ -1783,6 +1783,19 @@ def test_equivocation_holds_on_a_proof_missing_a_head_fails_closed():
     assert not equivocation_holds({"kind": "equivocation", "finality": CONTRADICTION})
 
 
+def test_rebut_on_a_proof_missing_a_head_fails_closed():
+    """
+    The last of `rebut`'s own gaps: `lo, hi = proof["head_a"], proof["head_b"]`
+    runs before any of the checks that follow it, on a `proof` dict a hostile
+    or truncated caller need not have built completely. Nothing before this
+    test handed `rebut` one missing either key, so its own `except Exception`
+    had no test proving it fails closed rather than propagating a raw
+    `KeyError`, the last thing separating this function from
+    `equivocation_holds`'s already-tested version of the same guard.
+    """
+    assert not rebut({"finality": UNRECONCILED}, [])
+
+
 def test_an_unsigned_or_mismatched_pair_accuses_nobody():
     key = ec.generate_private_key(ec.SECP256R1())
     _, head = _log_of(3, key)
