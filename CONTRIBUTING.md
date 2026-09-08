@@ -29,6 +29,8 @@ python specs/SPEC_merkle_consistency.py     # each spec exits 0 or 1
 cd code
 python -m seal.demo           # the guided walkthrough
 python -m seal.demo_60s       # the short external-facing walkthrough
+python -m seal.demo_custody   # the custody chain: can the custodian be caught
+                               # rewriting its own history, and what a witness buys
 ```
 
 The demo is not a smoke test. It prints verdicts, and those verdicts have been
