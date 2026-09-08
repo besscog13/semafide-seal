@@ -1506,6 +1506,29 @@ def _log_of(n, key, ts=T0, log_id="semafide"):
     return log, sign_head(log.head(ts), key)
 
 
+def test_a_witness_refuses_a_head_that_does_not_verify_against_its_own_key():
+    """
+    `cosign`'s very first guard, before it ever touches `_seen`, and nothing
+    exercised it: every existing witness test hands it a genuinely signed
+    head, whether honest, conflicting, shrunk, or from a different key.
+    A witness asked to cosign a head with a corrupted signature must refuse
+    outright rather than recording it as "seen" -- a witness that quietly
+    remembered a head it never actually verified would be worth exactly the
+    self-declared attestation this whole module exists to replace.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    log = TransparencyLog("semafide")
+    for i in range(3):
+        log.append({"run": i})
+    head = sign_head(log.head(T0), key)
+    good_sig = head["signature"]
+    head["signature"] = ("0" if good_sig[0] != "0" else "1") + good_sig[1:]
+
+    w = Witness("state-board", ec.generate_private_key(ec.SECP256R1()))
+    with pytest.raises(WitnessRefusal, match="does not verify"):
+        w.cosign(head)
+
+
 def test_a_witness_refuses_a_second_root_at_the_same_size():
     """
     The mechanism, in one test. A witness that keeps state cannot be shown two
@@ -1715,6 +1738,49 @@ def test_rebut_refuses_a_proof_whose_heads_do_not_verify_even_with_no_consistenc
 
     assert not rebut(tampered, [])
     assert not rebut(tampered, log.consistency_proof(3))
+
+
+def test_rebut_refuses_a_proof_pairing_heads_from_different_logs_or_keys():
+    """
+    `rebut` re-checks `log_id` and signing-key agreement itself rather than
+    trusting `equivocation`'s own `None` return for the same reason it
+    re-checks signatures (see the docstring on `rebut` and the signature
+    version of this test above): `equivocation(lo, hi, consistency)` returns
+    `None` for a log_id or key mismatch exactly as readily as it does for a
+    genuinely reconciled pair, so a `rebut` that skipped straight to that
+    call would accept a hand-built "proof" pairing two heads that were never
+    from the same log as a successful rebuttal. Neither existing mismatch
+    test (`test_an_unsigned_or_mismatched_pair_accuses_nobody`) calls
+    `rebut` at all; both call `equivocation`, which never lets a mismatched
+    pair become a `proof` object in the first place, so nothing before this
+    test ever handed `rebut` one built by hand instead.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    _, head_a = _log_of(3, key, log_id="log-a")
+    _, head_b = _log_of(4, key, log_id="log-b")
+    fake_proof = {"kind": "equivocation", "finality": UNRECONCILED,
+                 "log_id": "log-a", "reason": "manufactured for the test",
+                 "head_a": head_a, "head_b": head_b}
+    assert not rebut(fake_proof, [])
+
+    other_key = ec.generate_private_key(ec.SECP256R1())
+    _, head_c = _log_of(3, key)
+    _, head_d = _log_of(4, other_key)
+    fake_proof2 = {"kind": "equivocation", "finality": UNRECONCILED,
+                  "log_id": "semafide", "reason": "manufactured for the test",
+                  "head_a": head_c, "head_b": head_d}
+    assert not rebut(fake_proof2, [])
+
+
+def test_equivocation_holds_on_a_proof_missing_a_head_fails_closed():
+    """
+    `equivocation_holds` re-derives the verdict from `proof["head_a"]` and
+    `proof["head_b"]`, which a hostile or truncated proof document need not
+    carry. Nothing before this test handed it one missing either key, so
+    the `except Exception` around the re-derivation had no test proving it
+    fails closed rather than propagating a raw `KeyError`.
+    """
+    assert not equivocation_holds({"kind": "equivocation", "finality": CONTRADICTION})
 
 
 def test_an_unsigned_or_mismatched_pair_accuses_nobody():
