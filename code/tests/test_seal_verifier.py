@@ -673,6 +673,29 @@ def test_disagreeing_determinations_do_not_clear_kc2():
     assert any(f.code == "retention_contested" for f in r.findings)
 
 
+def test_garbage_entries_in_the_determinations_list_are_skipped_not_fatal():
+    """
+    `retention_determinations` is a list an examiner supplies, assembled from
+    wherever they keep signed readings -- nothing guarantees every element
+    is even a dict before `assess` gets to it. `None`, a bare string, an
+    int, and a list are not hypothetical: they are what a hand-edited or
+    partially-parsed JSON array degrades to. `assess`'s own guard
+    (`if not isinstance(doc, dict): continue`) had no test, and mixing
+    those in alongside one genuine, matching determination checks both
+    halves at once: the garbage does not crash or poison the result, and
+    the real determination underneath it still clears KC2 exactly as it
+    would on its own.
+    """
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    determinations = [None, "garbage", 42, ["nested", "list"],
+                      _determination(Holding.OPERATOR_CANNOT_HOLD)]
+    r = verify(export_artifact(chain), rederive=_ok,
+              retention_determinations=determinations)
+    assert r.input_provenance is Provenance.SOURCED
+    assert r.input_holding is Holding.OPERATOR_CANNOT_HOLD
+    assert not r.kc2_fires
+
+
 def test_an_undetermined_reading_resolves_against_clearance():
     """
     An honest reading that could not tell is recorded rather than guessed, and
