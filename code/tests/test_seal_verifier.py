@@ -1260,6 +1260,79 @@ def test_malformed_proof_entries_fail_rather_than_crash():
     assert ok is False and reason
 
 
+def test_verify_inclusion_rejects_an_out_of_range_index():
+    """
+    `verify_inclusion` opens with a bounds check before touching any
+    hashing -- an index outside `[0, size)`. The exhaustive test above
+    only ever calls it with real, in-range indices, and the
+    malformed-proof test above only ever corrupts a sibling, never the
+    index, so this guard had no test of its own.
+
+    `verify_consistency` has the analogous guard, `old_size > new_size`,
+    one line earlier in the same function. It is not tested here: an
+    exhaustive search across every (old_size, new_size, proof) combination
+    the real proof-producing functions can generate found none where
+    disabling that specific line changes the result, because the
+    arithmetic that follows already fails on its own for every
+    old_size > new_size input tried. Adding a test that looks like a
+    negative control but does not actually falsify anything would be the
+    kind of unearned claim this sweep exists to avoid.
+    """
+    leaves = [leaf_hash({"run": i}) for i in range(8)]
+    r = log_root(leaves)
+    real_proof = inclusion_proof(leaves, 3)
+
+    assert verify_inclusion(99, 8, leaves[3], r, real_proof) is False
+    assert verify_inclusion(-1, 8, leaves[3], r, real_proof) is False
+
+
+def test_inclusion_proof_and_consistency_proof_raise_on_an_out_of_range_request():
+    """
+    Unlike their `verify_*` counterparts, the two proof-*producing*
+    functions raise rather than fail closed on an out-of-range request --
+    `inclusion_proof` documents `IndexError`, `consistency_proof` documents
+    `ValueError` -- because there is no proof to hand back for a leaf or a
+    size the tree does not have; a caller asking for one has a bug, not a
+    hostile input to be tolerated. Nothing exercised either contract.
+
+    The negative control on `consistency_proof`'s guard found something
+    worth recording: removing it does not degrade to some other clean
+    error. `_subproof` recurses on `m` never converging to `n` for an
+    out-of-range `old_size`, so the actual failure without the guard is
+    an uncaught `RecursionError` blowing the stack, a worse failure than
+    the documented contract this test locks in.
+    """
+    leaves = [leaf_hash({"run": i}) for i in range(5)]
+    with pytest.raises(IndexError):
+        inclusion_proof(leaves, 99)
+    with pytest.raises(ValueError):
+        consistency_proof(leaves, 99)
+
+
+def test_heads_consistent_refuses_heads_naming_different_logs():
+    """
+    `test_a_head_from_a_different_key_or_log_is_refused` names both
+    reasons in its title but only ever constructs two heads signed by
+    different keys for the *same* `log_id` ("semafide" both times) --
+    confirmed by reading it, not assumed from the name. The log_id
+    mismatch itself, checked one line earlier in `heads_consistent`, had
+    no test of its own.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    log_a = TransparencyLog("log-a")
+    for i in range(3):
+        log_a.append({"i": i})
+    head_a = sign_head(log_a.head(0), key)
+
+    log_b = TransparencyLog("log-b")
+    for i in range(4):
+        log_b.append({"i": i})
+    head_b = sign_head(log_b.head(1), key)
+
+    ok, reason = heads_consistent(head_a, head_b, [])
+    assert not ok and "different logs" in reason
+
+
 def test_a_custodian_rewriting_its_own_log_is_detected():
     """
     The finding this module exists for. The custodian removes a run it dislikes
