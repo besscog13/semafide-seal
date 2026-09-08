@@ -2,7 +2,7 @@
 
 ## Status of this code
 
-This repository is a **pre-build verifier and artifact scaffold**. It is not a production custody service, it does not capture executions, and it has not been independently audited. Do not rely on it to preserve evidence you would need in a dispute.
+This repository is a **pre-build verifier, artifact schema, and capture scaffold**. `code/seal/capture/` seals a live function call into a real artifact and checks it against the verifier, but the decorator is opt-in per function and nothing enforces that every run in an assignment reaches the chain. There is no production custody service, and the code has not been independently audited. Do not rely on it to preserve evidence you would need in a dispute.
 
 The experimental transparency-log implementation in `code/seal/log.py` is not a production foundation. Production deployments should use established transparency-log and witness specifications rather than treating this scaffold as a replacement for them.
 
