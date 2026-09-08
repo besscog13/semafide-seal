@@ -25,20 +25,41 @@ six says nothing about size two hundred.
 
 from __future__ import annotations
 
+import copy
 import json
 
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
 from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from seal import (
+    AssignmentCheckpoint,
+    ChainRef,
+    Checkpoint,
     EntryKind,
+    EvidenceCommitment,
+    Holding,
+    Pinning,
+    PrimitiveKind,
+    PrimitiveRecord,
+    Retention,
+    RetentionDetermination,
+    RunSeal,
     SealChain,
+    TimeAnchor,
+    WitnessMode,
     canonical_bytes,
     commit,
     export_artifact,
+    issue_assignment_checkpoint,
+    issue_checkpoint,
+    issue_retention_determination,
+    issue_time_anchor,
     load_artifact,
     merkle_root,
     verify,
+    witness_attestation_payload,
 )
 from seal.log import consistency_proof, inclusion_proof, leaf_hash
 from seal.log import root as tree_root
@@ -306,6 +327,202 @@ def test_truncating_any_prefix_never_yields_trust(cut):
     doc["entries"] = doc["entries"][cut:]
     report = verify(doc, trusted_keys=[chain.public_key_pem])
     assert report.trustworthy is (cut == 0)
+
+
+# ---------------------------------------------------------------------------
+# The verifier, under a hostile SIDE document rather than a hostile primary
+# one.
+#
+# `test_verify_never_raises_and_never_trusts_garbage` above calls
+# `verify(doc)` with every other parameter absent, so it never exercises a
+# single line inside checkpoint, assignment-checkpoint, time-anchor, or
+# retention-determination handling: none of that code runs unless a caller
+# actually supplies one. Every fix made against this class of bug this
+# session (a non-string `public_key`, a non-string `signature`, a non-dict
+# recipe) was found by taking a real, otherwise valid, signed side document
+# and corrupting exactly one field, not by throwing unstructured garbage at
+# `verify`. This closes that gap permanently rather than leaving it to be
+# rediscovered by hand one field at a time.
+# ---------------------------------------------------------------------------
+
+_SIDE_KEY = ec.generate_private_key(ec.SECP256R1())
+_SIDE_CUSTODIAN = ec.generate_private_key(ec.SECP256R1())
+_SIDE_TSA = ec.generate_private_key(ec.SECP256R1())
+_SIDE_WITNESS = ec.generate_private_key(ec.SECP256R1())
+_SIDE_WITNESS_PEM = _SIDE_WITNESS.public_key().public_bytes(
+    serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+).decode("ascii")
+_SIDE_T0 = 1_000
+_SIDE_ACTION_DIGEST = commit({"a": 1})
+
+
+def _side_doc_primitives():
+    def rec(kind, payload, holder="appraiser"):
+        return PrimitiveRecord(kind=kind, commitment=payload, pinning=Pinning.PINNED,
+                                retention=Retention.FULL, holder=holder)
+    return {
+        PrimitiveKind.ACTION: rec(PrimitiveKind.ACTION, _SIDE_ACTION_DIGEST),
+        PrimitiveKind.SURFACE: rec(PrimitiveKind.SURFACE, commit({"s": 1})),
+        PrimitiveKind.EVALUATOR: rec(PrimitiveKind.EVALUATOR, commit({"e": 1})),
+        PrimitiveKind.INSTANT: rec(PrimitiveKind.INSTANT, commit({"t": 1})),
+        PrimitiveKind.CLAIM: rec(PrimitiveKind.CLAIM, commit({"c": 1})),
+    }
+
+
+def _build_side_doc_artifact():
+    """One real, fully-featured artifact: a recipe, a witness attestation,
+    everything a hostile side document could be checked against."""
+    chain = SealChain("assignment-1", private_key=_SIDE_KEY, opened_ns=_SIDE_T0)
+    root = merkle_root([commit({"r": i}) for i in range(5)])
+    ev = EvidenceCommitment(commitment_id="ev-1", row_root=root, row_count=5,
+                            source="MLS", as_of="2026-01-01")
+    ev_hash = chain.append(EntryKind.EVIDENCE_COMMITMENT, ev.to_body(), _SIDE_T0).block_hash
+
+    primitives = _side_doc_primitives()
+    primitives[PrimitiveKind.EVIDENCE] = PrimitiveRecord(
+        kind=PrimitiveKind.EVIDENCE, commitment=root, pinning=Pinning.PINNED,
+        retention=Retention.FULL, holder="custodian")
+    recipe = {
+        "endpoint": "https://x", "tool": "t", "version": "1", "invocation": {"a": 1},
+        "input_ref": ev_hash, "output_digest": _SIDE_ACTION_DIGEST,
+        "service_window": "2030",
+    }
+    run_body = RunSeal(run_id="run-1", primitives=primitives, evidence_commitment_hash=ev_hash,
+                       witness_mode=WitnessMode.INDEPENDENT, rederivation_recipe=recipe).to_body()
+    attestation = {
+        "witness": "w", "public_key": _SIDE_WITNESS_PEM, "signature": "",
+        "capture_ref": "cap-1", "statement": "observed_execution",
+    }
+    run_body["witness_attestation"] = attestation
+    attestation["signature"] = _SIDE_WITNESS.sign(
+        canonical_bytes(witness_attestation_payload(run_body)), ec.ECDSA(hashes.SHA256())
+    ).hex()
+    chain.append(EntryKind.RUN_SEAL, run_body, _SIDE_T0 + 1)
+    return chain, export_artifact(chain)
+
+
+_SIDE_CHAIN, _SIDE_DOC = _build_side_doc_artifact()
+
+_REAL_CHECKPOINT = issue_checkpoint(
+    Checkpoint("assignment-1", len(_SIDE_CHAIN.entries), _SIDE_CHAIN.head,
+              _SIDE_T0 + 2, "custodian"),
+    _SIDE_CUSTODIAN,
+)
+_REAL_ASSIGNMENT_CHECKPOINT = issue_assignment_checkpoint(
+    AssignmentCheckpoint(
+        "assignment-1",
+        (ChainRef(_SIDE_CHAIN.chain_id, _SIDE_CHAIN.head, len(_SIDE_CHAIN.entries)),),
+        _SIDE_T0 + 2, "custodian"),
+    _SIDE_CUSTODIAN,
+)
+_REAL_TIME_ANCHOR = issue_time_anchor(
+    TimeAnchor("tsa", _SIDE_CHAIN.entries[0].block_hash, _SIDE_T0 + 3), _SIDE_TSA,
+)
+_REAL_DETERMINATION = issue_retention_determination(
+    RetentionDetermination(tool="t", version="1", holding=Holding.OPERATOR_CANNOT_HOLD,
+                           source="https://x", source_digest=commit({"d": 1}),
+                           read_as_of="2026-01-01", determined_by="custodian"),
+    _SIDE_CUSTODIAN,
+)
+
+_SIDE_TSA_PEM = _SIDE_TSA.public_key().public_bytes(
+    serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+).decode("ascii")
+
+
+def _mutate(real: dict, key, value) -> dict:
+    d = copy.deepcopy(real)
+    d[key] = value
+    return d
+
+
+@given(
+    which=st.sampled_from(["checkpoint", "assignment_checkpoint", "time_anchor", "determination"]),
+    key=st.sampled_from(["signature", "public_key", "entry_count", "chains", "digest",
+                         "time_ns", "holding", "source_digest", "issuer", "assignment_id",
+                         "chain_head", "observed_ns", "authority", "tool", "version"]),
+    value=json_values,
+)
+@SLOW
+def test_verify_never_raises_with_one_field_of_a_real_signed_side_document_corrupted(
+    which, key, value,
+):
+    """
+    A real, validly signed checkpoint, assignment checkpoint, time anchor, or
+    retention determination, with exactly one field replaced by an arbitrary
+    JSON value. Every prior bug in this family (a non-string `public_key`, a
+    non-string `signature`) looked exactly like this: a document that is
+    correct everywhere except one field a hostile or buggy party controls.
+    """
+    checkpoint = assignment_checkpoint = time_anchors = retention_determinations = None
+    if which == "checkpoint":
+        checkpoint = _mutate(_REAL_CHECKPOINT, key, value)
+    elif which == "assignment_checkpoint":
+        assignment_checkpoint = _mutate(_REAL_ASSIGNMENT_CHECKPOINT, key, value)
+    elif which == "time_anchor":
+        time_anchors = [_mutate(_REAL_TIME_ANCHOR, key, value)]
+    elif which == "determination":
+        retention_determinations = [_mutate(_REAL_DETERMINATION, key, value)]
+
+    report = verify(
+        _SIDE_DOC,
+        trusted_keys=[_SIDE_CHAIN.public_key_pem],
+        rederive=lambda r: _SIDE_ACTION_DIGEST,
+        checkpoint=checkpoint,
+        assignment_checkpoint=assignment_checkpoint,
+        time_anchors=time_anchors,
+        trusted_authorities=[_SIDE_TSA_PEM],
+        retention_determinations=retention_determinations,
+        trusted_witness_keys=[_SIDE_WITNESS_PEM],
+    )
+    # `verify()` always returns a `VerificationReport`, even when its outer
+    # try/except caught an exception -- that fail-closed wrapper is exactly
+    # the mechanism under test, so `report is not None` would pass whether
+    # or not a raw exception was actually caught. The observable difference
+    # between "handled with a specific finding" and "crashed and was caught
+    # generically" is the `malformed_artifact` code, which is what every
+    # bug in this family actually looked like before its fix.
+    assert not any(f.code == "malformed_artifact" for f in report.findings), report.findings
+
+
+@given(
+    subfield=st.sampled_from([
+        "witness_attestation.statement", "witness_attestation.capture_ref",
+        "witness_attestation.witness", "witness_attestation.public_key",
+        "witness_attestation.signature", "rederivation_recipe.endpoint",
+        "rederivation_recipe.tool", "rederivation_recipe.version",
+        "rederivation_recipe.invocation", "rederivation_recipe.input_ref",
+        "rederivation_recipe.output_digest", "rederivation_recipe.service_window",
+    ]),
+    value=json_values,
+)
+@SLOW
+def test_verify_never_raises_with_one_run_body_field_corrupted(subfield, value):
+    """
+    Same idea as the side-document property above, applied to the two
+    nested objects a run body itself carries: `witness_attestation` and
+    `rederivation_recipe`. Both are dictionaries a hostile artifact controls
+    directly, one level inside a document `load_artifact` already parsed.
+    """
+    doc = copy.deepcopy(_SIDE_DOC)
+    run_entry = next(e for e in doc["entries"] if e["kind"] == "run_seal")
+    top, sub = subfield.split(".")
+    run_entry["body"][top][sub] = value
+
+    report = verify(
+        doc,
+        trusted_keys=[_SIDE_CHAIN.public_key_pem],
+        rederive=lambda r: _SIDE_ACTION_DIGEST,
+        trusted_witness_keys=[_SIDE_WITNESS_PEM],
+    )
+    # `verify()` always returns a `VerificationReport`, even when its outer
+    # try/except caught an exception -- that fail-closed wrapper is exactly
+    # the mechanism under test, so `report is not None` would pass whether
+    # or not a raw exception was actually caught. The observable difference
+    # between "handled with a specific finding" and "crashed and was caught
+    # generically" is the `malformed_artifact` code, which is what every
+    # bug in this family actually looked like before its fix.
+    assert not any(f.code == "malformed_artifact" for f in report.findings), report.findings
 
 
 # ---------------------------------------------------------------------------

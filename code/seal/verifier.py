@@ -950,7 +950,9 @@ def _witness_attestation_valid(
         # carrying `witness_attestation.signature: null` (or any other
         # non-string JSON value) reached the outer `verify()` try/except as
         # an unnamed "malformed_artifact" quoting a raw `TypeError` instead
-        # of this finding. Confirmed directly with `signature: None`.
+        # of this finding. Confirmed directly with `signature: None`, and
+        # locked in by `test_properties.py`'s
+        # `test_verify_never_raises_with_one_run_body_field_corrupted`.
         return False, (f"Run {run_body.get('run_id')}'s witness attestation names a "
                        "signature that is not a string; nothing here establishes "
                        "independent observation.")
