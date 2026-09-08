@@ -354,6 +354,30 @@ def test_signature_validity_does_not_establish_identity():
     assert any(f.code == "key_identity_unchecked" for f in r.findings)
 
 
+def test_a_key_set_that_does_not_include_the_signer_is_untrusted_not_unchecked():
+    """
+    `key_identity_unchecked` above is what happens when nobody supplies a
+    trusted set at all. This is the other branch: a caller does supply one,
+    correctly formed and non-empty, and it simply does not name the key
+    that actually signed the chain -- a different examiner's allowlist, or
+    a stale one. That must read as `key_trusted is False` with its own
+    finding, not silently fall back to the unchecked case, and nothing
+    before this exercised it: every other test in this file either passes
+    no trusted set or passes the artifact's own key.
+    """
+    chain = _build(WitnessMode.INDEPENDENT)
+    stranger = ec.generate_private_key(ec.SECP256R1())
+    stranger_pem = stranger.public_key().public_bytes(
+        serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+    ).decode("ascii")
+
+    r = verify(export_artifact(chain), trusted_keys=[stranger_pem])
+    assert r.signatures_valid
+    assert r.key_trusted is False
+    assert not r.trustworthy
+    assert any(f.code == "untrusted_key" for f in r.findings)
+
+
 # --------------------------------------------------------------------------
 # KC2: what a timestamping service could replicate
 # --------------------------------------------------------------------------
@@ -710,6 +734,73 @@ def test_evidence_committed_after_the_run_is_bundling():
     r = verify(export_artifact(chain))
     assert r.binding_level is BindingLevel.BUNDLED
     assert any(f.bears_on == "KC1" for f in r.findings)
+
+
+def test_a_run_naming_a_commitment_sealed_after_it_is_caught_not_just_a_run_naming_none():
+    """
+    The test above names no commitment at all. `commitment_not_prior` is a
+    different, sharper claim -- a run naming a real evidence commitment that
+    the chain shows was sealed at or after the run itself, which is what a
+    sealer would need if they wanted their body to name evidence they
+    committed after already knowing the output. Nothing in the existing
+    suite ever constructed that ordering; SECURITY.md lists exactly this
+    ("obtaining precedence without the evidence commitment genuinely
+    preceding the run seal") as in scope.
+
+    Building it takes a real chain (ev-1, run naming ev-1 honestly, ev-2
+    sealed after) and then doing what a sealer with their own key could do
+    to their own artifact: rewrite the run's body to name ev-2 instead, and
+    re-sign it. `chain_break` also fires here, honestly -- the mutated run's
+    hash no longer matches what ev-2's `prev_hash` was computed against --
+    and that is a second, independent detection of the same tampering, not
+    a confound; `commitment_not_prior` is checked as one finding among
+    several rather than the only one.
+    """
+    import hashlib
+
+    from seal.artifact import signing_payload
+
+    chain = SealChain("assignment-1", opened_ns=T0)
+    root = merkle_root(_rows())
+    ev1 = chain.append(EntryKind.EVIDENCE_COMMITMENT, EvidenceCommitment(
+        "ev-1", root, 40, "MLS-export", "2026-03-14T09:00:00Z").to_body(), T0)
+    chain.append(EntryKind.RUN_SEAL, RunSeal(
+        "run-1", _primitives(root), ev1.block_hash, WitnessMode.INDEPENDENT
+    ).to_body(), T0 + 1)
+    ev2 = chain.append(EntryKind.EVIDENCE_COMMITMENT, EvidenceCommitment(
+        "ev-2", root, 40, "MLS-export", "2026-03-15T09:00:00Z").to_body(), T0 + 2)
+
+    doc = export_artifact(chain)
+    run_doc = next(e for e in doc["entries"] if e["kind"] == "run_seal")
+    run_doc["body"]["evidence_commitment_hash"] = ev2.block_hash
+    raw = canonical_bytes(signing_payload(
+        EntryKind.RUN_SEAL, run_doc["seq"], run_doc["prev_hash"],
+        run_doc["body"], run_doc["ts_ns"]))
+    run_doc["block_hash"] = hashlib.sha256(raw).hexdigest()
+    run_doc["signature"] = chain._sk.sign(raw, ec.ECDSA(hashes.SHA256())).hex()  # noqa: SLF001
+
+    r = verify(doc, trusted_keys=[chain.public_key_pem])
+    assert r.binding_level is BindingLevel.BUNDLED
+    assert any(f.code == "commitment_not_prior" for f in r.findings)
+
+
+def test_a_run_naming_a_commitment_not_in_the_chain_is_bundling_not_a_crash():
+    """
+    `evidence_commitment_hash` is a string the sealer writes, and nothing
+    forces it to name a real entry. A hostile or corrupted artifact can
+    point it at any value: garbage, a typo, or -- more pointedly -- the
+    hash of some other kind of entry entirely, hoping the lookup finds
+    *something*. `commitments` is built only from `EVIDENCE_COMMITMENT`
+    entries, so even naming a real `WORKFILE_BINDING`'s hash misses.
+    """
+    chain = SealChain("assignment-1", opened_ns=T0)
+    root = merkle_root(_rows())
+    chain.append(EntryKind.RUN_SEAL, RunSeal(
+        "run-1", _primitives(root), "sha256:" + "ab" * 32, WitnessMode.INDEPENDENT
+    ).to_body(), T0)
+    r = verify(export_artifact(chain))
+    assert r.binding_level is BindingLevel.BUNDLED
+    assert any(f.code == "dangling_commitment" for f in r.findings)
 
 
 # --------------------------------------------------------------------------
