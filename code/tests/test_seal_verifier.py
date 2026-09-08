@@ -2303,6 +2303,75 @@ def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
                                 T0 + 3, "custodian"), chain.entries)
 
 
+def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
+    """
+    `_extends` is the function standing between `Issuer.issue` and signing an
+    equivocating checkpoint, and none of its hostile-input branches had a
+    test: every existing test here either hands it a genuine extension
+    (which walks every check and returns True) or hands it no entries at
+    all. Nothing exercised the entries list itself being wrong.
+
+    This is the most direct version of that: an `entries` list whose actual
+    last block hash does not match the `chain_head` the new checkpoint
+    claims. A real custodian could reach this by accident (a chain fetched
+    from the wrong place, a stale cache) as easily as by an attacker's
+    construction; either way the issuer must not sign over it.
+    """
+    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
+                           T0, "custodian"), chain.entries)
+
+    chain.append(EntryKind.RUN_SEAL, RunSeal(
+        "run-2", _primitives(merkle_root(_rows())), None,
+        WitnessMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
+
+    wrong_head = "sha256:" + "ee" * 32
+    assert wrong_head != chain.head
+    with pytest.raises(CheckpointRefusal, match="not an extension"):
+        issuer.issue(
+            Checkpoint("assignment-1", len(chain.entries), wrong_head,
+                      T0 + 1, "custodian"),
+            chain.entries)
+
+
+def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
+    """
+    A subtler hostile `entries` list: the first and last checks `_extends`
+    makes both pass -- the count matches, the final block hash matches the
+    claimed `chain_head`, and the entry at the previously-checkpointed
+    boundary still matches what was signed before -- but an entry strictly
+    inside the list carries a `prev_hash` that does not chain to its
+    predecessor. Only the walk in `_extends`'s own loop catches that;
+    nothing before this test reached it, since a genuine append-built chain
+    is never broken this way and every existing test uses one.
+    """
+    import dataclasses
+
+    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
+                           T0, "custodian"), chain.entries)
+
+    chain.append(EntryKind.RUN_SEAL, RunSeal(
+        "run-2", _primitives(merkle_root(_rows())), None,
+        WitnessMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
+    chain.append(EntryKind.RUN_SEAL, RunSeal(
+        "run-3", _primitives(merkle_root(_rows())), None,
+        WitnessMode.SELF_ATTESTED).to_body(), T0 + 10_000_000_000)
+
+    tampered = list(chain.entries)
+    broken_index = len(tampered) - 2  # strictly inside, not the final entry
+    tampered[broken_index] = dataclasses.replace(
+        tampered[broken_index], prev_hash="sha256:" + "cc" * 32)
+
+    with pytest.raises(CheckpointRefusal, match="not an extension"):
+        issuer.issue(
+            Checkpoint("assignment-1", len(tampered), chain.head,
+                      T0 + 1, "custodian"),
+            tampered)
+
+
 def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment():
     """
     The lock in `Issuer.issue`, put under real load. Two threads race to be
