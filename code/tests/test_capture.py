@@ -818,6 +818,47 @@ def test_concurrent_close_assignment_calls_produce_exactly_one_binding():
     assert sorted(r[0] for r in results) == ["ok", "refused"]
 
 
+def test_an_unexpected_exception_during_the_witness_request_still_releases_in_flight(monkeypatch):
+    """
+    `request_witness_signature` is documented to fail closed and never raise
+    for a network reason, but the `except BaseException: state.in_flight -=
+    1; raise` block around that call exists for exactly the case where it
+    raises anyway -- a bug in the client, or in building the attestation
+    payload. That block has no test of its own: every other `in_flight` test
+    exercises the witness call blocking or returning `None`, never raising.
+    An untested safety net for a counter whose own comment calls a stuck
+    increment "a worse failure than the one this mechanism exists to
+    prevent" is exactly the kind of gap a future edit could reopen silently.
+
+    Confirms two things a broken decrement would get wrong in different
+    ways: the original exception must still propagate to the caller rather
+    than being swallowed, and a `close_assignment` call made afterward must
+    succeed rather than being refused with "still sealing," which is what
+    happens if `in_flight` is left incremented forever.
+    """
+    from seal.capture import decorator as decorator_module
+
+    def exploding_witness(url, payload, timeout_s=5.0):
+        raise RuntimeError("not a network failure, a real bug")
+
+    monkeypatch.setattr(decorator_module, "request_witness_signature", exploding_witness)
+
+    sealed = seal_execution(assignment_id="ASG-2026-witness-raises", model_id="m",
+                            output_dir=None, witness_url="http://fake-witness",
+                            trusted_witness_keys=[])(lambda tag: {"x": tag})
+
+    with pytest.raises(RuntimeError, match="not a network failure"):
+        sealed("A")
+
+    manifest, report = close_assignment(
+        "ASG-2026-witness-raises", certification_ref="c1",
+        effective_date="2026-09-05", output_dir=None)
+    assert report.coverage is Coverage.CONTIGUOUS
+    kinds = [e["kind"] for e in manifest["entries"]]
+    assert kinds.count("evidence_commitment") == 1
+    assert kinds.count("run_seal") == 0
+
+
 def test_a_call_stalled_between_open_and_its_own_lock_does_not_corrupt_a_concurrent_certification(tmp_path, monkeypatch):
     """
     `_open` returns a live assignment without holding any lock across the
