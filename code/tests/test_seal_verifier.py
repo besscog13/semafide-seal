@@ -596,6 +596,75 @@ def test_rederivation_over_locally_retainable_evidence_still_fires_kc2():
     assert r.kc2_fires
 
 
+def test_witness_attestation_survives_an_unexecuted_recipe():
+    """
+    `_run_evidence`'s own docstring says it establishes each proposition
+    without treating them as a ladder. The control flow used to disagree: a
+    run carrying both a complete rederivation recipe and a genuinely valid,
+    trusted witness attestation lost the attestation entirely whenever the
+    recipe path returned early, because every early return inside the
+    REDERIVABLE branch returned bare `evidence` without ever calling
+    `_attach_witness_attestation`. A recipe nobody ran and an attestation
+    somebody signed are independent claims; the first not being exercised
+    must not suppress the second.
+    """
+    witness_key = ec.generate_private_key(ec.SECP256R1())
+    witness_pem = witness_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, witness_key=witness_key)
+    r = verify(export_artifact(chain), rederive=None, trusted_witness_keys=[witness_pem])
+    assert r.evidence.recipe_available
+    assert not r.evidence.recipe_reproduced
+    assert r.evidence.witness_attestation
+    assert r.evidence.historical_execution_established
+    assert any(f.code == "not_rederived" for f in r.findings)
+
+
+def test_witness_attestation_survives_a_rederivation_mismatch():
+    """
+    Sibling to the test above, on the other early-return path. A
+    rederivation mismatch correctly drops `recipe_available`, because a
+    recipe that disagrees with its own sealed output cannot support a
+    re-derivation claim. It must not also drop a separately valid witness
+    attestation on the same run.
+    """
+    witness_key = ec.generate_private_key(ec.SECP256R1())
+    witness_pem = witness_key.public_key().public_bytes(
+        serialization.Encoding.PEM,
+        serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode("ascii")
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, witness_key=witness_key)
+    r = verify(export_artifact(chain), rederive=lambda recipe: "not-the-sealed-digest",
+               trusted_witness_keys=[witness_pem])
+    assert r.evidence.precedence
+    assert not r.evidence.recipe_available
+    assert r.evidence.witness_attestation
+    assert r.evidence.historical_execution_established
+    assert any(f.code == "rederivation_mismatch" for f in r.findings)
+
+
+def test_no_spurious_witness_finding_when_no_witness_was_ever_claimed():
+    """
+    Before the fix above, `_attach_witness_attestation` ran unconditionally
+    at the end of a successful rederivation, regardless of whether the run
+    made any witness claim at all. Against an empty `witness_attestation`
+    dict, `_witness_attestation_valid` always fails, so every successful
+    REDERIVABLE run picked up a `witness_self_declared` finding saying it
+    "declares an independent witness" -- false for a run that never
+    mentioned one. Gating the call on an actual claim removes the false
+    finding without weakening the three existing tests that assert on it,
+    all of which build a real claim (`AttestationMode.INDEPENDENT`, or a
+    supplied `witness_attestation` payload) before expecting it.
+    """
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
+    r = verify(export_artifact(chain), rederive=_ok,
+               retention_determinations=[_determination()])
+    assert r.evidence.recipe_reproduced
+    assert not any(f.code == "witness_self_declared" for f in r.findings)
+
+
 # --------------------------------------------------------------------------
 # KC2: where the retention answer comes from
 #
