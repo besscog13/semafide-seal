@@ -20,7 +20,7 @@ cd code
 python -m seal.demo
 ```
 
-For the same state space explored interactively rather than read as terminal output, see [the design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a): a five-decision panel showing which of the five propositions survive each of the 96 reachable combinations, driven by the real verifier rather than illustrative numbers. It speaks the verifier's own vocabulary directly (`REDERIVED`, `OPERATOR_CANNOT_HOLD`, `kc2_fires`), so it assumes the reader already has the propositions table below rather than explaining them from scratch.
+For the same state space explored interactively rather than read as terminal output, see [the design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a): a five-decision panel showing which of the five propositions survive each of the 96 reachable combinations, driven by the real verifier rather than illustrative numbers. It speaks the verifier's own vocabulary directly (`OPERATOR_CANNOT_HOLD`, `kc2_fires`), so it assumes the reader already has the propositions table below rather than explaining them from scratch.
 
 The rest of this README explains the problem, what the verifier can establish, what it cannot establish, and what remains unsolved.
 
@@ -68,7 +68,7 @@ The verifier records five independent propositions. They are not a ladder: each 
 | Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
 | Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
 
-Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true. `BindingLevel` remains only as a lossy, backward-compatible display projection.
+Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true.
 
 This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names. The site derives its own claim vocabulary from here, not the other way around, so a public label that has drifted from this table is the site's error to fix, not a second valid naming.
 
@@ -126,13 +126,7 @@ Collusion remains an operational question. An append-only log can make later equ
 
 `code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, standalone verifier, and a capture scaffold (`code/seal/capture/`) that seals a live function call into a real artifact and self-checks it against the verifier. It holds one chain open per assignment so that sequence numbers and prev-hash linkage run unbroken across calls, which makes an omitted run detectable rather than merely undesirable. What it does not do is site a witness on the operator's machine or establish how many runs an assignment holds: the decorator is opt-in per function, an undecorated call is invisible, and a chain never handed to a custodian is not a chain anybody can count. There is no hosted production custody service.
 
-The verifier reports the epistemic propositions above. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:
-
-- **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.
-- **PRECEDENCE:** the evidence commitment precedes the run seal. This rules out choosing that commitment after seeing the output, but does not prove the analysis consumed it.
-- **WITNESSED:** a separately trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A signature over a supplied bundle or a self-declared witness field is not enough.
-- **REDERIVABLE:** a complete execution recipe links to the claimed evidence and output and remains available for execution.
-- **REDERIVED:** a verifier actually executed that recipe and reproduced the sealed output.
+The verifier reports the epistemic propositions above and nothing else in that register. An earlier revision of this package also exposed `BindingLevel`, a single derived value that collapsed the five propositions into one rung on a lossy summary ladder; it has been removed, since it could not even represent the strongest of the five claims and every place it could mislead a reader was easier to fix by removing it than by re-caveating it again.
 
 The verifier also reports chain completeness, assignment disclosure, external time bounds, and input-retention determinations. These answer different questions. Completeness asks whether a supplied chain is whole. Disclosure asks whether the chain is the whole assignment. Anchoring asks what external evidence constrains when the chain existed. Retention asks whether the operator could have kept the input, which determines whether re-derivation provides something beyond a locally retained and timestamped copy.
 

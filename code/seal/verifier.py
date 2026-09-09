@@ -48,35 +48,12 @@ from .retention import assess as assess_holding
 from .retention import conflicts as retention_conflicts
 
 
-class BindingLevel(Enum):
-    """
-    What the artifact establishes about the relation between action and evidence.
-
-    Ordered weakest to strongest. The ordering is the point: co-occurrence is
-    not binding, and the gap between them is the one element of the framework
-    that better records management does not cure. It sits outside the matrix
-    of six primitives on three properties, because a relation among
-    constituents is not the same kind of object as a constituent.
-
-    Retained for backward compatibility. This projection must not appear in
-    user-facing output; a caller rendering a report renders
-    ``EvidencePropositions`` instead.
-    """
-
-    BUNDLED = 0
-    PRECEDENCE = 1
-    WITNESSED = 2
-    REDERIVABLE = 3
-    REDERIVED = 4
-
-
 @dataclass(frozen=True)
 class EvidencePropositions:
     """Independently established propositions about a sealed relation.
 
-    These are the source of truth.  ``BindingLevel`` remains a lossy,
-    backwards-compatible display projection; it must not be used to infer a
-    proposition that is not stated here.
+    These are the source of truth: five independent facts, none implying
+    any other.
     """
 
     precedence: bool = False
@@ -94,18 +71,6 @@ class EvidencePropositions:
             name: all(getattr(item, name) for item in items)
             for name in cls.__dataclass_fields__
         })
-
-    def binding_level(self) -> BindingLevel:
-        """Return the legacy display projection without ordering the evidence."""
-        if not self.precedence:
-            return BindingLevel.BUNDLED
-        if self.recipe_reproduced:
-            return BindingLevel.REDERIVED
-        if self.recipe_available:
-            return BindingLevel.REDERIVABLE
-        if self.witness_attestation:
-            return BindingLevel.WITNESSED
-        return BindingLevel.PRECEDENCE
 
 
 class Completeness(Enum):
@@ -145,7 +110,6 @@ class VerificationReport:
     chain_intact: bool = False
     signatures_valid: bool = False
     key_trusted: Optional[bool] = None
-    binding_level: BindingLevel = BindingLevel.BUNDLED
     evidence: EvidencePropositions = field(default_factory=EvidencePropositions)
     coverage: Coverage = Coverage.ABSENT
     completeness: Completeness = Completeness.UNCHECKED
@@ -207,7 +171,6 @@ class VerificationReport:
             f"chain_intact         {self.chain_intact}",
             f"signatures_valid     {self.signatures_valid}",
             f"key_trusted          {self.key_trusted}",
-            f"binding_level        {self.binding_level.name}",
             f"precedence           {self.evidence.precedence}",
             f"witness_attestation  {self.evidence.witness_attestation}",
             f"recipe_available     {self.evidence.recipe_available}",
@@ -419,16 +382,14 @@ def _verify(
                     )
                 )
 
-        # Evidence propositions are independently evaluated for every run. The
-        # legacy binding level is only a derived, lossy projection of this matrix.
+        # Evidence propositions are independently evaluated for every run.
         report.evidence = EvidencePropositions.across(
             _run_evidence(run, commitments, report, rederive, trusted_witness_keys)
             for run in runs
         )
-        report.binding_level = report.evidence.binding_level()
 
         # Whether a commodity timestamping service could have produced the same
-        # evidentiary force. See BindingLevel and kc2_fires for the reasoning.
+        # evidentiary force. See kc2_fires for the reasoning.
         if report.evidence.witness_attestation:
             report.timestamp_replicable = False
         elif not report.evidence.recipe_reproduced:
@@ -971,7 +932,7 @@ def _witness_attestation_valid(
                        "attestation over the observed execution relation.")
 
 
-__all__ = ["BindingLevel", "Completeness", "Coverage", "EvidencePropositions",
+__all__ = ["Completeness", "Coverage", "EvidencePropositions",
            "Finding", "VerificationReport", "verify", "witness_attestation_payload"]
 
 

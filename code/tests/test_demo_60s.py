@@ -23,7 +23,6 @@ def _fully_established_report(completeness: Completeness) -> VerificationReport:
         chain_intact=True,
         signatures_valid=True,
         key_trusted=True,
-        binding_level=evidence.binding_level(),
         evidence=evidence,
         timestamp_replicable=False,
         completeness=completeness,

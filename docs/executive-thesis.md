@@ -161,7 +161,7 @@ The verifier's source of truth is five independent propositions. They are **not 
 
 Two consequences are load-bearing and easy to get wrong. Successful re-derivation does **not** make `historical_execution_established` true. A generic signature over a supplied bundle does **not** make `witness_attestation` true.
 
-**On the legacy `BindingLevel` projection.** The verifier also emits an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`) as a single summary figure for readers who want one. It is a **lossy display projection, not the evidence model**, and it must not be used to infer a proposition not stated in the table above. In particular `BUNDLED` is not an independent proposition; it is the floor the projection returns when `precedence` is false.
+**On the removed `BindingLevel` projection.** An earlier revision of the verifier also emitted an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`), a single summary figure derived from the table above. It has been removed. It could not represent `historical_execution_established`, the strongest of the five propositions, under any combination of the others, since the derivation rule never checked it; a summary figure that cannot express the strongest real claim is a defect rather than a convenience.
 
 ### 4.4 The Key Principle
 

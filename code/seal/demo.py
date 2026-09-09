@@ -208,7 +208,6 @@ def show(n: int, title: str, setup: str, chain: SealChain, rederive=None,
     print(f"   {'coverage':<21} {report.coverage.name}")
     print(f"   {'completeness':<21} {report.completeness.name}")
     print(f"   {'KC2 fires':<21} {'yes' if report.kc2_fires else 'no'}")
-    print(f"   {'legacy display':<21} {report.binding_level.name}")
     if because:
         print(f"\n   {because}")
 
@@ -282,7 +281,6 @@ def main() -> None:
                    rederive=lambda x: commit(ACTION_PAYLOAD),
                    retention_determinations=dets)
         print(f"   {label}")
-        print(f"     binding level  {r.binding_level.name}")
         print(f"     provenance     {r.input_provenance.name}")
         print(f"     KC2 fires      {'yes' if r.kc2_fires else 'no'}")
 

@@ -6,7 +6,7 @@ The package models the evidence that a future capture layer will need to preserv
 
 ## The epistemic evidence model
 
-The verifier's source of truth is five independent propositions, not `BindingLevel`:
+The verifier's source of truth is five independent propositions:
 
 | Proposition | Meaning |
 |---|---|
@@ -16,17 +16,7 @@ The verifier's source of truth is five independent propositions, not `BindingLev
 | `recipe_reproduced` | A verifier executed that recipe and reproduced the sealed output. |
 | `historical_execution_established` | A valid observed-execution witness attestation covers the relation. It is never inferred from re-derivation alone. |
 
-A signature over a supplied bundle is not a witness attestation, and successful re-derivation is not historical proof. `BindingLevel` is retained only as a lossy backwards-compatible projection.
-
-## Legacy binding-level projection
-
-- **`BUNDLED`** means the claimed inputs and output are present together. It does not establish that the output was derived from those inputs.
-- **`PRECEDENCE`** means the evidence commitment existed in the chain before the run seal that names it. This prevents selecting that commitment after seeing the output. It does not establish that the analysis consumed the committed evidence.
-- **`WITNESSED`** means an independently trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A self-declared witness field or signature over a supplied bundle is not enough.
-- **`REDERIVABLE`** means a complete execution recipe links the claimed evidence to the claimed output and the referenced execution endpoint remains available.
-- **`REDERIVED`** means the verifier actually executed that recipe and reproduced the sealed output.
-
-These levels answer different questions. In particular, successful re-derivation establishes that a pinned recipe produces the sealed output from the referenced evidence. It does not, by itself, establish that the historical execution actually ran that recipe. That stronger claim requires capture at execution time and custody outside the control of the party whose conduct may later be examined.
+A signature over a supplied bundle is not a witness attestation, and successful re-derivation is not historical proof. In particular, successful re-derivation establishes that a pinned recipe produces the sealed output from the referenced evidence. It does not, by itself, establish that the historical execution actually ran that recipe. That stronger claim requires capture at execution time and custody outside the control of the party whose conduct may later be examined.
 
 ## Assignment completeness
 
