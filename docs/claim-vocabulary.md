@@ -81,6 +81,6 @@ Remove from every user-facing surface. Keep only where the code needs the compat
 
 **`/instrument`** — the larger rewrite. Rebuild on the five propositions using the four columns from the table above, which is close to the three-part structure already there. Move Completeness and Coverage into their own short section titled for what they are: whether the record is whole, not whether the run is established. As of this revision the live `/instrument` page still presents `Anchoring` (labeled "Time bounds") as a sixth claim inside the same table as the real five, which this rewrite needs to fix along with everything else.
 
-**`code/seal/verifier.py`** — still open. The `BindingLevel` docstring does not yet say the projection must not appear in user-facing output.
+**`code/seal/verifier.py`** — done. The `BindingLevel` docstring now states directly that the projection must not appear in user-facing output, and that a caller rendering a report renders `EvidencePropositions` instead.
 
 **CI** — done. `.github/scripts/check_retired_vocabulary.py` asserts the relationship rather than a blacklist, the same shape as `check_system_map.py`: every line naming a retired term in `README.md` or `docs/executive-thesis.md` must be byte-identical to one already known and licensed here, and no occurrence anywhere else under `docs/` gets any exemption. Verified with three negative controls (a leak into a new file, an unlicensed new line, an edited licensed line) before landing.
