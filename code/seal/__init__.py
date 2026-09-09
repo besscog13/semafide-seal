@@ -46,8 +46,8 @@ from .anchor import (
 )
 from .assignment import (
     AssignmentCheckpoint,
+    AssignmentIssuer,
     AssignmentRefusal,
-    Issuer as AssignmentIssuer,
     ChainRef,
     Disclosure,
     DisclosureReport,
@@ -56,8 +56,8 @@ from .assignment import (
 )
 from .checkpoint import (
     Checkpoint,
+    CheckpointIssuer,
     CheckpointRefusal,
-    Issuer as CheckpointIssuer,
     issue as issue_checkpoint,
 )
 from .retention import (

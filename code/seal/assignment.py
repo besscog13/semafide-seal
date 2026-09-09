@@ -93,7 +93,7 @@ class AssignmentRefusal(Exception):
 
 
 @dataclass
-class Issuer:
+class AssignmentIssuer:
     """
     A stateful assignment-checkpoint issuer.
 
@@ -149,9 +149,9 @@ def issue(checkpoint: AssignmentCheckpoint,
     """
     Sign an assignment checkpoint with no memory of what was signed before.
 
-    The primitive rather than the mechanism. A custodian must use `Issuer`, for
-    the reason recorded there and in `checkpoint.Issuer`. The key must not be
-    the sealer's.
+    The primitive rather than the mechanism. A custodian must use
+    `AssignmentIssuer`, for the reason recorded there and in
+    `checkpoint.CheckpointIssuer`. The key must not be the sealer's.
     """
     raw = canonical_bytes(checkpoint.signing_payload())
     d = checkpoint.signing_payload()
@@ -293,7 +293,7 @@ def assess(artifacts: Iterable[dict[str, Any]],
     # on a truncated hand-over, which is the mistake `signatures_valid` made.
     #
     # A chain is allowed to grow past what the checkpoint recorded --
-    # `Issuer.issue`'s own docstring says so: sizes may only grow between
+    # `AssignmentIssuer.issue`'s own docstring says so: sizes may only grow between
     # two statements, since a chain open when the first was made is longer
     # by the second. The head comparison below therefore checks the entry
     # AT the recorded position, not the last entry disclosed. Comparing
@@ -355,7 +355,7 @@ __all__ = [
     "AssignmentCheckpoint",
     "Disclosure",
     "DisclosureReport",
-    "Issuer",
+    "AssignmentIssuer",
     "assess",
     "issue",
     "load",

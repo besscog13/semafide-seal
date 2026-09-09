@@ -54,6 +54,12 @@ shape of the statement and the checking a verifier owes it: that a party who is
 not the sealer signed THIS digest, and that the digest is an entry in THIS
 chain. An anchor over an adjacent document is the recipe compared to itself, one
 level over.
+
+`artifact.AssignmentAnchor` is a different object under a related name. It
+names identity, entry zero fixing which assignment every later entry belongs
+to, and it is not a time bound even though it carries the `beacon` commitment
+this module resolves. `Beacon`, `TimeAnchor`, and `Anchoring`, defined here,
+are the ones that actually bound time.
 """
 
 from __future__ import annotations

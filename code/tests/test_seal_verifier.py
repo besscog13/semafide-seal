@@ -2049,7 +2049,7 @@ def test_disclosure_order_does_not_change_the_verdict():
 
 def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
     """
-    `assignment.Issuer.issue`'s own docstring says sizes are allowed to
+    `assignment.AssignmentIssuer.issue`'s own docstring says sizes are allowed to
     grow between two statements, since a chain open when the first was
     made is longer by the second. The ordinary shape this covers: a
     checkpoint gets issued mid-assignment, more runs happen, and the full,
@@ -2611,7 +2611,7 @@ def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
 
 def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
     """
-    `_extends` is the function standing between `Issuer.issue` and signing an
+    `_extends` is the function standing between `CheckpointIssuer.issue` and signing an
     equivocating checkpoint, and none of its hostile-input branches had a
     test: every existing test here either hands it a genuine extension
     (which walks every check and returns True) or hands it no entries at
@@ -2680,7 +2680,7 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
 
 def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment():
     """
-    The lock in `Issuer.issue`, put under real load. Two threads race to be
+    The lock in `CheckpointIssuer.issue`, put under real load. Two threads race to be
     first to issue conflicting checkpoints, same size and different head, for
     an assignment this issuer has never signed for before. Without the lock,
     both could read no prior state, both skip every check, and both sign, an

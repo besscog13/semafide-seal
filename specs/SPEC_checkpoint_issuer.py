@@ -3,7 +3,7 @@ SPEC: a checkpoint issuer that remembers only its last statement is sufficient.
 
 WHAT IS BEING PROVED, AND WHY IT IS WORTH PROVING
 
-`checkpoint.Issuer` keeps one checkpoint per assignment. That is O(1) state, and
+`checkpoint.CheckpointIssuer` keeps one checkpoint per assignment. That is O(1) state, and
 it is the reason witnesses are cheap to run. It is not obvious that O(1) is
 enough. The property an examiner needs is global: across the whole history, the
 issuer never signed two different chains at one size. The issuer only ever
@@ -18,7 +18,7 @@ WHAT IS NOT BEING PROVED
 This proves a protocol, not a program. A proof about a model that nothing ties
 to the implementation is the same defect as a re-derivation recipe compared
 against itself, which is KC2 stated. So the model is not left to speak for the
-code. The conformance pass drives the real `checkpoint.Issuer` over concrete
+code. The conformance pass drives the real `checkpoint.CheckpointIssuer` over concrete
 traces and asserts it accepts and refuses exactly where the model says it must.
 If the two ever disagree, this exits non-zero and names the trace.
 
@@ -76,7 +76,7 @@ def accepts(has_prior, last_size, last_head, size, head, extends, *, z3=True):
     Whether an issuer holding (last_size, last_head) signs (size, head).
 
     Written so the same expression evaluates under Z3 and under Python. The
-    guard mirrors `checkpoint.Issuer.issue` clause for clause.
+    guard mirrors `checkpoint.CheckpointIssuer.issue` clause for clause.
     """
     and_, or_, not_, imp = (And, Or, Not, Implies) if z3 else (
         lambda *a: all(a), lambda *a: any(a), lambda a: not a,
@@ -206,7 +206,7 @@ def conformance() -> None:
     from cryptography.hazmat.primitives.asymmetric import ec
 
     from seal import Checkpoint, EntryKind, SealChain
-    from seal.checkpoint import CheckpointRefusal, Issuer
+    from seal.checkpoint import CheckpointIssuer, CheckpointRefusal
 
     def build(label: str) -> SealChain:
         chain = SealChain("assignment-1", opened_ns=0, chain_label=label)
@@ -220,7 +220,7 @@ def conformance() -> None:
 
     mismatches = 0
     for trace in itertools.product(proposals, repeat=3):
-        issuer = Issuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+        issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
         prior = None  # (label, size, head)
         for step, (label, size) in enumerate(trace):
             entries = chains[label].entries[:size]
@@ -246,7 +246,7 @@ def conformance() -> None:
             if actual:
                 prior = (label, size, head)
 
-    report(f"conformance: real Issuer matches the model on "
+    report(f"conformance: real CheckpointIssuer matches the model on "
            f"{len(proposals) ** 3} traces", mismatches == 0,
            f"{mismatches} traces disagreed")
 
