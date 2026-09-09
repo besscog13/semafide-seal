@@ -52,8 +52,12 @@ from .retention import conflicts as retention_conflicts
 class EvidencePropositions:
     """Independently established propositions about a sealed relation.
 
-    These are the source of truth: five independent facts, none implying
-    any other.
+    These are the source of truth. Four of the five fields do not imply
+    each other. The fifth, `historical_execution_established`, currently
+    has exactly one path in the verifier, a valid witness attestation, and
+    that path sets `witness_attestation` in the same call. The two co-vary
+    in every case the verifier can produce today. Whether they should stay
+    coupled or be split into an event claim and a record claim is open.
     """
 
     precedence: bool = False
@@ -724,6 +728,31 @@ def _run_evidence(
 
     evidence = EvidencePropositions(precedence=True)
 
+    # A recipe that fails, or is never attempted, must not cause a
+    # separately valid witness attestation on the same run to go
+    # unchecked. The two are independent claims; a broken recipe path
+    # below returning bare `evidence` used to skip this entirely, which
+    # is exactly the ladder behavior this function's docstring disclaims.
+    has_witness_claim = (
+        mode == AttestationMode.INDEPENDENT.value
+        or body.get("witness_attestation") is not None
+    )
+
+    def _finalize(evidence: EvidencePropositions) -> EvidencePropositions:
+        if has_witness_claim:
+            # Granting WITNESSED here would be the cheapest route to
+            # clearing KC2 in the whole package: nine characters in a
+            # field the sealer writes, with no recipe and no
+            # re-derivation. Nothing in this artifact can carry evidence
+            # that an outside party observed anything, because there is
+            # no second signature and no external anchor. Until one
+            # exists the declaration is a claim, and claims do not clear
+            # kill conditions.
+            return _attach_witness_attestation(
+                evidence, body, run.public_key, trusted_witness_keys, report
+            )
+        return evidence
+
     if mode == AttestationMode.REDERIVABLE.value or body.get("rederivation_recipe") is not None:
         recipe = body.get("rederivation_recipe")
 
@@ -746,7 +775,7 @@ def _run_evidence(
                         "KC2",
                     )
                 )
-                return evidence
+                return _finalize(evidence)
             if recipe.get("input_ref") != ref:
                 report.findings.append(
                     Finding(
@@ -757,7 +786,7 @@ def _run_evidence(
                         "KC2",
                     )
                 )
-                return evidence
+                return _finalize(evidence)
 
         if not RederivationRecipe.is_complete(recipe):
             # `recipe or {}` only substitutes `{}` for a falsy recipe. A
@@ -780,7 +809,7 @@ def _run_evidence(
                     "KC2",
                 )
             )
-            return evidence
+            return _finalize(evidence)
         evidence = EvidencePropositions(precedence=True, recipe_available=True)
         if rederive is None:
             report.findings.append(
@@ -791,7 +820,7 @@ def _run_evidence(
                     "KC2",
                 )
             )
-            return evidence
+            return _finalize(evidence)
         # The callback used to receive the whole recipe including
         # output_digest, which is the answer it is being asked to produce.
         # Passing the target to the oracle under test is the wrong shape
@@ -808,7 +837,7 @@ def _run_evidence(
                     "liveness",
                 )
             )
-            return evidence
+            return _finalize(evidence)
         if produced != recipe.get("output_digest"):
             report.findings.append(
                 Finding(
@@ -820,27 +849,15 @@ def _run_evidence(
                 )
             )
             # A run that has been tried and disagrees with its sealed output
-            # cannot retain even the legacy "rederivable" projection.
-            return EvidencePropositions(precedence=True)
+            # cannot retain even the legacy "rederivable" projection. A
+            # separately valid witness attestation is still checked below.
+            return _finalize(EvidencePropositions(precedence=True))
         evidence = EvidencePropositions(
             precedence=True, recipe_available=True, recipe_reproduced=True,
         )
-        return _attach_witness_attestation(
-            evidence, body, run.public_key, trusted_witness_keys, report
-        )
+        return _finalize(evidence)
 
-    if mode == AttestationMode.INDEPENDENT.value or body.get("witness_attestation") is not None:
-        # Granting WITNESSED here would be the cheapest route to clearing KC2
-        # in the whole package: nine characters in a field the sealer writes,
-        # with no recipe and no
-        # re-derivation. Nothing in this artifact can carry evidence that an
-        # outside party observed anything, because there is no second
-        # signature and no external anchor. Until one exists the declaration
-        # is a claim, and claims do not clear kill conditions.
-        return _attach_witness_attestation(
-            evidence, body, run.public_key, trusted_witness_keys, report
-        )
-    return evidence
+    return _finalize(evidence)
 
 
 def _attach_witness_attestation(
