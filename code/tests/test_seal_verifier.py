@@ -23,7 +23,7 @@ from seal import (
     PrimitiveKind,
     PrimitiveRecord,
     Provenance,
-    Retention,
+    EvidenceForm,
     RetentionDetermination,
     RunSeal,
     SealChain,
@@ -59,14 +59,14 @@ def _rows(n: int = 40) -> list[str]:
 def _primitives(
     evidence_root: str,
     pinning: Pinning = Pinning.PINNED,
-    retention: Retention = Retention.COMMITMENT_ONLY,
+    retention: EvidenceForm = EvidenceForm.COMMITMENT_ONLY,
 ) -> dict[PrimitiveKind, PrimitiveRecord]:
     """A full primitive set for one time-adjustment run."""
     def rec(kind, payload, **kw):
         return PrimitiveRecord(
             kind=kind, commitment=payload,
             pinning=kw.get("pinning", Pinning.PINNED),
-            retention=kw.get("retention", Retention.FULL),
+            retention=kw.get("retention", EvidenceForm.FULL),
             holder=kw.get("holder", "appraiser"),
         )
 
@@ -116,7 +116,7 @@ def _build(
     recipe_input_ref: str | None = None,
     recipe_override: dict | None = None,
     pinning: Pinning = Pinning.PINNED,
-    retention: Retention = Retention.COMMITMENT_ONLY,
+    retention: EvidenceForm = EvidenceForm.COMMITMENT_ONLY,
     bind: bool = True,
     omit_seq: int | None = None,
     runs_after_binding: int = 0,
@@ -683,7 +683,7 @@ def test_the_artifacts_own_retention_field_no_longer_decides_kc2():
     KC2 on a field the sealer wrote. Nine characters, no second party.
     """
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
-                   retention=Retention.COMMITMENT_ONLY)
+                   retention=EvidenceForm.COMMITMENT_ONLY)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.evidence.recipe_reproduced
     assert r.input_provenance is Provenance.UNSOURCED
@@ -940,7 +940,7 @@ def test_reach_tracks_the_holder_not_mere_existence():
     """Evidence held only by the MLS exists but is out of reach of the liable party."""
     rec = PrimitiveRecord(
         kind=PrimitiveKind.EVIDENCE, commitment=merkle_root(_rows()),
-        pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+        pinning=Pinning.PINNED, retention=EvidenceForm.COMMITMENT_ONLY,
         holder="mls",
     )
     assert rec.exists and rec.pinned
@@ -1040,7 +1040,7 @@ def test_trustworthy_requires_a_recognised_key():
 
 def test_deleting_the_evidence_record_fires_kc2():
     """
-    Retention fails closed. Anything other than an explicit commitment-only
+    EvidenceForm fails closed. Anything other than an explicit commitment-only
     declaration counts as retainable, so a missing or deleted Evidence
     primitive fires KC2 rather than clearing it. A test for `== "full"` would
     let the artifact recording less about its inputs grade better on the

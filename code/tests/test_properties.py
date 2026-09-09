@@ -43,7 +43,7 @@ from seal import (
     Pinning,
     PrimitiveKind,
     PrimitiveRecord,
-    Retention,
+    EvidenceForm,
     RetentionDetermination,
     RunSeal,
     SealChain,
@@ -359,7 +359,7 @@ _SIDE_ACTION_DIGEST = commit({"a": 1})
 def _side_doc_primitives():
     def rec(kind, payload, holder="appraiser"):
         return PrimitiveRecord(kind=kind, commitment=payload, pinning=Pinning.PINNED,
-                                retention=Retention.FULL, holder=holder)
+                                retention=EvidenceForm.FULL, holder=holder)
     return {
         PrimitiveKind.ACTION: rec(PrimitiveKind.ACTION, _SIDE_ACTION_DIGEST),
         PrimitiveKind.SURFACE: rec(PrimitiveKind.SURFACE, commit({"s": 1})),
@@ -381,7 +381,7 @@ def _build_side_doc_artifact():
     primitives = _side_doc_primitives()
     primitives[PrimitiveKind.EVIDENCE] = PrimitiveRecord(
         kind=PrimitiveKind.EVIDENCE, commitment=root, pinning=Pinning.PINNED,
-        retention=Retention.FULL, holder="custodian")
+        retention=EvidenceForm.FULL, holder="custodian")
     recipe = {
         "endpoint": "https://x", "tool": "t", "version": "1", "invocation": {"a": 1},
         "input_ref": ev_hash, "output_digest": _SIDE_ACTION_DIGEST,

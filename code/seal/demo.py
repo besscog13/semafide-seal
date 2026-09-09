@@ -29,7 +29,7 @@ from .primitives import (
     Pinning,
     PrimitiveKind,
     PrimitiveRecord,
-    Retention,
+    EvidenceForm,
     commit,
     merkle_root,
 )
@@ -63,7 +63,7 @@ def _rows(n: int = 40) -> list[str]:
 
 def _primitives(
     evidence_root: str,
-    retention: Retention = Retention.COMMITMENT_ONLY,
+    retention: EvidenceForm = EvidenceForm.COMMITMENT_ONLY,
 ) -> dict[PrimitiveKind, PrimitiveRecord]:
     """All six primitives for one time-adjustment run."""
     def rec(kind, payload, **kw):
@@ -71,7 +71,7 @@ def _primitives(
             kind=kind,
             commitment=payload,
             pinning=Pinning.PINNED,
-            retention=kw.get("retention", Retention.FULL),
+            retention=kw.get("retention", EvidenceForm.FULL),
             holder=kw.get("holder", "appraiser"),
         )
 
@@ -143,7 +143,7 @@ def build(
     *,
     commit_first: bool = True,
     rederivable: bool = False,
-    retention: Retention = Retention.COMMITMENT_ONLY,
+    retention: EvidenceForm = EvidenceForm.COMMITMENT_ONLY,
     omit_from_binding: int | None = None,
     assignment_id: str = "assignment-1",
     chain_label: str = "",
