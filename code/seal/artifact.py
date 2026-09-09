@@ -178,6 +178,13 @@ class AssignmentAnchor:
     forward from here, so a bound on when the chain was opened bounds all of
     them. See `anchor.py` for why the lower side is the one that matters and
     why a timestamp authority cannot supply it.
+
+    The word Anchor here names identity: entry zero, fixing which assignment
+    every later entry belongs to. That is a different claim from `anchor.py`'s
+    `Beacon`, `TimeAnchor`, and `Anchoring`, which bound the sealer's claimed
+    instant in time. This class carries `beacon` only because the commitment
+    has to sit at entry zero to bound every later entry from here; it is not
+    itself a time anchor, and a named assignment is not "anchored in time."
     """
 
     assignment_id: str

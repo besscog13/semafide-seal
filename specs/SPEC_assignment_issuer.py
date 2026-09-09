@@ -3,7 +3,7 @@ SPEC: an assignment statement can gain chains and never lose them.
 
 WHAT IS BEING PROVED
 
-`assignment.Issuer` signs statements of which chains an assignment holds. The
+`assignment.AssignmentIssuer` signs statements of which chains an assignment holds. The
 attack it exists to stop is the same one the per-chain issuer stops, one level
 out: sign a five-chain statement, then a three-chain statement, and let the
 sealer produce whichever suits. An assignment only ever gains chains and no
@@ -189,7 +189,7 @@ def conformance() -> None:
     from cryptography.hazmat.primitives.asymmetric import ec
 
     from seal import AssignmentCheckpoint, ChainRef, EntryKind, SealChain
-    from seal.assignment import AssignmentRefusal, Issuer
+    from seal.assignment import AssignmentIssuer, AssignmentRefusal
 
     def build(label: str) -> SealChain:
         chain = SealChain("assignment-1", opened_ns=0, chain_label=label)
@@ -219,7 +219,7 @@ def conformance() -> None:
 
     mismatches = 0
     for trace in itertools.product(statements, repeat=3):
-        issuer = Issuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+        issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
         prior = None
         for step, stmt in enumerate(trace):
             predicted = model_accepts(prior, stmt)
@@ -238,7 +238,7 @@ def conformance() -> None:
             if actual:
                 prior = stmt
 
-    report(f"conformance: real Issuer matches the model on "
+    report(f"conformance: real AssignmentIssuer matches the model on "
            f"{len(statements) ** 3} traces", mismatches == 0,
            f"{mismatches} traces disagreed")
 

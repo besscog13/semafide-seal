@@ -103,7 +103,7 @@ class CheckpointRefusal(Exception):
 
 
 @dataclass
-class Issuer:
+class CheckpointIssuer:
     """
     A stateful checkpoint issuer, which is what a checkpoint always needed.
 
@@ -213,10 +213,10 @@ def issue(
     Sign a checkpoint with no memory of what was signed before.
 
     This is the primitive rather than the mechanism, and a custodian must not
-    call it directly. Signing statelessly is the bug `Issuer` exists to close:
-    two chains of one size under one assignment can both be signed and both
-    verify. Kept because `Issuer` needs it and because a test fixture wants a
-    checkpoint without a custodian.
+    call it directly. Signing statelessly is the bug `CheckpointIssuer` exists
+    to close: two chains of one size under one assignment can both be signed
+    and both verify. Kept because `CheckpointIssuer` needs it and because a
+    test fixture wants a checkpoint without a custodian.
 
     The key must not be the one that signed the chain. Nothing here can enforce
     that, which is why the verifier refuses a checkpoint sharing the artifact's
