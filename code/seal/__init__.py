@@ -90,7 +90,6 @@ from .witness import (
     rebut,
 )
 from .verifier import (
-    BindingLevel,
     EvidencePropositions,
     Completeness,
     Coverage,
@@ -138,7 +137,6 @@ __all__ = [
     "WorkfileBinding",
     "export_artifact",
     "load_artifact",
-    "BindingLevel",
     "EvidencePropositions",
     "WitnessAttestation",
     "witness_attestation_payload",

@@ -2,10 +2,9 @@
 Retired vocabulary must not leak past the lines that license it.
 
 `BindingLevel` and its five rungs (`BUNDLED`, `PRECEDENCE`, `WITNESSED`,
-`REDERIVABLE`, `REDERIVED`) are a lossy, backward-compatible display
-projection over the five real propositions -- not a claim vocabulary of
-their own. They still appear correctly in a handful of places that explain
-the projection or quote what an external artifact calls it. A flat
+`REDERIVABLE`, `REDERIVED`) have been removed from `code/seal` entirely.
+They still appear correctly in a handful of documentation lines that
+record the removal itself and explain what the terms meant. A flat
 forbidden-list fails on those correct uses the moment it runs. This check
 asserts a narrower relationship instead: every line carrying one of these
 terms in any file listed in EXEMPT_LINES must be byte-identical to a line
@@ -36,16 +35,10 @@ def hits(text: str) -> list[str]:
 # rather than silently widening what it exempts to cover the edit.
 EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
     pathlib.Path("README.md"): {
-        "For the same state space explored interactively rather than read as terminal output, see [the design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a): a five-decision panel showing which of the five propositions survive each of the 96 reachable combinations, driven by the real verifier rather than illustrative numbers. It speaks the verifier's own vocabulary directly (`REDERIVED`, `OPERATOR_CANNOT_HOLD`, `kc2_fires`), so it assumes the reader already has the propositions table below rather than explaining them from scratch.",
-        "Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true. `BindingLevel` remains only as a lossy, backward-compatible display projection.",
-        "The verifier reports the epistemic propositions above. Its legacy `BindingLevel` projection is retained for existing consumers, but must not be read as an evidence ladder:",
-        "- **BUNDLED:** inputs and output are present together, but nothing establishes their execution relationship.",
-        "- **WITNESSED:** a separately trusted observer signed an explicit observed-execution attestation binding the run, committed evidence, sealed action, and capture reference. A signature over a supplied bundle or a self-declared witness field is not enough.",
-        "- **REDERIVABLE:** a complete execution recipe links to the claimed evidence and output and remains available for execution.",
-        "- **REDERIVED:** a verifier actually executed that recipe and reproduced the sealed output.",
+        "The verifier reports the epistemic propositions above and nothing else in that register. An earlier revision of this package also exposed `BindingLevel`, a single derived value that collapsed the five propositions into one rung on a lossy summary ladder; it has been removed, since it could not even represent the strongest of the five claims and every place it could mislead a reader was easier to fix by removing it than by re-caveating it again.",
     },
     pathlib.Path("docs/executive-thesis.md"): {
-        "**On the legacy `BindingLevel` projection.** The verifier also emits an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`) as a single summary figure for readers who want one. It is a **lossy display projection, not the evidence model**, and it must not be used to infer a proposition not stated in the table above. In particular `BUNDLED` is not an independent proposition; it is the floor the projection returns when `precedence` is false.",
+        "**On the removed `BindingLevel` projection.** An earlier revision of the verifier also emitted an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`), a single summary figure derived from the table above. It has been removed. It could not represent `historical_execution_established`, the strongest of the five propositions, under any combination of the others, since the derivation rule never checked it; a summary figure that cannot express the strongest real claim is a defect rather than a convenience.",
     },
     # This file's whole job is to name what is retired and why, so unlike the
     # other two, several of its lines legitimately carry a retired term. Each
@@ -55,9 +48,10 @@ EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
     pathlib.Path("docs/claim-vocabulary.md"): {
         '`verifier.py` already treats `EvidencePropositions` as the source of truth and marks `BindingLevel` as "a lossy, backwards-compatible display projection." But the site\'s Instrument page is built entirely on that deprecated projection, and the homepage list mixes three propositions with one deprecated rung and one product category:',
         "| Demo output | `binding level`, `coverage`, `completeness`, `KC2 fires` |",
-        "| Binding, binding level, `BindingLevel` | The five propositions. In code the enum stays for backward compatibility and must never reach user-facing output. |",
-        "**`code/seal/demo.py` and `demo_60s.py`** — done. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It now prints the five individually first, then `coverage`, `completeness`, and `KC2 fires`, with `binding_level` last and labeled `legacy display`. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched, since it already showed the five correctly and never printed `binding level` at all.",
-        "**`code/seal/verifier.py`** — done. The `BindingLevel` docstring now states directly that the projection must not appear in user-facing output, and that a caller rendering a report renders `EvidencePropositions` instead.",
+        "**Status update, superseding the rest of this section.** The original plan below was to keep `BindingLevel` in code for backward compatibility while banning it from every user-facing surface. That plan is superseded: the enum, the method that derived it, the field that carried it, and every print statement that showed it have all been removed from `code/seal` entirely. There is no compat shim and no output path left to guard, because there is no code path left at all. The table below is kept as the historical record of what each term meant and what replaced it, for a reader who encounters the word in an old document, screenshot, or memory and needs to know it is gone rather than merely hidden.",
+        "| Binding, binding level, `BindingLevel` | The five propositions. Removed from code entirely; nothing to keep out of output, because there is no output for it anymore. |",
+        "**`code/seal/demo.py` and `demo_60s.py`** — done, in two stages. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It first went through an intermediate fix, printing the five individually, then `binding_level` last and labeled `legacy display`; once `BindingLevel` was removed from code entirely, that labeled line was removed too, since there was nothing left for it to print. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched throughout, since it already showed the five correctly and never printed `binding level` at all.",
+        "**`code/seal/verifier.py`** — done, superseded by a larger change. The `BindingLevel` docstring first gained a line stating the projection must not appear in user-facing output; `BindingLevel` itself, the class, the derivation method, the `VerificationReport` field, and every reference to it in `code/seal/__init__.py`, `code/seal/evidence.py`, and `code/seal/README.md`, have since been removed entirely, along with every test assertion that referenced it (rewritten to assert the same fact directly against the five propositions instead of through the derived value).",
     },
 }
 

@@ -34,8 +34,7 @@ def assess_evidentiary_reliance(report: VerificationReport) -> EvidentiaryRelian
 
     This is intentionally narrower than a general "safe to rely on" claim.
     It requires cryptographic trust plus either an independent witness
-    attestation or successful recipe reproduction.  The propositions, rather
-    than the legacy ``BindingLevel`` projection, are the source of truth.
+    attestation or successful recipe reproduction.
     """
     reasons: list[str] = []
 

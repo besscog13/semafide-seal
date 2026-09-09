@@ -18,7 +18,7 @@ import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from seal import BindingLevel, Coverage, canonical_bytes, verify
+from seal import Coverage, canonical_bytes, verify
 from seal.capture.assignment import (
     AssignmentError,
     _open,
@@ -79,7 +79,6 @@ def test_manifest_written_and_independently_verifies_precedence_only(tmp_path):
     assert report.evidence.precedence
     assert not report.evidence.witness_attestation
     assert not report.evidence.recipe_available
-    assert report.binding_level is BindingLevel.PRECEDENCE
 
 
 def test_no_output_dir_skips_disk_write_but_still_seals(tmp_path):
@@ -262,7 +261,7 @@ def test_witness_signature_accepted_only_when_key_is_trusted(tmp_path, running_w
     trusted_cap = trusting.last_capture
 
     assert trusted_cap.witness_attestation_established
-    assert trusted_cap.report.binding_level is BindingLevel.WITNESSED
+    assert trusted_cap.report.evidence.witness_attestation
 
     not_trusting = seal_execution(
         assignment_id="ASG-2026-9901", model_id="AVM-CoreLogic-v4.2",
@@ -273,7 +272,8 @@ def test_witness_signature_accepted_only_when_key_is_trusted(tmp_path, running_w
     untrusted_cap = not_trusting.last_capture
 
     assert not untrusted_cap.witness_attestation_established
-    assert untrusted_cap.report.binding_level is BindingLevel.PRECEDENCE
+    assert (untrusted_cap.report.evidence.precedence
+            and not untrusted_cap.report.evidence.witness_attestation)
 
 
 def test_verify_rejects_a_manifest_if_key_list_is_forged(tmp_path, running_witness):

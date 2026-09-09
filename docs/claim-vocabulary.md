@@ -59,11 +59,11 @@ Supporting determinations that the verifier reports but does not present as clai
 
 ## Retired
 
-Remove from every user-facing surface. Keep only where the code needs the compat shim.
+**Status update, superseding the rest of this section.** The original plan below was to keep `BindingLevel` in code for backward compatibility while banning it from every user-facing surface. That plan is superseded: the enum, the method that derived it, the field that carried it, and every print statement that showed it have all been removed from `code/seal` entirely. There is no compat shim and no output path left to guard, because there is no code path left at all. The table below is kept as the historical record of what each term meant and what replaced it, for a reader who encounters the word in an old document, screenshot, or memory and needs to know it is gone rather than merely hidden.
 
 | Retired term | Replace with |
 | --- | --- |
-| Binding, binding level, `BindingLevel` | The five propositions. In code the enum stays for backward compatibility and must never reach user-facing output. |
+| Binding, binding level, `BindingLevel` | The five propositions. Removed from code entirely; nothing to keep out of output, because there is no output for it anymore. |
 | Bundled | The absence of Precedence. Not a result. |
 | Witnessed | Witness |
 | Rederivable | Recipe |
@@ -73,7 +73,7 @@ Remove from every user-facing surface. Keep only where the code needs the compat
 
 ## Change list
 
-**`code/seal/demo.py` and `demo_60s.py`** — done. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It now prints the five individually first, then `coverage`, `completeness`, and `KC2 fires`, with `binding_level` last and labeled `legacy display`. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched, since it already showed the five correctly and never printed `binding level` at all.
+**`code/seal/demo.py` and `demo_60s.py`** — done, in two stages. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It first went through an intermediate fix, printing the five individually, then `binding_level` last and labeled `legacy display`; once `BindingLevel` was removed from code entirely, that labeled line was removed too, since there was nothing left for it to print. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched throughout, since it already showed the five correctly and never printed `binding level` at all.
 
 **`README.md`** — done. It now states directly that this document is the source for the claim vocabulary and that the site derives from it, so the two surfaces cannot drift apart again without the statement itself being visibly wrong.
 
@@ -81,6 +81,6 @@ Remove from every user-facing surface. Keep only where the code needs the compat
 
 **`/instrument`** — the larger rewrite. Rebuild on the five propositions using the four columns from the table above, which is close to the three-part structure already there. Move Completeness and Coverage into their own short section titled for what they are: whether the record is whole, not whether the run is established. As of this revision the live `/instrument` page still presents `Anchoring` (labeled "Time bounds") as a sixth claim inside the same table as the real five, which this rewrite needs to fix along with everything else.
 
-**`code/seal/verifier.py`** — done. The `BindingLevel` docstring now states directly that the projection must not appear in user-facing output, and that a caller rendering a report renders `EvidencePropositions` instead.
+**`code/seal/verifier.py`** — done, superseded by a larger change. The `BindingLevel` docstring first gained a line stating the projection must not appear in user-facing output; `BindingLevel` itself, the class, the derivation method, the `VerificationReport` field, and every reference to it in `code/seal/__init__.py`, `code/seal/evidence.py`, and `code/seal/README.md`, have since been removed entirely, along with every test assertion that referenced it (rewritten to assert the same fact directly against the five propositions instead of through the derived value).
 
-**CI** — done. `.github/scripts/check_retired_vocabulary.py` asserts the relationship rather than a blacklist, the same shape as `check_system_map.py`: every line naming a retired term in `README.md` or `docs/executive-thesis.md` must be byte-identical to one already known and licensed here, and no occurrence anywhere else under `docs/` gets any exemption. Verified with three negative controls (a leak into a new file, an unlicensed new line, an edited licensed line) before landing.
+**CI** — done, and re-verified after the removal. `.github/scripts/check_retired_vocabulary.py` asserts the relationship rather than a blacklist, the same shape as `check_system_map.py`: every line naming a retired term in a licensed file must be byte-identical to one already known here, and no occurrence anywhere else under `docs/` gets any exemption. The licensed lines themselves changed from explaining a kept-but-hidden projection to recording a removed one; the check's exemptions were updated to match the new wording, and all four original negative controls (a leak into a new file, an unlicensed new line, an edited licensed line, an unlicensed line added to this document) were re-run and still fail correctly.

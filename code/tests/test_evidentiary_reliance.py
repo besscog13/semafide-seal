@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from seal import (
-    BindingLevel,
     EvidencePropositions,
     EvidentiaryReliance,
     VerificationReport,
@@ -17,7 +16,6 @@ def _report(*, evidence: EvidencePropositions, kc2: bool = False,
         chain_intact=trustworthy,
         signatures_valid=trustworthy,
         key_trusted=True if trustworthy else False,
-        binding_level=evidence.binding_level(),
         evidence=evidence,
         timestamp_replicable=kc2,
     )

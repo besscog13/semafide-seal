@@ -15,7 +15,6 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from seal import (
-    BindingLevel,
     Coverage,
     EntryKind,
     EvidenceCommitment,
@@ -385,7 +384,7 @@ def test_a_key_set_that_does_not_include_the_signer_is_untrusted_not_unchecked()
 def test_no_evidence_commitment_is_bundling():
     chain = _build(WitnessMode.SELF_ATTESTED, commit_evidence_first=False)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.BUNDLED
+    assert not r.evidence.precedence
     assert r.kc2_fires
 
 
@@ -397,7 +396,7 @@ def test_self_attested_precedence_still_fires_kc2():
     """
     chain = _build(WitnessMode.SELF_ATTESTED)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert r.timestamp_replicable and r.kc2_fires
 
 
@@ -410,7 +409,7 @@ def test_self_declared_witness_does_not_clear_kc2():
     """
     chain = _build(WitnessMode.INDEPENDENT)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert not r.evidence.witness_attestation
     assert not r.evidence.historical_execution_established
     assert r.kc2_fires
@@ -494,7 +493,7 @@ def test_complete_recipe_not_executed_is_only_rederivable():
     """A recipe that has not been run is a claim, not a proof."""
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.REDERIVABLE
+    assert r.evidence.recipe_available and not r.evidence.recipe_reproduced
     assert any(f.code == "not_rederived" for f in r.findings)
 
 
@@ -508,7 +507,7 @@ def test_executed_and_matched_reaches_rederived_and_clears_kc2():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[_determination()])
-    assert r.binding_level is BindingLevel.REDERIVED
+    assert r.evidence.recipe_reproduced
     assert r.input_provenance is Provenance.SOURCED
     assert not r.kc2_fires
 
@@ -517,7 +516,7 @@ def test_rederivation_mismatch_drops_to_precedence():
     """Re-running and getting a different answer is the whole point."""
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=lambda rec: OTHER_DIGEST)
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert not r.evidence.recipe_reproduced
     assert not r.evidence.historical_execution_established
     assert any(f.code == "rederivation_mismatch" for f in r.findings)
@@ -527,7 +526,7 @@ def test_unservable_pinned_version_decays_to_the_recipe():
     """The liveness dependency. A signature does not have one; this does."""
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=lambda rec: None)
-    assert r.binding_level is BindingLevel.REDERIVABLE
+    assert r.evidence.recipe_available and not r.evidence.recipe_reproduced
     assert any(f.bears_on == "liveness" for f in r.findings)
 
 
@@ -537,7 +536,7 @@ def test_incomplete_recipe_does_not_count():
     del partial["service_window"]
     chain = _build(WitnessMode.REDERIVABLE, recipe_override=partial)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert any(f.code == "incomplete_recipe" for f in r.findings)
 
 
@@ -563,7 +562,7 @@ def test_a_non_dict_rederivation_recipe_is_a_specific_finding_not_a_crash():
     for hostile_recipe in ("just a string, not a recipe dict", ["not", "a", "dict"]):
         chain = _build(WitnessMode.REDERIVABLE, recipe_override=hostile_recipe)
         r = verify(export_artifact(chain))
-        assert r.binding_level is BindingLevel.PRECEDENCE, hostile_recipe
+        assert (r.evidence.precedence and not r.evidence.recipe_available), hostile_recipe
         assert any(f.code == "incomplete_recipe" for f in r.findings), hostile_recipe
         assert not any(f.code == "malformed_artifact" for f in r.findings), hostile_recipe
 
@@ -571,7 +570,7 @@ def test_a_non_dict_rederivation_recipe_is_a_specific_finding_not_a_crash():
 def test_rederivable_claim_without_a_recipe_does_not_count():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=False)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert r.kc2_fires
 
 
@@ -589,7 +588,7 @@ def test_rederivation_over_locally_retainable_evidence_still_fires_kc2():
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[
                    _determination(Holding.OPERATOR_HOLDS)])
-    assert r.binding_level is BindingLevel.REDERIVED
+    assert r.evidence.recipe_reproduced
     assert r.evidence.recipe_reproduced
     assert not r.evidence.historical_execution_established
     assert r.input_provenance is Provenance.SOURCED
@@ -617,7 +616,7 @@ def test_the_artifacts_own_retention_field_no_longer_decides_kc2():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
                    retention=Retention.COMMITMENT_ONLY)
     r = verify(export_artifact(chain), rederive=_ok)
-    assert r.binding_level is BindingLevel.REDERIVED
+    assert r.evidence.recipe_reproduced
     assert r.input_provenance is Provenance.UNSOURCED
     assert r.kc2_fires
 
@@ -755,7 +754,7 @@ def test_evidence_committed_after_the_run_is_bundling():
         "ev-late", root, 40, "MLS-export", "2026-03-14T09:00:00Z").to_body(),
         T0 + 1)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.BUNDLED
+    assert not r.evidence.precedence
     assert any(f.bears_on == "KC1" for f in r.findings)
 
 
@@ -803,7 +802,7 @@ def test_a_run_naming_a_commitment_sealed_after_it_is_caught_not_just_a_run_nami
     run_doc["signature"] = chain._sk.sign(raw, ec.ECDSA(hashes.SHA256())).hex()  # noqa: SLF001
 
     r = verify(doc, trusted_keys=[chain.public_key_pem])
-    assert r.binding_level is BindingLevel.BUNDLED
+    assert not r.evidence.precedence
     assert any(f.code == "commitment_not_prior" for f in r.findings)
 
 
@@ -822,7 +821,7 @@ def test_a_run_naming_a_commitment_not_in_the_chain_is_bundling_not_a_crash():
         "run-1", _primitives(root), "sha256:" + "ab" * 32, WitnessMode.INDEPENDENT
     ).to_body(), T0)
     r = verify(export_artifact(chain))
-    assert r.binding_level is BindingLevel.BUNDLED
+    assert not r.evidence.precedence
     assert any(f.code == "dangling_commitment" for f in r.findings)
 
 
@@ -912,7 +911,7 @@ def test_recipe_output_must_be_the_sealed_action():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
                    recipe_digest=OTHER_DIGEST)
     r = verify(export_artifact(chain), rederive=_ok)
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert r.kc2_fires
     assert any(f.code == "recipe_output_not_the_action" for f in r.findings)
 
@@ -922,7 +921,7 @@ def test_recipe_input_must_be_the_named_evidence():
     chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
                    recipe_input_ref="commitment://SOMETHING-ELSE")
     r = verify(export_artifact(chain), rederive=_ok)
-    assert r.binding_level is BindingLevel.PRECEDENCE
+    assert r.evidence.precedence and not r.evidence.recipe_available
     assert any(f.code == "recipe_input_not_the_evidence" for f in r.findings)
 
 

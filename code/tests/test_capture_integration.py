@@ -33,7 +33,6 @@ import json
 import pytest
 
 from seal import (
-    BindingLevel,
     Completeness,
     Coverage,
     Disclosure,
@@ -119,10 +118,6 @@ def test_three_certified_runs_establish_the_count_and_nothing_else():
     assert report.evidence.recipe_available is False
     assert report.evidence.recipe_reproduced is False
     assert report.evidence.historical_execution_established is False
-
-    # The display projection agrees, which it must, since it is computed from
-    # the propositions rather than alongside them.
-    assert report.binding_level is BindingLevel.PRECEDENCE
 
     # Nothing outside this document vouches for how long the chain is or for
     # how many chains the assignment holds. UNCHECKED is the honest reading
