@@ -105,7 +105,7 @@ from ..artifact import (
     export_artifact,
 )
 from .assignment import _open, _refuse_if_closed, write_manifest
-from ..primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit
+from ..primitives import Pinning, PrimitiveKind, PrimitiveRecord, EvidenceForm, commit
 from ..verifier import VerificationReport, verify, witness_attestation_payload
 from .witness_client import request_witness_signature
 
@@ -150,28 +150,28 @@ def _primitives(output: Any, model_id: str, evidence_hash: str,
     return {
         PrimitiveKind.ACTION: PrimitiveRecord(
             kind=PrimitiveKind.ACTION, commitment=commit(output),
-            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            pinning=Pinning.PINNED, retention=EvidenceForm.COMMITMENT_ONLY,
             holder="operator",
         ),
         PrimitiveKind.SURFACE: PrimitiveRecord(
             kind=PrimitiveKind.SURFACE, commitment=evidence_hash,
-            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            pinning=Pinning.PINNED, retention=EvidenceForm.COMMITMENT_ONLY,
             holder="operator",
         ),
         PrimitiveKind.EVIDENCE: PrimitiveRecord(
             kind=PrimitiveKind.EVIDENCE, commitment=evidence_hash,
-            pinning=Pinning.PINNED, retention=Retention.COMMITMENT_ONLY,
+            pinning=Pinning.PINNED, retention=EvidenceForm.COMMITMENT_ONLY,
             holder="operator",
         ),
         PrimitiveKind.EVALUATOR: PrimitiveRecord(
             kind=PrimitiveKind.EVALUATOR, commitment=commit({"model_id": model_id}),
-            pinning=Pinning.PINNED, retention=Retention.FULL,
+            pinning=Pinning.PINNED, retention=EvidenceForm.FULL,
             holder="operator", descriptor={"model_id": model_id},
         ),
         PrimitiveKind.INSTANT: PrimitiveRecord(
             kind=PrimitiveKind.INSTANT,
             commitment=commit({"started_ns": t_start, "completed_ns": t_end}),
-            pinning=Pinning.PINNED, retention=Retention.FULL,
+            pinning=Pinning.PINNED, retention=EvidenceForm.FULL,
             holder="operator",
         ),
         # A claim is a certification-time assertion about what the run
@@ -179,7 +179,7 @@ def _primitives(output: Any, model_id: str, evidence_hash: str,
         # invent one to fill the slot. `close_assignment` is that moment.
         PrimitiveKind.CLAIM: PrimitiveRecord(
             kind=PrimitiveKind.CLAIM, commitment=None, pinning=Pinning.ABSENT,
-            retention=Retention.NONE, holder=None,
+            retention=EvidenceForm.NONE, holder=None,
         ),
     }
 

@@ -67,7 +67,7 @@ class Pinning(Enum):
     ABSENT = "absent"
 
 
-class Retention(Enum):
+class EvidenceForm(Enum):
     """
     Whether the artifact holds the bytes or only a commitment to them.
 
@@ -197,7 +197,7 @@ class PrimitiveRecord:
     kind: PrimitiveKind
     commitment: Optional[str]
     pinning: Pinning
-    retention: Retention = Retention.NONE
+    retention: EvidenceForm = EvidenceForm.NONE
     holder: Optional[str] = None
     descriptor: dict[str, Any] = field(default_factory=dict)
 

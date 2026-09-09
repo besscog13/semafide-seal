@@ -19,7 +19,7 @@ from __future__ import annotations
 from cryptography.hazmat.primitives.asymmetric import ec
 
 from .artifact import EntryKind, EvidenceCommitment, RunSeal, SealChain, AttestationMode, WorkfileBinding, export_artifact
-from .primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit, merkle_root
+from .primitives import Pinning, PrimitiveKind, PrimitiveRecord, EvidenceForm, commit, merkle_root
 from .retention import Holding, RetentionDetermination
 from .retention import issue as issue_determination
 from .verifier import Completeness, verify
@@ -36,7 +36,7 @@ def _rows(n: int = 40) -> list[str]:
 
 def _primitives(evidence_root: str) -> dict[PrimitiveKind, PrimitiveRecord]:
     def rec(kind: PrimitiveKind, payload: str, holder: str = "appraiser") -> PrimitiveRecord:
-        return PrimitiveRecord(kind=kind, commitment=payload, pinning=Pinning.PINNED, retention=Retention.FULL, holder=holder)
+        return PrimitiveRecord(kind=kind, commitment=payload, pinning=Pinning.PINNED, retention=EvidenceForm.FULL, holder=holder)
 
     return {
         PrimitiveKind.ACTION: rec(PrimitiveKind.ACTION, commit(ACTION_PAYLOAD)),
