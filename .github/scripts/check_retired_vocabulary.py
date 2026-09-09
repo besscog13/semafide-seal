@@ -57,7 +57,7 @@ EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
         "| Demo output | `binding level`, `coverage`, `completeness`, `KC2 fires` |",
         "| Binding, binding level, `BindingLevel` | The five propositions. In code the enum stays for backward compatibility and must never reach user-facing output. |",
         "**`code/seal/demo.py` and `demo_60s.py`** — done. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It now prints the five individually first, then `coverage`, `completeness`, and `KC2 fires`, with `binding_level` last and labeled `legacy display`. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched, since it already showed the five correctly and never printed `binding level` at all.",
-        "**`code/seal/verifier.py`** — still open. The `BindingLevel` docstring does not yet say the projection must not appear in user-facing output.",
+        "**`code/seal/verifier.py`** — done. The `BindingLevel` docstring now states directly that the projection must not appear in user-facing output, and that a caller rendering a report renders `EvidencePropositions` instead.",
     },
 }
 

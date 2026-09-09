@@ -57,6 +57,10 @@ class BindingLevel(Enum):
     that better records management does not cure. It sits outside the matrix
     of six primitives on three properties, because a relation among
     constituents is not the same kind of object as a constituent.
+
+    Retained for backward compatibility. This projection must not appear in
+    user-facing output; a caller rendering a report renders
+    ``EvidencePropositions`` instead.
     """
 
     BUNDLED = 0
