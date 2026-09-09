@@ -8,11 +8,11 @@ their own. They still appear correctly in a handful of places that explain
 the projection or quote what an external artifact calls it. A flat
 forbidden-list fails on those correct uses the moment it runs. This check
 asserts a narrower relationship instead: every line carrying one of these
-terms in README.md or docs/executive-thesis.md must be byte-identical to a
-line already known and licensed here. A new, unlicensed occurrence --
-anywhere in either file, or anywhere else under docs/ -- fails the check.
-Editing a licensed line, even by one word, also fails it, since the
-exemption is for that exact sentence, not for the general topic.
+terms in any file listed in EXEMPT_LINES must be byte-identical to a line
+already known and licensed here. A new, unlicensed occurrence -- in one of
+those files, or anywhere else under docs/ -- fails the check. Editing a
+licensed line, even by one word, also fails it, since the exemption is for
+that exact sentence, not for the general topic.
 
 Run from the repository root.
 """
@@ -46,6 +46,18 @@ EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
     },
     pathlib.Path("docs/executive-thesis.md"): {
         "**On the legacy `BindingLevel` projection.** The verifier also emits an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`) as a single summary figure for readers who want one. It is a **lossy display projection, not the evidence model**, and it must not be used to infer a proposition not stated in the table above. In particular `BUNDLED` is not an independent proposition; it is the floor the projection returns when `precedence` is false.",
+    },
+    # This file's whole job is to name what is retired and why, so unlike the
+    # other two, several of its lines legitimately carry a retired term. Each
+    # one is still licensed individually rather than exempting the file as a
+    # whole, for the same reason as everywhere else: a new, unlicensed line
+    # added later should fail loudly rather than inherit a blanket pass.
+    pathlib.Path("docs/claim-vocabulary.md"): {
+        '`verifier.py` already treats `EvidencePropositions` as the source of truth and marks `BindingLevel` as "a lossy, backwards-compatible display projection." But the site\'s Instrument page is built entirely on that deprecated projection, and the homepage list mixes three propositions with one deprecated rung and one product category:',
+        "| Demo output | `binding level`, `coverage`, `completeness`, `KC2 fires` |",
+        "| Binding, binding level, `BindingLevel` | The five propositions. In code the enum stays for backward compatibility and must never reach user-facing output. |",
+        "**`code/seal/demo.py` and `demo_60s.py`** — done. `demo.py`'s `show()` function used to lead each artifact with `binding level`, unlabeled, and never printed the five propositions by name at all. It now prints the five individually first, then `coverage`, `completeness`, and `KC2 fires`, with `binding_level` last and labeled `legacy display`. `demo_60s.py`, the script `README.md` quotes verbatim and CI checks against that quote, was left untouched, since it already showed the five correctly and never printed `binding level` at all.",
+        "**`code/seal/verifier.py`** — still open. The `BindingLevel` docstring does not yet say the projection must not appear in user-facing output.",
     },
 }
 
@@ -84,8 +96,8 @@ def main() -> int:
             print(f" - {f}")
         return 1
 
-    print("clean: retired terms confined to their licensed lines in README.md "
-          "and executive-thesis.md, absent everywhere else in docs/")
+    print("clean: retired terms confined to their licensed lines in "
+          f"{', '.join(str(p) for p in EXEMPT_LINES)}, absent everywhere else in docs/")
     return 0
 
 

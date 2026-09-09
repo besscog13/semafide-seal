@@ -70,6 +70,8 @@ The verifier records five independent propositions. They are not a ladder: each 
 
 Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true. `BindingLevel` remains only as a lossy, backward-compatible display projection.
 
+This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names. The site derives its own claim vocabulary from here, not the other way around, so a public label that has drifted from this table is the site's error to fix, not a second valid naming.
+
 ## Why custody rather than a file
 
 The obvious design hands the appraiser or institution a signed artifact to keep. A signature does not solve completeness.
