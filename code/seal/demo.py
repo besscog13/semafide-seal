@@ -196,12 +196,19 @@ def show(n: int, title: str, setup: str, chain: SealChain, rederive=None,
     report = verify(export_artifact(chain), trusted_keys=[chain.public_key_pem],
                     rederive=rederive,
                     retention_determinations=determinations)
+    e = report.evidence
     print(f"\n{RULE}\n{n}. {title}")
     print(f"   {setup}\n")
-    print(f"   binding level     {report.binding_level.name}")
-    print(f"   coverage          {report.coverage.name}")
-    print(f"   completeness      {report.completeness.name}")
-    print(f"   KC2 fires         {'yes' if report.kc2_fires else 'no'}")
+    print(f"   {'precedence':<21} {'yes' if e.precedence else 'no'}")
+    print(f"   {'witness attestation':<21} {'yes' if e.witness_attestation else 'no'}")
+    print(f"   {'recipe available':<21} {'yes' if e.recipe_available else 'no'}")
+    print(f"   {'recipe reproduced':<21} {'yes' if e.recipe_reproduced else 'no'}")
+    print(f"   {'historical execution':<21} "
+          f"{'yes' if e.historical_execution_established else 'no'}")
+    print(f"   {'coverage':<21} {report.coverage.name}")
+    print(f"   {'completeness':<21} {report.completeness.name}")
+    print(f"   {'KC2 fires':<21} {'yes' if report.kc2_fires else 'no'}")
+    print(f"   {'legacy display':<21} {report.binding_level.name}")
     if because:
         print(f"\n   {because}")
 
