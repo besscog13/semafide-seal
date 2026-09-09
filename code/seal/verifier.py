@@ -399,8 +399,8 @@ def _verify(
                     "kc2_fires",
                     "Artifact does not establish an independent witness attestation "
                     "or successful recipe reproduction. Two independent timestamps over "
-                    "local files reach PRECEDENCE, so nothing here exceeds a "
-                    "commodity timestamping service.",
+                    "local files establish the same precedence, so nothing here "
+                    "exceeds a commodity timestamping service.",
                     "KC2",
                 )
             )
@@ -787,7 +787,7 @@ def _run_evidence(
                 Finding(
                     "not_rederived",
                     f"Run {body.get('run_id')} carries a complete recipe that was "
-                    "not executed. Supply a rederive callback to reach REDERIVED.",
+                    "not executed. Supply a rederive callback to reproduce it.",
                     "KC2",
                 )
             )
