@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from cryptography.hazmat.primitives.asymmetric import ec
 
-from .artifact import EntryKind, EvidenceCommitment, RunSeal, SealChain, WitnessMode, WorkfileBinding, export_artifact
+from .artifact import EntryKind, EvidenceCommitment, RunSeal, SealChain, AttestationMode, WorkfileBinding, export_artifact
 from .primitives import Pinning, PrimitiveKind, PrimitiveRecord, Retention, commit, merkle_root
 from .retention import Holding, RetentionDetermination
 from .retention import issue as issue_determination
@@ -89,7 +89,7 @@ def build_chain(assignment_id: str = "ASG-8942", run_id: str = "run-1") -> SealC
         run_id=run_id,
         primitives=_primitives(root),
         evidence_commitment_hash=evidence_hash,
-        witness_mode=WitnessMode.REDERIVABLE,
+        witness_mode=AttestationMode.REDERIVABLE,
         rederivation_recipe=_recipe(evidence_hash),
     )
     chain.append(EntryKind.RUN_SEAL, run.to_body(), T0 + 1_000_000_000)

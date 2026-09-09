@@ -101,7 +101,7 @@ from ..artifact import (
     EntryKind,
     EvidenceCommitment,
     RunSeal,
-    WitnessMode,
+    AttestationMode,
     export_artifact,
 )
 from .assignment import _open, _refuse_if_closed, write_manifest
@@ -368,7 +368,7 @@ class _SealedFunction:
             run_id=this_run_id,
             primitives=primitives,
             evidence_commitment_hash=None,
-            witness_mode=WitnessMode.SELF_ATTESTED,
+            witness_mode=AttestationMode.SELF_ATTESTED,
         ).to_body()
 
         witness_attempted = bool(witness_url)
@@ -417,7 +417,7 @@ class _SealedFunction:
                 attestation = request_witness_signature(witness_url, payload)
                 if attestation is not None:
                     run_body["witness_attestation"] = attestation
-                    run_body["witness_mode"] = WitnessMode.INDEPENDENT.value
+                    run_body["witness_mode"] = AttestationMode.INDEPENDENT.value
                 else:
                     run_body["witness_attestation"] = None
         except BaseException:

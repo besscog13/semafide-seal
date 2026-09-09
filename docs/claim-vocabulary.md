@@ -38,13 +38,13 @@ The public label and the code identifier are a fixed pair. Neither moves without
 
 Reported independently. Unchecked is not a pass, and a yes on four does not imply the fifth.
 
-## The word `Witness` is not disambiguated by this table, and it needs to be before the label ships
+## The word `Witness` carried three senses in code; one has since moved to a different name
 
-Three senses of this word are already live in this project, named in `CLAUDE.md`'s own glossary collision note: the glossary sense, an independent record of the capture itself; the cosigner role `code/seal/witness.py` implements; and `WitnessMode.INDEPENDENT`, which that same note states uses neither sense. Adopting **Witness** as the public label for `witness_attestation` adds a fourth use of the word without resolving the first three, which is the exact kind of drift this document exists to stop.
+Two senses of this word remain live in this project, down from three: the glossary sense, an independent record of the capture itself, and the cosigner role `code/seal/witness.py` implements. The third sense, formerly `WitnessMode.INDEPENDENT`, has been renamed to `AttestationMode.INDEPENDENT`, because it borrowed the English of the other two without implementing either, and a sealer-written string calling itself a witness mode was exactly the kind of drift this document exists to stop. Adopting **Witness** as the public label for `witness_attestation` now only has to be checked against the two senses that remain.
 
-**What `witness_attestation` actually is, stated so this table stops adding to the collision instead of naming it:** it is the glossary sense, a record of the capture independent of the sealer's own say-so, established in practice through the second sense's mechanism, the signature checking `code/seal/witness.py` performs. It is not `WitnessMode.INDEPENDENT`, and nothing in this table should be read as describing that canvas toggle.
+**What `witness_attestation` actually is, stated so this table stops adding to the collision instead of naming it:** it is the glossary sense, a record of the capture independent of the sealer's own say-so, established in practice through the second sense's mechanism, the signature checking `code/seal/witness.py` performs. It is not `AttestationMode.INDEPENDENT`, and nothing in this table should be read as describing that canvas toggle.
 
-Do not ship **Witness** to the homepage or `/instrument` until this mapping is written down somewhere a reader moving between the public label, the glossary entry, and the code can actually find it. This document was not that place until this paragraph; whoever finishes the rewrite should decide whether it belongs here permanently or gets pointed at from here into `CLAUDE.md` instead.
+**Where this mapping lives now.** `CLAUDE.md`, in the private repository, records the full disambiguation and the naming decision behind the rename, but a public reader of this document cannot reach that file. This section stays the public-facing version of the same mapping, now covering two senses instead of three. Do not ship **Witness** to the homepage or `/instrument` without checking it against both.
 
 ## The second axis: the record, not the run
 

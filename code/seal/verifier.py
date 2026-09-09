@@ -31,7 +31,7 @@ from .artifact import (
     Entry,
     EntryKind,
     RederivationRecipe,
-    WitnessMode,
+    AttestationMode,
     chain_identity,
     load_artifact,
     signing_payload,
@@ -724,7 +724,7 @@ def _run_evidence(
 
     evidence = EvidencePropositions(precedence=True)
 
-    if mode == WitnessMode.REDERIVABLE.value or body.get("rederivation_recipe") is not None:
+    if mode == AttestationMode.REDERIVABLE.value or body.get("rederivation_recipe") is not None:
         recipe = body.get("rederivation_recipe")
 
         # A recipe must be tied to the two things the artifact claims, or
@@ -829,7 +829,7 @@ def _run_evidence(
             evidence, body, run.public_key, trusted_witness_keys, report
         )
 
-    if mode == WitnessMode.INDEPENDENT.value or body.get("witness_attestation") is not None:
+    if mode == AttestationMode.INDEPENDENT.value or body.get("witness_attestation") is not None:
         # Granting WITNESSED here would be the cheapest route to clearing KC2
         # in the whole package: nine characters in a field the sealer writes,
         # with no recipe and no
