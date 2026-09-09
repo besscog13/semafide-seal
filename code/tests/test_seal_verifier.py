@@ -27,7 +27,7 @@ from seal import (
     RetentionDetermination,
     RunSeal,
     SealChain,
-    WitnessMode,
+    AttestationMode,
     WorkfileBinding,
     commit,
     canonical_bytes,
@@ -108,7 +108,7 @@ def _recipe(evidence_hash: str, *, digest: str | None = None,
 
 
 def _build(
-    witness: WitnessMode,
+    witness: AttestationMode,
     *,
     commit_evidence_first: bool = True,
     rederivable: bool = False,
@@ -255,14 +255,14 @@ def _ok(recipe: dict) -> str:
 # --------------------------------------------------------------------------
 
 def test_clean_chain_verifies():
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     r = verify(export_artifact(chain), trusted_keys=[chain.public_key_pem])
     assert r.chain_intact and r.signatures_valid and r.key_trusted
     assert r.trustworthy
 
 
 def test_tampered_body_fails_signature():
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     doc = export_artifact(chain)
     doc["entries"][1]["body"]["run_id"] = "run-tampered"
     r = verify(doc, trusted_keys=[chain.public_key_pem])
@@ -271,7 +271,7 @@ def test_tampered_body_fails_signature():
 
 
 def test_removing_an_entry_breaks_the_chain():
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     doc = export_artifact(chain)
     del doc["entries"][0]
     r = verify(doc, trusted_keys=[chain.public_key_pem])
@@ -346,7 +346,7 @@ def test_concurrent_append_never_lets_two_entries_share_a_sequence_number(monkey
 
 def test_signature_validity_does_not_establish_identity():
     """Anyone can sign anything with a key they generated."""
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     r = verify(export_artifact(chain))  # no trusted key set supplied
     assert r.signatures_valid
     assert r.key_trusted is None
@@ -364,7 +364,7 @@ def test_a_key_set_that_does_not_include_the_signer_is_untrusted_not_unchecked()
     before this exercised it: every other test in this file either passes
     no trusted set or passes the artifact's own key.
     """
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     stranger = ec.generate_private_key(ec.SECP256R1())
     stranger_pem = stranger.public_key().public_bytes(
         serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
@@ -382,7 +382,7 @@ def test_a_key_set_that_does_not_include_the_signer_is_untrusted_not_unchecked()
 # --------------------------------------------------------------------------
 
 def test_no_evidence_commitment_is_bundling():
-    chain = _build(WitnessMode.SELF_ATTESTED, commit_evidence_first=False)
+    chain = _build(AttestationMode.SELF_ATTESTED, commit_evidence_first=False)
     r = verify(export_artifact(chain))
     assert not r.evidence.precedence
     assert r.kc2_fires
@@ -394,7 +394,7 @@ def test_self_attested_precedence_still_fires_kc2():
     the output, which is real. It is also exactly what two RFC-3161 timestamps
     over two local files achieve, so it does not clear KC2.
     """
-    chain = _build(WitnessMode.SELF_ATTESTED)
+    chain = _build(AttestationMode.SELF_ATTESTED)
     r = verify(export_artifact(chain))
     assert r.evidence.precedence and not r.evidence.recipe_available
     assert r.timestamp_replicable and r.kc2_fires
@@ -407,7 +407,7 @@ def test_self_declared_witness_does_not_clear_kc2():
     the cheapest route to clearing KC2 in the package: nine characters, no
     recipe, no re-derivation.
     """
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     r = verify(export_artifact(chain))
     assert r.evidence.precedence and not r.evidence.recipe_available
     assert not r.evidence.witness_attestation
@@ -430,7 +430,7 @@ def test_a_witness_attestation_naming_a_non_string_public_key_is_a_specific_find
     artifact before fixing it, not only against a hand-built dict.
     """
     witness_key = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.INDEPENDENT, witness_key=witness_key)
+    chain = _build(AttestationMode.INDEPENDENT, witness_key=witness_key)
     doc = export_artifact(chain)
     for e in doc["entries"]:
         if e["kind"] == "run_seal":
@@ -461,7 +461,7 @@ def test_a_witness_attestation_naming_a_non_string_signature_is_a_specific_findi
         serialization.Encoding.PEM,
         serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode("ascii")
-    chain = _build(WitnessMode.INDEPENDENT, witness_key=witness_key)
+    chain = _build(AttestationMode.INDEPENDENT, witness_key=witness_key)
     doc = export_artifact(chain)
     for e in doc["entries"]:
         if e["kind"] == "run_seal":
@@ -479,7 +479,7 @@ def test_independent_observer_attestation_establishes_historical_execution():
         serialization.Encoding.PEM,
         serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode("ascii")
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    witness_key=witness_key)
     r = verify(export_artifact(chain), rederive=_ok,
                trusted_witness_keys=[witness_pem],
@@ -491,7 +491,7 @@ def test_independent_observer_attestation_establishes_historical_execution():
 
 def test_complete_recipe_not_executed_is_only_rederivable():
     """A recipe that has not been run is a claim, not a proof."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain))
     assert r.evidence.recipe_available and not r.evidence.recipe_reproduced
     assert any(f.code == "not_rederived" for f in r.findings)
@@ -504,7 +504,7 @@ def test_executed_and_matched_reaches_rederived_and_clears_kc2():
     established that the input could not have been kept locally, which is why
     the determination is supplied here and its absence is a separate test.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[_determination()])
     assert r.evidence.recipe_reproduced
@@ -514,7 +514,7 @@ def test_executed_and_matched_reaches_rederived_and_clears_kc2():
 
 def test_rederivation_mismatch_drops_to_precedence():
     """Re-running and getting a different answer is the whole point."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=lambda rec: OTHER_DIGEST)
     assert r.evidence.precedence and not r.evidence.recipe_available
     assert not r.evidence.recipe_reproduced
@@ -524,7 +524,7 @@ def test_rederivation_mismatch_drops_to_precedence():
 
 def test_unservable_pinned_version_decays_to_the_recipe():
     """The liveness dependency. A signature does not have one; this does."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=lambda rec: None)
     assert r.evidence.recipe_available and not r.evidence.recipe_reproduced
     assert any(f.bears_on == "liveness" for f in r.findings)
@@ -534,7 +534,7 @@ def test_incomplete_recipe_does_not_count():
     partial = _recipe("whatever")
     del partial["endpoint"]
     del partial["service_window"]
-    chain = _build(WitnessMode.REDERIVABLE, recipe_override=partial)
+    chain = _build(AttestationMode.REDERIVABLE, recipe_override=partial)
     r = verify(export_artifact(chain))
     assert r.evidence.precedence and not r.evidence.recipe_available
     assert any(f.code == "incomplete_recipe" for f in r.findings)
@@ -560,7 +560,7 @@ def test_a_non_dict_rederivation_recipe_is_a_specific_finding_not_a_crash():
     specific to one wrong type.
     """
     for hostile_recipe in ("just a string, not a recipe dict", ["not", "a", "dict"]):
-        chain = _build(WitnessMode.REDERIVABLE, recipe_override=hostile_recipe)
+        chain = _build(AttestationMode.REDERIVABLE, recipe_override=hostile_recipe)
         r = verify(export_artifact(chain))
         assert (r.evidence.precedence and not r.evidence.recipe_available), hostile_recipe
         assert any(f.code == "incomplete_recipe" for f in r.findings), hostile_recipe
@@ -568,7 +568,7 @@ def test_a_non_dict_rederivation_recipe_is_a_specific_finding_not_a_crash():
 
 
 def test_rederivable_claim_without_a_recipe_does_not_count():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=False)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=False)
     r = verify(export_artifact(chain))
     assert r.evidence.precedence and not r.evidence.recipe_available
     assert r.kc2_fires
@@ -584,7 +584,7 @@ def test_rederivation_over_locally_retainable_evidence_still_fires_kc2():
     tools in circulation: the workflow starts with the operator exporting rows
     to their own machine, so the input is in their hands before the tool runs.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[
                    _determination(Holding.OPERATOR_HOLDS)])
@@ -613,7 +613,7 @@ def test_the_artifacts_own_retention_field_no_longer_decides_kc2():
     commitment-only retention and carrying no outside reading used to clear
     KC2 on a field the sealer wrote. Nine characters, no second party.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    retention=Retention.COMMITMENT_ONLY)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.evidence.recipe_reproduced
@@ -627,7 +627,7 @@ def test_a_determination_signed_by_the_sealer_does_not_count():
     vouching for itself on the point at issue. Same shape as a self-issued
     checkpoint, and refused for the same reason.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                trusted_keys=[chain.public_key_pem],
                retention_determinations=[
@@ -641,7 +641,7 @@ def test_a_determination_for_another_version_does_not_reach_this_run():
     A determination speaks for the version it was read against. A workflow is
     usually stable across versions and saying so is a claim beyond the reading.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[_determination(version="9.9.9")])
     assert r.input_provenance is Provenance.UNSOURCED
@@ -652,7 +652,7 @@ def test_a_tampered_determination_is_unusable():
     doc = _determination()
     doc["holding"] = Holding.OPERATOR_CANNOT_HOLD.value
     doc["source"] = "https://attacker.example/whatever"
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[doc])
     assert r.input_provenance is Provenance.UNUSABLE
@@ -661,7 +661,7 @@ def test_a_tampered_determination_is_unusable():
 
 def test_disagreeing_determinations_do_not_clear_kc2():
     """A contested reading does not clear a kill condition."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[
                    _determination(Holding.OPERATOR_CANNOT_HOLD),
@@ -685,7 +685,7 @@ def test_garbage_entries_in_the_determinations_list_are_skipped_not_fatal():
     the real determination underneath it still clears KC2 exactly as it
     would on its own.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     determinations = [None, "garbage", 42, ["nested", "list"],
                       _determination(Holding.OPERATOR_CANNOT_HOLD)]
     r = verify(export_artifact(chain), rederive=_ok,
@@ -700,7 +700,7 @@ def test_an_undetermined_reading_resolves_against_clearance():
     An honest reading that could not tell is recorded rather than guessed, and
     it fails closed. Recording less must never grade better.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                retention_determinations=[
                    _determination(Holding.UNDETERMINED)])
@@ -718,14 +718,14 @@ def test_one_unsourced_run_makes_the_whole_artifact_replicable():
     first leaves the second unsourced, and one unsourced run is enough, because
     the analysis it produced can be timestamped and re-run locally.
     """
-    both = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    both = _build(AttestationMode.REDERIVABLE, rederivable=True,
                   runs_after_binding=1)
     r = verify(export_artifact(both), rederive=_ok,
                retention_determinations=[_determination()])
     assert r.input_provenance is Provenance.SOURCED
     assert not r.kc2_fires
 
-    split = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    split = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    runs_after_binding=1, late_version="3.3.0")
     r2 = verify(export_artifact(split), rederive=_ok,
                 retention_determinations=[_determination()])
@@ -749,7 +749,7 @@ def test_evidence_committed_after_the_run_is_bundling():
     chain = SealChain("assignment-1", opened_ns=T0)
     root = merkle_root(_rows())
     chain.append(EntryKind.RUN_SEAL, RunSeal(
-        "run-1", _primitives(root), None, WitnessMode.INDEPENDENT).to_body(), T0)
+        "run-1", _primitives(root), None, AttestationMode.INDEPENDENT).to_body(), T0)
     chain.append(EntryKind.EVIDENCE_COMMITMENT, EvidenceCommitment(
         "ev-late", root, 40, "MLS-export", "2026-03-14T09:00:00Z").to_body(),
         T0 + 1)
@@ -787,7 +787,7 @@ def test_a_run_naming_a_commitment_sealed_after_it_is_caught_not_just_a_run_nami
     ev1 = chain.append(EntryKind.EVIDENCE_COMMITMENT, EvidenceCommitment(
         "ev-1", root, 40, "MLS-export", "2026-03-14T09:00:00Z").to_body(), T0)
     chain.append(EntryKind.RUN_SEAL, RunSeal(
-        "run-1", _primitives(root), ev1.block_hash, WitnessMode.INDEPENDENT
+        "run-1", _primitives(root), ev1.block_hash, AttestationMode.INDEPENDENT
     ).to_body(), T0 + 1)
     ev2 = chain.append(EntryKind.EVIDENCE_COMMITMENT, EvidenceCommitment(
         "ev-2", root, 40, "MLS-export", "2026-03-15T09:00:00Z").to_body(), T0 + 2)
@@ -818,7 +818,7 @@ def test_a_run_naming_a_commitment_not_in_the_chain_is_bundling_not_a_crash():
     chain = SealChain("assignment-1", opened_ns=T0)
     root = merkle_root(_rows())
     chain.append(EntryKind.RUN_SEAL, RunSeal(
-        "run-1", _primitives(root), "sha256:" + "ab" * 32, WitnessMode.INDEPENDENT
+        "run-1", _primitives(root), "sha256:" + "ab" * 32, AttestationMode.INDEPENDENT
     ).to_body(), T0)
     r = verify(export_artifact(chain))
     assert not r.evidence.precedence
@@ -830,20 +830,20 @@ def test_a_run_naming_a_commitment_not_in_the_chain_is_bundling_not_a_crash():
 # --------------------------------------------------------------------------
 
 def test_contiguous_binding_makes_omission_detectable():
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     r = verify(export_artifact(chain))
     assert r.coverage is Coverage.CONTIGUOUS
 
 
 def test_selective_binding_is_detected():
-    chain = _build(WitnessMode.INDEPENDENT, omit_seq=0)
+    chain = _build(AttestationMode.INDEPENDENT, omit_seq=0)
     r = verify(export_artifact(chain))
     assert r.coverage is Coverage.SUBSET
     assert any(f.code == "selective_binding" for f in r.findings)
 
 
 def test_missing_layer_two_is_reported():
-    chain = _build(WitnessMode.INDEPENDENT, bind=False)
+    chain = _build(AttestationMode.INDEPENDENT, bind=False)
     r = verify(export_artifact(chain))
     assert r.coverage is Coverage.ABSENT
 
@@ -853,7 +853,7 @@ def test_missing_layer_two_is_reported():
 # --------------------------------------------------------------------------
 
 def test_all_six_primitives_are_reported():
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     r = verify(export_artifact(chain))
     assert set(r.primitives_present) == {k.value for k in PrimitiveKind}
     assert all(r.primitives_present.values())
@@ -861,7 +861,7 @@ def test_all_six_primitives_are_reported():
 
 def test_floating_primitive_is_a_pinning_finding():
     """A primitive that resolves to present state fails pinning even when kept."""
-    chain = _build(WitnessMode.INDEPENDENT, pinning=Pinning.FLOATING)
+    chain = _build(AttestationMode.INDEPENDENT, pinning=Pinning.FLOATING)
     r = verify(export_artifact(chain))
     assert r.primitives_pinned["evidence"] == Pinning.FLOATING.value
     assert any(f.bears_on == "pinning" for f in r.findings)
@@ -908,7 +908,7 @@ def test_recipe_output_must_be_the_sealed_action():
     its own output_digest lets an artifact seal one adjustment, carry a recipe
     reproducing a different number, and be reported REDERIVED.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    recipe_digest=OTHER_DIGEST)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.evidence.precedence and not r.evidence.recipe_available
@@ -918,7 +918,7 @@ def test_recipe_output_must_be_the_sealed_action():
 
 def test_recipe_input_must_be_the_named_evidence():
     """Attack C. A recipe naming an input unrelated to the sealed evidence."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    recipe_input_ref="commitment://SOMETHING-ELSE")
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.evidence.precedence and not r.evidence.recipe_available
@@ -932,7 +932,7 @@ def test_runs_after_certification_are_detected():
     binding reports CONTIGUOUS, which defeats the anti-cherry-picking property
     by the obvious move.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    runs_after_binding=2)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.coverage is Coverage.SUBSET
@@ -941,7 +941,7 @@ def test_runs_after_certification_are_detected():
 
 def test_binding_naming_absent_entries_is_detected():
     """Attack E. Truncating the tail leaves chain_intact true on its own."""
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     doc = export_artifact(chain)
     binding = doc["entries"][-1]
     binding["body"]["covered_seqs"] = sorted(
@@ -957,7 +957,7 @@ def test_trustworthy_requires_a_recognised_key():
     a forger signs everything with their own key. The composite is the field a
     caller should read.
     """
-    chain = _build(WitnessMode.INDEPENDENT)
+    chain = _build(AttestationMode.INDEPENDENT)
     doc = export_artifact(chain)
     assert verify(doc).signatures_valid            # internally consistent
     assert not verify(doc).trustworthy             # but nobody vouched for it
@@ -977,7 +977,7 @@ def test_deleting_the_evidence_record_fires_kc2():
     let the artifact recording less about its inputs grade better on the
     input-provenance condition.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     doc = export_artifact(chain)
     run = next(e for e in doc["entries"]
                if e["kind"] == EntryKind.RUN_SEAL.value)
@@ -996,10 +996,10 @@ def test_a_dirty_run_cannot_hide_behind_a_clean_later_one():
     t += 1_000_000_000
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "dirty", _primitives(root, pinning=Pinning.FLOATING), ev,
-        WitnessMode.SELF_ATTESTED).to_body(), t)
+        AttestationMode.SELF_ATTESTED).to_body(), t)
     t += 1_000_000_000
     chain.append(EntryKind.RUN_SEAL, RunSeal(
-        "clean", _primitives(root), ev, WitnessMode.SELF_ATTESTED).to_body(), t)
+        "clean", _primitives(root), ev, AttestationMode.SELF_ATTESTED).to_body(), t)
 
     r = verify(export_artifact(chain))
     assert r.primitives_pinned["evidence"] == Pinning.FLOATING.value
@@ -1022,7 +1022,7 @@ def test_malformed_input_fails_closed_rather_than_raising():
 
 
 def test_binding_seq_past_the_end_does_not_crash():
-    chain = _build(WitnessMode.SELF_ATTESTED)
+    chain = _build(AttestationMode.SELF_ATTESTED)
     doc = export_artifact(chain)
     doc["entries"][-1]["seq"] = 999
     r = verify(doc)
@@ -1043,7 +1043,7 @@ def test_binding_seq_out_of_range_is_a_named_finding_not_a_generic_crash_catch()
     All three should now name the actual problem.
     """
     for seq in (999, 0, -5):
-        chain = _build(WitnessMode.SELF_ATTESTED)
+        chain = _build(AttestationMode.SELF_ATTESTED)
         doc = export_artifact(chain)
         doc["entries"][-1]["seq"] = seq
         r = verify(doc)
@@ -1060,7 +1060,7 @@ def test_timestamp_regression_is_reported():
         "ev-1", root, 40, "MLS-export", "2026-03-14").to_body(),
         9_000_000_000).block_hash
     chain.append(EntryKind.RUN_SEAL, RunSeal(
-        "run-1", _primitives(root), ev, WitnessMode.SELF_ATTESTED).to_body(), 1_000)
+        "run-1", _primitives(root), ev, AttestationMode.SELF_ATTESTED).to_body(), 1_000)
     r = verify(export_artifact(chain))
     assert any(f.code == "timestamp_regression" for f in r.findings)
 
@@ -1131,14 +1131,14 @@ def _custodian_checkpoint(chain: SealChain, key=None, *, count=None, head=None):
 
 def test_without_a_checkpoint_completeness_is_unchecked():
     """The honest default, and the state every artifact was in before this."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.completeness is Completeness.UNCHECKED
     assert any(f.code == "no_checkpoint" for f in r.findings)
 
 
 def test_a_checkpoint_confirms_a_whole_artifact():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
                checkpoint=_custodian_checkpoint(chain))
     assert r.completeness is Completeness.CONSISTENT
@@ -1151,7 +1151,7 @@ def test_truncation_is_detected_against_a_checkpoint():
     is internally perfect. What it cannot do is match a count somebody else
     recorded.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    runs_after_binding=2)
     cp = _custodian_checkpoint(chain)          # issued over the full chain
     doc = export_artifact(chain)
@@ -1171,7 +1171,7 @@ def test_a_checkpoint_signed_by_the_sealer_is_worthless():
     The sealer vouching for themselves is the situation the checkpoint exists
     to escape, so it is refused rather than counted.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     cp = _custodian_checkpoint(chain, key=chain._sk)
     r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
     assert r.completeness is Completeness.UNUSABLE
@@ -1180,14 +1180,14 @@ def test_a_checkpoint_signed_by_the_sealer_is_worthless():
 
 def test_a_checkpoint_for_another_chain_does_not_vouch_for_this_one():
     """Defeats answering a checkpoint with a different chain of the right length."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     cp = _custodian_checkpoint(chain, head="0" * 64)
     r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
     assert r.completeness is Completeness.MISMATCHED
 
 
 def test_an_unsigned_or_tampered_checkpoint_is_refused():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     cp = _custodian_checkpoint(chain)
     cp["entry_count"] = 99                      # not re-signed
     r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
@@ -1918,7 +1918,7 @@ def test_a_chain_is_anchored_to_its_assignment_before_anything_is_sealed():
     with the most reason to choose it. Entry zero fixes it at open, and every
     later entry links back through prev_hash.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     entries = load_artifact(export_artifact(chain))
     assert entries[0].kind is EntryKind.ASSIGNMENT_ANCHOR
     aid, cid = chain_identity(entries)
@@ -1934,7 +1934,7 @@ def test_five_chains_one_disclosed_is_invisible_without_a_statement():
     The attack. The disclosed chain
     is whole and its own checkpoint says so. Nothing in it counts its siblings.
     """
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(5)]
     handed_over = export_artifact(siblings[0])
 
@@ -1946,7 +1946,7 @@ def test_five_chains_one_disclosed_is_invisible_without_a_statement():
 
 
 def test_the_custodian_statement_makes_the_withheld_chains_visible():
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(5)]
     acp = _assignment_checkpoint(siblings)
 
@@ -1970,7 +1970,7 @@ def test_disclosure_order_does_not_change_the_verdict():
     made to sign two different statements about one set of chains, and an
     examiner reading them in another order gets the same answer.
     """
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(4)]
     acp = _assignment_checkpoint(siblings)
     docs = [export_artifact(c) for c in siblings]
@@ -1996,7 +1996,7 @@ def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
     continued work, which is the wrong direction for a completeness check
     to fail in.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     acp = _assignment_checkpoint([chain])
     checkpointed_head_index = len(chain.entries) - 1
 
@@ -2014,7 +2014,7 @@ def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
         EntryKind.RUN_SEAL,
         RunSeal(run_id="run-grown", primitives=_primitives(root),
                evidence_commitment_hash=ev,
-               witness_mode=WitnessMode.SELF_ATTESTED).to_body(),
+               witness_mode=AttestationMode.SELF_ATTESTED).to_body(),
         T0 + 11_000_000_000)
 
     report = assess_disclosure([export_artifact(chain)], acp)
@@ -2036,9 +2036,9 @@ def test_a_chain_not_in_the_assignment_is_reported_rather_than_counted():
     Answering a five-chain statement with a sixth chain nobody recorded is the
     obvious inversion of the attack.
     """
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(3)]
-    outsider = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    outsider = _build(AttestationMode.REDERIVABLE, rederivable=True,
                       chain_label="unrecorded")
     acp = _assignment_checkpoint(siblings)
 
@@ -2049,7 +2049,7 @@ def test_a_chain_not_in_the_assignment_is_reported_rather_than_counted():
 
 
 def test_a_chain_under_another_assignment_does_not_answer_this_one():
-    other = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    other = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    assignment_id="assignment-2")
     acp = _assignment_checkpoint([other], assignment_id="assignment-1")
     r = verify(export_artifact(other), rederive=_ok, assignment_checkpoint=acp)
@@ -2059,7 +2059,7 @@ def test_a_chain_under_another_assignment_does_not_answer_this_one():
 def test_an_assignment_checkpoint_signed_by_the_sealer_is_worthless():
     """Same rule as the per-chain checkpoint. Counting your own chains is not
     a count."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     acp = _assignment_checkpoint([chain], key=chain._sk)
     r = verify(export_artifact(chain), rederive=_ok, assignment_checkpoint=acp)
     assert r.disclosure is Disclosure.UNUSABLE
@@ -2067,7 +2067,7 @@ def test_an_assignment_checkpoint_signed_by_the_sealer_is_worthless():
 
 
 def test_a_tampered_assignment_checkpoint_is_refused():
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(3)]
     acp = _assignment_checkpoint(siblings)
     acp["chains"] = acp["chains"][:1]      # drop the siblings from the statement
@@ -2082,7 +2082,7 @@ def test_a_chain_with_no_anchor_cannot_be_checked_against_an_assignment():
     rather than passed. The chain also stops linking from genesis, which the
     integrity walk catches independently.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     acp = _assignment_checkpoint([chain])
     doc = export_artifact(chain)
     doc["entries"] = doc["entries"][1:]
@@ -2095,7 +2095,7 @@ def test_a_chain_with_no_anchor_cannot_be_checked_against_an_assignment():
 
 
 def test_a_second_anchor_cannot_re_declare_the_assignment():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     chain.append(EntryKind.ASSIGNMENT_ANCHOR,
                  AssignmentAnchor("assignment-9").to_body(), T0 + 9_000_000_000)
     r = verify(export_artifact(chain), rederive=_ok)
@@ -2108,7 +2108,7 @@ def test_a_binding_cannot_certify_an_assignment_the_chain_is_not_anchored_to():
     The binding is written last. Before the anchor existed it was the only
     place the assignment appeared, so whatever it said was the answer.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, bind=False)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, bind=False)
     chain.append(EntryKind.WORKFILE_BINDING, WorkfileBinding(
         assignment_id="assignment-7", chain_head=chain.head,
         covered_seqs=[e.seq for e in chain.entries],
@@ -2122,7 +2122,7 @@ def test_a_binding_cannot_certify_an_assignment_the_chain_is_not_anchored_to():
 def test_a_short_sibling_chain_is_reported_against_the_statement():
     """Withholding entries from one chain and chains from the assignment are
     different omissions, and both are counted."""
-    siblings = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(2)]
     acp = _assignment_checkpoint(siblings)
     docs = [export_artifact(c) for c in siblings]
@@ -2181,7 +2181,7 @@ def _stamp(chain, key, at_ns, authority="tsa", entry=-1):
 
 
 def test_an_unanchored_chain_says_so_rather_than_passing():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.anchoring is Anchoring.UNANCHORED
     assert r.anchor_interval_ns is None
@@ -2196,7 +2196,7 @@ def test_a_timestamp_alone_leaves_backdating_untouched():
     alone is reported as UPPER_ONLY rather than counted as anchored.
     """
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     token = _stamp(chain, tsa, T0 + 60_000_000_000)
 
     r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
@@ -2208,7 +2208,7 @@ def test_a_timestamp_alone_leaves_backdating_untouched():
 
 def test_a_committed_beacon_and_a_timestamp_pin_the_instant_to_an_interval():
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    beacon=_beacon())
     token = _stamp(chain, tsa, T0 + 60_000_000_000)
 
@@ -2226,7 +2226,7 @@ def test_backdating_is_caught_by_the_lower_bound_and_only_by_it():
     chain links from genesis, every signature verifies, and the timestamps are
     monotonic among themselves.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    beacon=_beacon(issued_ns=PULSE_NS),
                    opened_ns=PULSE_NS - 400_000_000_000,
                    base_ns=PULSE_NS - 300_000_000_000)
@@ -2251,7 +2251,7 @@ def test_a_resolved_beacon_with_no_time_anchor_is_bounded_only_below():
     `test_a_timestamp_alone_leaves_backdating_untouched`'s `UPPER_ONLY` on
     the other side of the interval.
     """
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, beacon=_beacon())
     r = verify(export_artifact(chain), rederive=_ok, beacon_resolver=_resolver)
     assert r.anchoring is Anchoring.LOWER_ONLY
     assert r.anchor_interval_ns is None
@@ -2271,7 +2271,7 @@ def test_a_beacon_resolver_that_raises_is_treated_as_unresolved():
     def exploding_resolver(source, pulse):
         raise RuntimeError("network error, not a documented None return")
 
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, beacon=_beacon())
     r = verify(export_artifact(chain), rederive=_ok,
               beacon_resolver=exploding_resolver)
     assert r.anchoring is Anchoring.UNANCHORED
@@ -2292,7 +2292,7 @@ def test_a_time_anchor_with_an_unreadable_digest_does_not_crash_the_verifier():
     produced instead.
     """
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     token = issue_anchor(TimeAnchor("tsa", ["not", "a", "string"],
                                     T0 + 60_000_000_000), tsa)
     from seal.anchor import signature_valid
@@ -2307,14 +2307,14 @@ def test_a_time_anchor_with_an_unreadable_digest_does_not_crash_the_verifier():
 def test_a_beacon_nobody_resolves_is_the_sealer_talking_to_itself():
     """Same shape as `witness_mode: independent`. The value has to be looked up
     somewhere other than the document it constrains."""
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, beacon=_beacon())
     r = verify(export_artifact(chain), rederive=_ok)
     assert r.anchoring is Anchoring.UNANCHORED
     assert any("resolver" in f.detail for f in r.findings)
 
 
 def test_a_fabricated_beacon_value_does_not_resolve():
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    beacon=_beacon(value="00" * 32))
     r = verify(export_artifact(chain), rederive=_ok, beacon_resolver=_resolver)
     assert r.anchoring is Anchoring.UNANCHORED
@@ -2326,7 +2326,7 @@ def test_an_unrecognised_authority_is_not_counted():
     a key generator, which is the lesson `count_witnesses` already learned."""
     forger = ec.generate_private_key(ec.SECP256R1())
     real = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     token = _stamp(chain, forger, T0 + 60_000_000_000, authority="tsa")
 
     r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
@@ -2343,8 +2343,8 @@ def test_an_anchor_over_another_document_proves_nothing_about_this_one():
     """The recipe compared to itself, one level over. A token has to name an
     entry in the chain it is offered against."""
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
-    other = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
+    other = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    chain_label="elsewhere")
     token = _stamp(other, tsa, T0 + 60_000_000_000)
 
@@ -2356,7 +2356,7 @@ def test_an_anchor_over_another_document_proves_nothing_about_this_one():
 
 def test_a_tampered_token_does_not_verify():
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     token = _stamp(chain, tsa, T0 + 60_000_000_000)
     token["time_ns"] = T0 - 999_000_000_000       # move it earlier
 
@@ -2384,7 +2384,7 @@ def test_a_chain_that_keeps_growing_after_an_early_anchor_is_not_backdated():
     after that.
     """
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     # Anchors the evidence commitment (seq 1) shortly after it was sealed,
     # well before the run (T0 + 1s) and binding (T0 + 2s) that honestly
     # follow it.
@@ -2405,7 +2405,7 @@ def test_an_entry_at_or_before_the_anchored_one_is_still_caught_if_it_lies():
     """
     tsa = ec.generate_private_key(ec.SECP256R1())
     far_future = T0 + 999_000_000_000
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    base_ns=far_future)
     # Anchors the run seal (seq 2) at a time before the evidence commitment
     # (seq 1, base_ns) it is supposed to follow claims to have existed.
@@ -2420,7 +2420,7 @@ def test_an_entry_at_or_before_the_anchored_one_is_still_caught_if_it_lies():
 def test_the_earliest_recognised_anchor_is_the_one_that_binds():
     """Several tokens are not several bounds. The tightest one is the claim."""
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    beacon=_beacon())
     tokens = [_stamp(chain, tsa, T0 + n) for n in
               (600_000_000_000, 60_000_000_000, 300_000_000_000)]
@@ -2443,7 +2443,7 @@ def test_an_old_pulse_widens_the_interval_rather_than_defeating_the_check():
     def stale_resolver(source, pulse):
         return (PULSE_VALUE, stale_ns) if (source, pulse) == PULSE else None
 
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, beacon=_beacon())
     token = _stamp(chain, tsa, T0 + 60_000_000_000)
 
     r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
@@ -2454,7 +2454,7 @@ def test_an_old_pulse_widens_the_interval_rather_than_defeating_the_check():
 
 def test_a_beacon_published_after_the_authority_saw_the_chain_is_impossible():
     tsa = ec.generate_private_key(ec.SECP256R1())
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True, beacon=_beacon())
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True, beacon=_beacon())
     token = _stamp(chain, tsa, PULSE_NS - 10_000_000_000)
 
     r = verify(export_artifact(chain), rederive=_ok, time_anchors=[token],
@@ -2495,8 +2495,8 @@ def test_a_stateless_signer_vouches_for_two_chains_at_one_size():
     the sealer produces whichever suits and completeness reports CONSISTENT.
     """
     custodian = ec.generate_private_key(ec.SECP256R1())
-    a = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="a")
-    b = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="b")
+    a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
+    b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="b")
     assert len(a.entries) == len(b.entries) and a.head != b.head
 
     for chain in (a, b):
@@ -2509,8 +2509,8 @@ def test_a_stateful_issuer_refuses_the_second_chain():
     """The fix. The issuer remembers what it signed and will not sign a
     different chain at that size."""
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    a = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="a")
-    b = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="b")
+    a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
+    b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="b")
 
     issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
@@ -2522,14 +2522,14 @@ def test_a_stateful_issuer_refuses_the_second_chain():
 
 def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     first = len(chain.entries)
     issuer.issue(Checkpoint("assignment-1", first, chain.head, T0, "custodian"),
                  chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "run-2", _primitives(merkle_root(_rows())), None,
-        WitnessMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
+        AttestationMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
     signed = issuer.issue(
         Checkpoint("assignment-1", len(chain.entries), chain.head,
                    T0 + 2, "custodian"), chain.entries)
@@ -2555,13 +2555,13 @@ def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
     construction; either way the issuer must not sign over it.
     """
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "run-2", _primitives(merkle_root(_rows())), None,
-        WitnessMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
+        AttestationMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
 
     wrong_head = "sha256:" + "ee" * 32
     assert wrong_head != chain.head
@@ -2586,16 +2586,16 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
     import dataclasses
 
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "run-2", _primitives(merkle_root(_rows())), None,
-        WitnessMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
+        AttestationMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "run-3", _primitives(merkle_root(_rows())), None,
-        WitnessMode.SELF_ATTESTED).to_body(), T0 + 10_000_000_000)
+        AttestationMode.SELF_ATTESTED).to_body(), T0 + 10_000_000_000)
 
     tampered = list(chain.entries)
     broken_index = len(tampered) - 2  # strictly inside, not the final entry
@@ -2620,8 +2620,8 @@ def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment()
     be refused, and both must never succeed.
     """
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    a = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="race-a")
-    b = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="race-b")
+    a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="race-a")
+    b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="race-b")
     assert len(a.entries) == len(b.entries) and a.head != b.head
 
     results: list[str] = []
@@ -2655,8 +2655,8 @@ def test_growth_without_the_entries_cannot_be_established():
     """An issuer given nothing to check against must refuse, because assuming
     an extension is the failure being corrected."""
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    a = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="a")
-    longer = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
+    longer = _build(AttestationMode.REDERIVABLE, rederivable=True,
                     chain_label="b", runs_after_binding=1)
     issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
@@ -2672,8 +2672,8 @@ def test_growth_without_the_entries_cannot_be_established():
 
 def test_one_issuer_state_does_not_leak_between_assignments():
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    a = _build(WitnessMode.REDERIVABLE, rederivable=True)
-    b = _build(WitnessMode.REDERIVABLE, rederivable=True,
+    a = _build(AttestationMode.REDERIVABLE, rederivable=True)
+    b = _build(AttestationMode.REDERIVABLE, rederivable=True,
                assignment_id="assignment-2", chain_label="other")
     issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
@@ -2686,7 +2686,7 @@ def test_an_assignment_issuer_refuses_to_drop_a_chain_it_recorded():
     """The same defect one level out: a five-chain statement followed by a
     three-chain statement, with the sealer producing whichever suits."""
     issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chains = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    chains = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                      chain_label=f"chain-{i}") for i in range(5)]
     refs = tuple(ChainRef(c.chain_id, c.head, len(c.entries)) for c in chains)
 
@@ -2696,7 +2696,7 @@ def test_an_assignment_issuer_refuses_to_drop_a_chain_it_recorded():
                                           T0 + 1, "custodian"))
 
     # Gaining a chain is ordinary and is signed.
-    extra = _build(WitnessMode.REDERIVABLE, rederivable=True, chain_label="late")
+    extra = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="late")
     grown = refs + (ChainRef(extra.chain_id, extra.head, len(extra.entries)),)
     assert issuer.issue(
         AssignmentCheckpoint("assignment-1", grown, T0 + 2, "custodian"))
@@ -2713,7 +2713,7 @@ def test_an_assignment_issuer_refuses_a_dropped_chain_offered_concurrently():
     omission this class exists to make visible.
     """
     issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chains = [_build(WitnessMode.REDERIVABLE, rederivable=True,
+    chains = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                      chain_label=f"race-{i}") for i in range(5)]
     refs = [ChainRef(c.chain_id, c.head, len(c.entries)) for c in chains]
     left = tuple(refs[0:3])
@@ -2746,7 +2746,7 @@ def test_an_assignment_issuer_refuses_a_dropped_chain_offered_concurrently():
 
 def test_an_assignment_issuer_refuses_a_chain_that_lost_entries():
     issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
-    chain = _build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     full = (ChainRef(chain.chain_id, chain.head, len(chain.entries)),)
     issuer.issue(AssignmentCheckpoint("assignment-1", full, T0, "custodian"))
 

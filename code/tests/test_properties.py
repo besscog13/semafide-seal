@@ -48,7 +48,7 @@ from seal import (
     RunSeal,
     SealChain,
     TimeAnchor,
-    WitnessMode,
+    AttestationMode,
     canonical_bytes,
     commit,
     export_artifact,
@@ -388,7 +388,7 @@ def _build_side_doc_artifact():
         "service_window": "2030",
     }
     run_body = RunSeal(run_id="run-1", primitives=primitives, evidence_commitment_hash=ev_hash,
-                       witness_mode=WitnessMode.INDEPENDENT, rederivation_recipe=recipe).to_body()
+                       witness_mode=AttestationMode.INDEPENDENT, rederivation_recipe=recipe).to_body()
     attestation = {
         "witness": "w", "public_key": _SIDE_WITNESS_PEM, "signature": "",
         "capture_ref": "cap-1", "statement": "observed_execution",

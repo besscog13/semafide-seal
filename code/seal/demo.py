@@ -21,7 +21,7 @@ from .artifact import (
     EvidenceCommitment,
     RunSeal,
     SealChain,
-    WitnessMode,
+    AttestationMode,
     WorkfileBinding,
     export_artifact,
 )
@@ -139,7 +139,7 @@ def _determination(holding: Holding, key=CUSTODIAN, by: str = "custodian") -> di
 
 
 def build(
-    witness: WitnessMode,
+    witness: AttestationMode,
     *,
     commit_first: bool = True,
     rederivable: bool = False,
@@ -223,7 +223,7 @@ def main() -> None:
     show(
         1, "A signature over a bundle",
         "The run is sealed. No commitment to the inputs came first.",
-        build(WitnessMode.SELF_ATTESTED, commit_first=False),
+        build(AttestationMode.SELF_ATTESTED, commit_first=False),
         because="Nothing connects the output to the inputs. This is what a\n"
                 "   signing function produces when handed a dictionary.",
     )
@@ -231,7 +231,7 @@ def main() -> None:
     show(
         2, "Commit the inputs first, then seal",
         "The input set is committed before the run that consumes it.",
-        build(WitnessMode.SELF_ATTESTED),
+        build(AttestationMode.SELF_ATTESTED),
         because="Ordering is fixed, so inputs cannot be chosen after seeing the\n"
                 "   output. But two ordinary timestamps achieve the same thing, so\n"
                 "   KC2 still fires. Ordering is not derivation.",
@@ -240,7 +240,7 @@ def main() -> None:
     show(
         3, "Carry a re-derivation recipe, but never run it",
         "A pinned endpoint, version, invocation, and expected output digest.",
-        build(WitnessMode.REDERIVABLE, rederivable=True),
+        build(AttestationMode.REDERIVABLE, rederivable=True),
         because="A recipe a stranger could execute is more than co-location,\n"
                 "   but until somebody executes it, it is a claim.",
     )
@@ -250,7 +250,7 @@ def main() -> None:
         "A verifier calls the pinned version and checks the output matches.\n"
         "   A custodian has read the tool documentation and signed a finding\n"
         "   that the raw input never lands on the operator's machine.",
-        build(WitnessMode.REDERIVABLE, rederivable=True),
+        build(AttestationMode.REDERIVABLE, rederivable=True),
         rederive=lambda r: commit(ACTION_PAYLOAD),
         determinations=[_determination(Holding.OPERATOR_CANNOT_HOLD)],
         because="Derivation is demonstrated rather than asserted, and the fact\n"
@@ -260,7 +260,7 @@ def main() -> None:
     )
 
     # 5. Where the retention answer comes from, which is what decides KC2.
-    chain5 = build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain5 = build(AttestationMode.REDERIVABLE, rederivable=True)
     sealer_key = chain5._sk  # noqa: SLF001 - demonstrating the refusal
 
     print(f"\n{RULE}\n5. One artifact, one fact, four sources for it")
@@ -293,7 +293,7 @@ def main() -> None:
     show(
         6, "A run left out of the workfile binding",
         "Same as 4, but the binding names a subset of the chain.",
-        build(WitnessMode.REDERIVABLE, rederivable=True, omit_from_binding=1),
+        build(AttestationMode.REDERIVABLE, rederivable=True, omit_from_binding=1),
         rederive=lambda r: commit(ACTION_PAYLOAD),
         determinations=[_determination(Holding.OPERATOR_CANNOT_HOLD)],
         because="Coverage drops to SUBSET and the verifier names what was\n"
@@ -302,7 +302,7 @@ def main() -> None:
     )
 
     # 7. The one thing the sealer does not author.
-    chain = build(WitnessMode.REDERIVABLE, rederivable=True)
+    chain = build(AttestationMode.REDERIVABLE, rederivable=True)
     custodian = CUSTODIAN
     cp = issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
                           T0 + 99, "custodian"), custodian)
@@ -333,7 +333,7 @@ def main() -> None:
     from .assignment import issue as issue_assignment
 
     siblings = [
-        build(WitnessMode.REDERIVABLE, rederivable=True,
+        build(AttestationMode.REDERIVABLE, rederivable=True,
               chain_label=f"chain-{i}")
         for i in range(5)
     ]
@@ -393,8 +393,8 @@ def main() -> None:
     print("   ts_ns is signed and monotonic and is still a number the sealer")
     print("   chose. A chain built today with last year's dates verifies.\n")
 
-    honest = build(WitnessMode.REDERIVABLE, rederivable=True, beacon=beacon)
-    backdated = build(WitnessMode.REDERIVABLE, rederivable=True, beacon=beacon,
+    honest = build(AttestationMode.REDERIVABLE, rederivable=True, beacon=beacon)
+    backdated = build(AttestationMode.REDERIVABLE, rederivable=True, beacon=beacon,
                       opened_ns=PULSE_NS - 400_000_000_000,
                       base_ns=PULSE_NS - 300_000_000_000)
 

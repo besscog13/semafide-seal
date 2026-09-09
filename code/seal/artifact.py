@@ -52,7 +52,7 @@ class EntryKind(Enum):
     WORKFILE_BINDING = "workfile_binding"
 
 
-class WitnessMode(Enum):
+class AttestationMode(Enum):
     """
     Who observed the capture, and therefore what the seal can be said to attest.
 
@@ -407,7 +407,7 @@ class RunSeal:
     run_id: str
     primitives: dict[PrimitiveKind, PrimitiveRecord]
     evidence_commitment_hash: Optional[str]
-    witness_mode: WitnessMode
+    witness_mode: AttestationMode
     rederivation_recipe: Optional[dict[str, Any]] = None
     witness_attestation: Optional[dict[str, Any]] = None
 
@@ -486,7 +486,7 @@ def load_artifact(doc: dict[str, Any]) -> list[Entry]:
 __all__ = [
     "GENESIS",
     "EntryKind",
-    "WitnessMode",
+    "AttestationMode",
     "WitnessAttestation",
     "Entry",
     "AssignmentAnchor",
