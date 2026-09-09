@@ -112,6 +112,15 @@ jobs:
       - name: The system map agrees with its source
         run: python .github/scripts/check_system_map.py
 
+      # `BindingLevel` and its five rungs are a lossy legacy projection, not a
+      # claim vocabulary of their own, and README.md and executive-thesis.md
+      # both say so explicitly in the few places they still name it. A flat
+      # forbidden list fails on those correct uses the moment it runs, so this
+      # asserts the narrower relationship instead: every line naming a retired
+      # term must be one of the exact lines already licensed to carry it.
+      - name: Retired vocabulary stays on its licensed lines
+        run: python .github/scripts/check_retired_vocabulary.py
+
       # The package claims to depend on cryptography and the standard library
       # and nothing else. That claim is load-bearing, since it is what lets the
       # live code be installed and run without any numerical or web stack, so it
