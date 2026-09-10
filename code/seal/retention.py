@@ -136,10 +136,10 @@ def issue(
     """
     Sign a determination.
 
-    Stateless on purpose, and the contrast with `checkpoint.CheckpointIssuer` is worth
-    stating. A checkpoint issuer must remember, because two checkpoints of the
-    same size over different chains are an equivocation the mechanism has to
-    refuse. A determination carries no such risk. Two readings of one tool at
+    Stateless on purpose, and the contrast with `checkpoint.ChainStatementIssuer` is
+    worth stating. A chain-statement issuer must remember, because two
+    statements of the same size over different chains are an equivocation the
+    mechanism has to refuse. A determination carries no such risk. Two readings of one tool at
     one version that disagree are not an equivocation to be prevented, they are
     a disagreement a reader should see, and `conflicts` surfaces it rather than
     suppressing it.

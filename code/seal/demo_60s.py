@@ -129,10 +129,10 @@ def _evidentiary_reliance(report) -> bool:
     against the string ``"COMPLETE"``, which is not a member of the
     ``Completeness`` enum at all (the real members are UNCHECKED, CONSISTENT,
     SHORT, MISMATCHED, UNUSABLE) and so could never match. This runner never
-    currently supplies a checkpoint, so completeness stays UNCHECKED and this
-    bug was invisible in every scenario the demo actually runs; confirmed
-    directly that a real checkpoint making completeness reach CONSISTENT, the
-    best real state, still compared false against the nonexistent value.
+    currently supplies a chain statement, so completeness stays UNCHECKED and
+    this bug was invisible in every scenario the demo actually runs; confirmed
+    directly that a real chain statement making completeness reach CONSISTENT,
+    the best real state, still compared false against the nonexistent value.
     """
     evidence = report.evidence
     return all((
@@ -190,7 +190,7 @@ def main() -> None:
     print("  ↳ Mechanism: the verifier detects that the claimed execution no longer")
     print("    agrees with the committed evidence.")
 
-    from .assignment import AssignmentCheckpoint, ChainRef
+    from .assignment import AssignmentStatement, ChainRef
     from .assignment import issue as issue_assignment
 
     print("\nATTACK: SELECTIVE ASSIGNMENT OMISSION")
@@ -199,7 +199,7 @@ def main() -> None:
     siblings = [build_chain(run_id=f"run-{i}") for i in range(1, 4)]
     refs = tuple(ChainRef(c.chain_id, c.head, len(c.entries)) for c in siblings)
     assignment_record = issue_assignment(
-        AssignmentCheckpoint("ASG-8942", refs, T0 + 100, "custodian"),
+        AssignmentStatement("ASG-8942", refs, T0 + 100, "custodian"),
         CUSTODIAN,
     )
     disclosed_report = _verify(siblings[0])

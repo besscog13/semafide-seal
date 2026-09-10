@@ -188,7 +188,7 @@ def conformance() -> None:
     """
     from cryptography.hazmat.primitives.asymmetric import ec
 
-    from seal import AssignmentCheckpoint, ChainRef, EntryKind, SealChain
+    from seal import AssignmentStatement, ChainRef, EntryKind, SealChain
     from seal.assignment import AssignmentIssuer, AssignmentRefusal
 
     def build(label: str) -> SealChain:
@@ -225,7 +225,7 @@ def conformance() -> None:
             predicted = model_accepts(prior, stmt)
             refs = tuple(ref(lb, n) for lb, n in stmt)
             try:
-                issuer.issue(AssignmentCheckpoint("assignment-1", refs, step,
+                issuer.issue(AssignmentStatement("assignment-1", refs, step,
                                                   "custodian"))
                 actual = True
             except AssignmentRefusal:

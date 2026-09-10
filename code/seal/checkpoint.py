@@ -50,6 +50,14 @@ question at a different layer, and it was renamed to `ChainStatement` rather
 than kept alongside a word the specification already means something else
 by. The spec's own vocabulary stays with `TreeHead`, where it was already
 earned.
+
+The rename stopped at the class the first time. `CheckpointIssuer` signed a
+`ChainStatement` and `CheckpointRefusal` was its exception, both still
+carrying the retired name after the object they operate on had already
+moved. Both are `ChainStatementIssuer` and `ChainStatementRefusal` now, for
+the same reason the class itself moved: an identifier that borrows a word
+the specification already means something else by overclaims a lineage it
+does not have.
 """
 
 from __future__ import annotations
@@ -104,12 +112,12 @@ class ChainStatement:
         return d
 
 
-class CheckpointRefusal(Exception):
+class ChainStatementRefusal(Exception):
     """Raised when an issuer will not sign. The reason is the finding."""
 
 
 @dataclass
-class CheckpointIssuer:
+class ChainStatementIssuer:
     """
     A stateful chain-statement issuer, which is what this always needed.
 
@@ -168,17 +176,17 @@ class CheckpointIssuer:
             if prior is not None:
                 if (statement.entry_count == prior.entry_count
                         and statement.chain_head != prior.chain_head):
-                    raise CheckpointRefusal(
+                    raise ChainStatementRefusal(
                         f"already signed a different chain at size "
                         f"{prior.entry_count} for assignment "
                         f"{statement.assignment_id}; this is an equivocation")
                 if statement.entry_count < prior.entry_count:
-                    raise CheckpointRefusal(
+                    raise ChainStatementRefusal(
                         f"assignment {statement.assignment_id} shrank from "
                         f"{prior.entry_count} to {statement.entry_count}")
                 if statement.entry_count > prior.entry_count:
                     if not _extends(entries, prior, statement):
-                        raise CheckpointRefusal(
+                        raise ChainStatementRefusal(
                             "the chain offered is not an extension of the one "
                             "last signed for this assignment")
 
@@ -220,9 +228,9 @@ def issue(
     Sign a chain statement with no memory of what was signed before.
 
     This is the primitive rather than the mechanism, and a custodian must not
-    call it directly. Signing statelessly is the bug `CheckpointIssuer` exists
+    call it directly. Signing statelessly is the bug `ChainStatementIssuer` exists
     to close: two chains of one size under one assignment can both be signed
-    and both verify. Kept because `CheckpointIssuer` needs it and because a
+    and both verify. Kept because `ChainStatementIssuer` needs it and because a
     test fixture wants a statement without a custodian.
 
     The key must not be the one that signed the chain. Nothing here can enforce

@@ -1181,12 +1181,12 @@ def test_canonicalisation_rejects_values_json_cannot_represent():
 
 from cryptography.hazmat.primitives.asymmetric import ec  # noqa: E402
 
-from seal import ChainStatement, Completeness, issue_checkpoint  # noqa: E402
+from seal import ChainStatement, Completeness, issue_chain_statement  # noqa: E402
 
 
-def _custodian_checkpoint(chain: SealChain, key=None, *, count=None, head=None):
+def _custodian_chain_statement(chain: SealChain, key=None, *, count=None, head=None):
     key = key or ec.generate_private_key(ec.SECP256R1())
-    return issue_checkpoint(
+    return issue_chain_statement(
         ChainStatement(
             assignment_id="assignment-1",
             entry_count=len(chain.entries) if count is None else count,
@@ -1198,7 +1198,7 @@ def _custodian_checkpoint(chain: SealChain, key=None, *, count=None, head=None):
     )
 
 
-def test_without_a_checkpoint_completeness_is_unchecked():
+def test_without_a_chain_statement_completeness_is_unchecked():
     """The honest default, and the state every artifact was in before this."""
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok)
@@ -1206,23 +1206,23 @@ def test_without_a_checkpoint_completeness_is_unchecked():
     assert any(f.code == "no_checkpoint" for f in r.findings)
 
 
-def test_a_checkpoint_confirms_a_whole_artifact():
+def test_a_chain_statement_confirms_a_whole_artifact():
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     r = verify(export_artifact(chain), rederive=_ok,
-               checkpoint=_custodian_checkpoint(chain))
+               chain_statement=_custodian_chain_statement(chain))
     assert r.completeness is Completeness.CONSISTENT
 
 
-def test_truncation_is_detected_against_a_checkpoint():
+def test_truncation_is_detected_against_a_chain_statement():
     """
-    The finding the checkpoint exists for. This artifact reported CONTIGUOUS
-    coverage and trustworthy true after truncation, and still does: the chain
-    is internally perfect. What it cannot do is match a count somebody else
-    recorded.
+    The finding the chain statement exists for. This artifact reported
+    CONTIGUOUS coverage and trustworthy true after truncation, and still
+    does: the chain is internally perfect. What it cannot do is match a
+    count somebody else recorded.
     """
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    runs_after_binding=2)
-    cp = _custodian_checkpoint(chain)          # issued over the full chain
+    cp = _custodian_chain_statement(chain)     # issued over the full chain
     doc = export_artifact(chain)
     doc["entries"] = doc["entries"][:4]        # disclose only up to the binding
 
@@ -1230,43 +1230,43 @@ def test_truncation_is_detected_against_a_checkpoint():
     assert without.coverage is Coverage.CONTIGUOUS   # still invisible
     assert without.completeness is Completeness.UNCHECKED
 
-    with_cp = verify(doc, rederive=_ok, checkpoint=cp)
+    with_cp = verify(doc, rederive=_ok, chain_statement=cp)
     assert with_cp.completeness is Completeness.SHORT
     assert any(f.code == "artifact_truncated" for f in with_cp.findings)
 
 
-def test_a_checkpoint_signed_by_the_sealer_is_worthless():
+def test_a_chain_statement_signed_by_the_sealer_is_worthless():
     """
-    The sealer vouching for themselves is the situation the checkpoint exists
-    to escape, so it is refused rather than counted.
+    The sealer vouching for themselves is the situation the chain statement
+    exists to escape, so it is refused rather than counted.
     """
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    cp = _custodian_checkpoint(chain, key=chain._sk)
-    r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
+    cp = _custodian_chain_statement(chain, key=chain._sk)
+    r = verify(export_artifact(chain), rederive=_ok, chain_statement=cp)
     assert r.completeness is Completeness.UNUSABLE
     assert any(f.code == "checkpoint_self_issued" for f in r.findings)
 
 
-def test_a_checkpoint_for_another_chain_does_not_vouch_for_this_one():
-    """Defeats answering a checkpoint with a different chain of the right length."""
+def test_a_chain_statement_for_another_chain_does_not_vouch_for_this_one():
+    """Defeats answering a chain statement with a different chain of the right length."""
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    cp = _custodian_checkpoint(chain, head="0" * 64)
-    r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
+    cp = _custodian_chain_statement(chain, head="0" * 64)
+    r = verify(export_artifact(chain), rederive=_ok, chain_statement=cp)
     assert r.completeness is Completeness.MISMATCHED
 
 
-def test_an_unsigned_or_tampered_checkpoint_is_refused():
+def test_an_unsigned_or_tampered_chain_statement_is_refused():
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    cp = _custodian_checkpoint(chain)
+    cp = _custodian_chain_statement(chain)
     cp["entry_count"] = 99                      # not re-signed
-    r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
+    r = verify(export_artifact(chain), rederive=_ok, chain_statement=cp)
     assert r.completeness is Completeness.UNUSABLE
 
 
 # ==========================================================================
-# Custodian accountability. Checkpoints stopped the appraiser being the only
-# source of their own record and left the custodian in exactly that position.
-# A consistency proof is what turns "append-only" from a claim the custodian
+# Custodian accountability. Chain statements stopped the appraiser being the
+# only source of their own record and left the custodian in exactly that
+# position. A consistency proof is what turns "append-only" from a claim the custodian
 # makes into arithmetic anyone can check.
 # ==========================================================================
 
@@ -1955,14 +1955,14 @@ def test_an_unsigned_or_mismatched_pair_accuses_nobody():
 # ==========================================================================
 # Assignment custody. The sibling-chain hole: seal five analyses in five
 # chains under one assignment and disclose the one you like. Every chain
-# links from genesis, every signature verifies, and every per-chain
-# checkpoint is honest, because each chain really is the length it claims.
+# links from genesis, every signature verifies, and every chain statement
+# is honest, because each chain really is the length it claims.
 # Counting the chain was never the question.
 # ==========================================================================
 
 from seal import (  # noqa: E402
     AssignmentAnchor,
-    AssignmentCheckpoint,
+    AssignmentStatement,
     ChainRef,
     Disclosure,
     assess_disclosure,
@@ -1972,12 +1972,12 @@ from seal import (  # noqa: E402
 from seal.assignment import issue as issue_assignment  # noqa: E402
 
 
-def _assignment_checkpoint(chains, key=None, assignment_id="assignment-1",
-                           observed_ns=T0 + 500):
+def _assignment_statement(chains, key=None, assignment_id="assignment-1",
+                          observed_ns=T0 + 500):
     """The custodian's statement of which chains an assignment holds."""
     refs = tuple(ChainRef(c.chain_id, c.head, len(c.entries)) for c in chains)
     return issue_assignment(
-        AssignmentCheckpoint(assignment_id, refs, observed_ns, "custodian"),
+        AssignmentStatement(assignment_id, refs, observed_ns, "custodian"),
         key or ec.generate_private_key(ec.SECP256R1()))
 
 
@@ -2001,14 +2001,15 @@ def test_a_chain_is_anchored_to_its_assignment_before_anything_is_sealed():
 def test_five_chains_one_disclosed_is_invisible_without_a_statement():
     """
     The attack. The disclosed chain
-    is whole and its own checkpoint says so. Nothing in it counts its siblings.
+    is whole and its own chain statement says so. Nothing in it counts its
+    siblings.
     """
     siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(5)]
     handed_over = export_artifact(siblings[0])
 
     alone = verify(handed_over, rederive=_ok,
-                   checkpoint=_custodian_checkpoint(siblings[0]))
+                   chain_statement=_custodian_chain_statement(siblings[0]))
     assert alone.completeness is Completeness.CONSISTENT
     assert alone.disclosure is Disclosure.UNCHECKED
     assert any(f.code == "no_assignment_checkpoint" for f in alone.findings)
@@ -2017,11 +2018,11 @@ def test_five_chains_one_disclosed_is_invisible_without_a_statement():
 def test_the_custodian_statement_makes_the_withheld_chains_visible():
     siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(5)]
-    acp = _assignment_checkpoint(siblings)
+    acp = _assignment_statement(siblings)
 
     r = verify(export_artifact(siblings[0]), rederive=_ok,
-               checkpoint=_custodian_checkpoint(siblings[0]),
-               assignment_checkpoint=acp)
+               chain_statement=_custodian_chain_statement(siblings[0]),
+               assignment_statement=acp)
     # Completeness is unchanged and correct. The chain really is whole.
     assert r.completeness is Completeness.CONSISTENT
     assert r.disclosure is Disclosure.PARTIAL
@@ -2041,24 +2042,24 @@ def test_disclosure_order_does_not_change_the_verdict():
     """
     siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(4)]
-    acp = _assignment_checkpoint(siblings)
+    acp = _assignment_statement(siblings)
     docs = [export_artifact(c) for c in siblings]
     assert assess_disclosure(docs, acp).state is Disclosure.WHOLE
     assert assess_disclosure(list(reversed(docs)), acp).state is Disclosure.WHOLE
 
 
-def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
+def test_a_chain_that_grew_after_its_statement_is_still_whole_disclosure():
     """
     `assignment.AssignmentIssuer.issue`'s own docstring says sizes are allowed to
     grow between two statements, since a chain open when the first was
     made is longer by the second. The ordinary shape this covers: a
-    checkpoint gets issued mid-assignment, more runs happen, and the full,
+    statement gets issued mid-assignment, more runs happen, and the full,
     grown chain is what actually reaches an examiner at final disclosure.
 
-    `assess` used to compare the checkpoint's recorded head against the
+    `assess` used to compare the statement's recorded head against the
     LAST entry disclosed rather than the entry at the recorded position,
-    so any chain that had simply grown past its own checkpoint -- with
-    the checkpointed prefix completely unchanged -- compared a newer head
+    so any chain that had simply grown past its own statement -- with
+    the recorded prefix completely unchanged -- compared a newer head
     against an older one, always disagreed, and degraded a strictly more
     complete disclosure to PARTIAL. That manufactures a false accusation
     (the examined party is hiding something) out of ordinary, honest
@@ -2066,10 +2067,10 @@ def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
     to fail in.
     """
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    acp = _assignment_checkpoint([chain])
-    checkpointed_head_index = len(chain.entries) - 1
+    acp = _assignment_statement([chain])
+    recorded_head_index = len(chain.entries) - 1
 
-    # More legitimate work after the checkpoint was issued, before the
+    # More legitimate work after the statement was issued, before the
     # chain is ever handed to an examiner.
     root = merkle_root(_rows())
     ev = chain.append(
@@ -2090,13 +2091,13 @@ def test_a_chain_that_grew_after_its_checkpoint_is_still_whole_disclosure():
     assert report.state is Disclosure.WHOLE, report.findings
     assert report.findings == ()
 
-    # A genuine divergence at the checkpointed position must still be
+    # A genuine divergence at the recorded position must still be
     # caught, even with the same later growth appended after it.
     doc = export_artifact(chain)
-    doc["entries"][checkpointed_head_index]["block_hash"] = "f" * 64
+    doc["entries"][recorded_head_index]["block_hash"] = "f" * 64
     diverged = assess_disclosure([doc], acp)
     assert diverged.state is not Disclosure.WHOLE
-    assert any("diverged from the checkpointed state" in f
+    assert any("diverged from the recorded state" in f
               for f in diverged.findings)
 
 
@@ -2109,10 +2110,10 @@ def test_a_chain_not_in_the_assignment_is_reported_rather_than_counted():
                        chain_label=f"chain-{i}") for i in range(3)]
     outsider = _build(AttestationMode.REDERIVABLE, rederivable=True,
                       chain_label="unrecorded")
-    acp = _assignment_checkpoint(siblings)
+    acp = _assignment_statement(siblings)
 
     r = verify(export_artifact(outsider), rederive=_ok,
-               assignment_checkpoint=acp)
+               assignment_statement=acp)
     assert r.disclosure is Disclosure.FOREIGN
     assert any(f.code == "chain_not_in_assignment" for f in r.findings)
 
@@ -2120,28 +2121,28 @@ def test_a_chain_not_in_the_assignment_is_reported_rather_than_counted():
 def test_a_chain_under_another_assignment_does_not_answer_this_one():
     other = _build(AttestationMode.REDERIVABLE, rederivable=True,
                    assignment_id="assignment-2")
-    acp = _assignment_checkpoint([other], assignment_id="assignment-1")
-    r = verify(export_artifact(other), rederive=_ok, assignment_checkpoint=acp)
+    acp = _assignment_statement([other], assignment_id="assignment-1")
+    r = verify(export_artifact(other), rederive=_ok, assignment_statement=acp)
     assert r.disclosure is Disclosure.FOREIGN
 
 
-def test_an_assignment_checkpoint_signed_by_the_sealer_is_worthless():
-    """Same rule as the per-chain checkpoint. Counting your own chains is not
+def test_an_assignment_statement_signed_by_the_sealer_is_worthless():
+    """Same rule as the chain statement. Counting your own chains is not
     a count."""
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    acp = _assignment_checkpoint([chain], key=chain._sk)
-    r = verify(export_artifact(chain), rederive=_ok, assignment_checkpoint=acp)
+    acp = _assignment_statement([chain], key=chain._sk)
+    r = verify(export_artifact(chain), rederive=_ok, assignment_statement=acp)
     assert r.disclosure is Disclosure.UNUSABLE
     assert any(f.code == "assignment_checkpoint_unusable" for f in r.findings)
 
 
-def test_a_tampered_assignment_checkpoint_is_refused():
+def test_a_tampered_assignment_statement_is_refused():
     siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(3)]
-    acp = _assignment_checkpoint(siblings)
+    acp = _assignment_statement(siblings)
     acp["chains"] = acp["chains"][:1]      # drop the siblings from the statement
     r = verify(export_artifact(siblings[0]), rederive=_ok,
-               assignment_checkpoint=acp)
+               assignment_statement=acp)
     assert r.disclosure is Disclosure.UNUSABLE
 
 
@@ -2152,11 +2153,11 @@ def test_a_chain_with_no_anchor_cannot_be_checked_against_an_assignment():
     integrity walk catches independently.
     """
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    acp = _assignment_checkpoint([chain])
+    acp = _assignment_statement([chain])
     doc = export_artifact(chain)
     doc["entries"] = doc["entries"][1:]
 
-    r = verify(doc, rederive=_ok, assignment_checkpoint=acp)
+    r = verify(doc, rederive=_ok, assignment_statement=acp)
     assert r.disclosure is Disclosure.UNANCHORED
     assert r.assignment_id is None
     assert not r.chain_intact
@@ -2193,7 +2194,7 @@ def test_a_short_sibling_chain_is_reported_against_the_statement():
     different omissions, and both are counted."""
     siblings = [_build(AttestationMode.REDERIVABLE, rederivable=True,
                        chain_label=f"chain-{i}") for i in range(2)]
-    acp = _assignment_checkpoint(siblings)
+    acp = _assignment_statement(siblings)
     docs = [export_artifact(c) for c in siblings]
     docs[1]["entries"] = docs[1]["entries"][:-1]
 
@@ -2547,21 +2548,22 @@ def test_a_beacon_published_after_the_authority_saw_the_chain_is_impossible():
 # actually sees.
 # ==========================================================================
 
-from seal.checkpoint import signature_valid as cp_signature_valid  # noqa: E402
+from seal.checkpoint import signature_valid as cs_signature_valid  # noqa: E402
 
 from seal import (  # noqa: E402
     AssignmentIssuer,
     AssignmentRefusal,
-    CheckpointIssuer,
-    CheckpointRefusal,
+    ChainStatementIssuer,
+    ChainStatementRefusal,
 )
 
 
 def test_a_stateless_signer_vouches_for_two_chains_at_one_size():
     """
     The reproduction, frozen. This is what `issue` does and why a custodian
-    must not call it. Both chains are honest and both checkpoints are true;
-    the sealer produces whichever suits and completeness reports CONSISTENT.
+    must not call it. Both chains are honest and both chain statements are
+    true; the sealer produces whichever suits and completeness reports
+    CONSISTENT.
     """
     custodian = ec.generate_private_key(ec.SECP256R1())
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
@@ -2569,28 +2571,28 @@ def test_a_stateless_signer_vouches_for_two_chains_at_one_size():
     assert len(a.entries) == len(b.entries) and a.head != b.head
 
     for chain in (a, b):
-        cp = _custodian_checkpoint(chain, key=custodian)
-        r = verify(export_artifact(chain), rederive=_ok, checkpoint=cp)
+        cp = _custodian_chain_statement(chain, key=custodian)
+        r = verify(export_artifact(chain), rederive=_ok, chain_statement=cp)
         assert r.completeness is Completeness.CONSISTENT
 
 
 def test_a_stateful_issuer_refuses_the_second_chain():
     """The fix. The issuer remembers what it signed and will not sign a
     different chain at that size."""
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
     b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="b")
 
     issuer.issue(ChainStatement("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
-    with pytest.raises(CheckpointRefusal, match="equivocation"):
+    with pytest.raises(ChainStatementRefusal, match="equivocation"):
         issuer.issue(
             ChainStatement("assignment-1", len(b.entries), b.head, T0 + 1, "custodian"),
             b.entries)
 
 
 def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     first = len(chain.entries)
     issuer.issue(ChainStatement("assignment-1", first, chain.head, T0, "custodian"),
@@ -2602,28 +2604,28 @@ def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
     signed = issuer.issue(
         ChainStatement("assignment-1", len(chain.entries), chain.head,
                    T0 + 2, "custodian"), chain.entries)
-    assert cp_signature_valid(signed)
+    assert cs_signature_valid(signed)
 
-    with pytest.raises(CheckpointRefusal, match="shrank"):
+    with pytest.raises(ChainStatementRefusal, match="shrank"):
         issuer.issue(ChainStatement("assignment-1", first, chain.head,
                                 T0 + 3, "custodian"), chain.entries)
 
 
 def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
     """
-    `_extends` is the function standing between `CheckpointIssuer.issue` and signing an
-    equivocating checkpoint, and none of its hostile-input branches had a
-    test: every existing test here either hands it a genuine extension
+    `_extends` is the function standing between `ChainStatementIssuer.issue` and
+    signing an equivocating statement, and none of its hostile-input branches
+    had a test: every existing test here either hands it a genuine extension
     (which walks every check and returns True) or hands it no entries at
     all. Nothing exercised the entries list itself being wrong.
 
     This is the most direct version of that: an `entries` list whose actual
-    last block hash does not match the `chain_head` the new checkpoint
+    last block hash does not match the `chain_head` the new statement
     claims. A real custodian could reach this by accident (a chain fetched
     from the wrong place, a stale cache) as easily as by an attacker's
     construction; either way the issuer must not sign over it.
     """
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     issuer.issue(ChainStatement("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
@@ -2634,7 +2636,7 @@ def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
 
     wrong_head = "sha256:" + "ee" * 32
     assert wrong_head != chain.head
-    with pytest.raises(CheckpointRefusal, match="not an extension"):
+    with pytest.raises(ChainStatementRefusal, match="not an extension"):
         issuer.issue(
             ChainStatement("assignment-1", len(chain.entries), wrong_head,
                       T0 + 1, "custodian"),
@@ -2645,7 +2647,7 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
     """
     A subtler hostile `entries` list: the first and last checks `_extends`
     makes both pass -- the count matches, the final block hash matches the
-    claimed `chain_head`, and the entry at the previously-checkpointed
+    claimed `chain_head`, and the entry at the previously-recorded
     boundary still matches what was signed before -- but an entry strictly
     inside the list carries a `prev_hash` that does not chain to its
     predecessor. Only the walk in `_extends`'s own loop catches that;
@@ -2654,7 +2656,7 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
     """
     import dataclasses
 
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     issuer.issue(ChainStatement("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
@@ -2671,24 +2673,24 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
     tampered[broken_index] = dataclasses.replace(
         tampered[broken_index], prev_hash="sha256:" + "cc" * 32)
 
-    with pytest.raises(CheckpointRefusal, match="not an extension"):
+    with pytest.raises(ChainStatementRefusal, match="not an extension"):
         issuer.issue(
             ChainStatement("assignment-1", len(tampered), chain.head,
                       T0 + 1, "custodian"),
             tampered)
 
 
-def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment():
+def test_a_chain_statement_issuer_refuses_a_conflicting_race_for_a_fresh_assignment():
     """
-    The lock in `CheckpointIssuer.issue`, put under real load. Two threads race to be
-    first to issue conflicting checkpoints, same size and different head, for
+    The lock in `ChainStatementIssuer.issue`, put under real load. Two threads race
+    to be first to issue conflicting statements, same size and different head, for
     an assignment this issuer has never signed for before. Without the lock,
     both could read no prior state, both skip every check, and both sign, an
     equivocation reintroduced through a race rather than through a missing
     check. Whichever request the issuer serializes first wins; the other must
     be refused, and both must never succeed.
     """
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="race-a")
     b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="race-b")
     assert len(a.entries) == len(b.entries) and a.head != b.head
@@ -2705,7 +2707,7 @@ def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment()
                           ts, "custodian"),
                 chain.entries)
             outcome = "ok"
-        except CheckpointRefusal:
+        except ChainStatementRefusal:
             outcome = "refused"
         with results_lock:
             results.append(outcome)
@@ -2723,24 +2725,24 @@ def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment()
 def test_growth_without_the_entries_cannot_be_established():
     """An issuer given nothing to check against must refuse, because assuming
     an extension is the failure being corrected."""
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
     longer = _build(AttestationMode.REDERIVABLE, rederivable=True,
                     chain_label="b", runs_after_binding=1)
     issuer.issue(ChainStatement("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
 
-    with pytest.raises(CheckpointRefusal, match="not an extension"):
+    with pytest.raises(ChainStatementRefusal, match="not an extension"):
         issuer.issue(ChainStatement("assignment-1", len(longer.entries),
                                 longer.head, T0 + 1, "custodian"))
-    with pytest.raises(CheckpointRefusal, match="not an extension"):
+    with pytest.raises(ChainStatementRefusal, match="not an extension"):
         issuer.issue(ChainStatement("assignment-1", len(longer.entries),
                                 longer.head, T0 + 1, "custodian"),
                      longer.entries)
 
 
 def test_one_issuer_state_does_not_leak_between_assignments():
-    issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+    issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     a = _build(AttestationMode.REDERIVABLE, rederivable=True)
     b = _build(AttestationMode.REDERIVABLE, rederivable=True,
                assignment_id="assignment-2", chain_label="other")
@@ -2759,16 +2761,16 @@ def test_an_assignment_issuer_refuses_to_drop_a_chain_it_recorded():
                      chain_label=f"chain-{i}") for i in range(5)]
     refs = tuple(ChainRef(c.chain_id, c.head, len(c.entries)) for c in chains)
 
-    issuer.issue(AssignmentCheckpoint("assignment-1", refs, T0, "custodian"))
+    issuer.issue(AssignmentStatement("assignment-1", refs, T0, "custodian"))
     with pytest.raises(AssignmentRefusal, match="absent from"):
-        issuer.issue(AssignmentCheckpoint("assignment-1", refs[:3],
+        issuer.issue(AssignmentStatement("assignment-1", refs[:3],
                                           T0 + 1, "custodian"))
 
     # Gaining a chain is ordinary and is signed.
     extra = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="late")
     grown = refs + (ChainRef(extra.chain_id, extra.head, len(extra.entries)),)
     assert issuer.issue(
-        AssignmentCheckpoint("assignment-1", grown, T0 + 2, "custodian"))
+        AssignmentStatement("assignment-1", grown, T0 + 2, "custodian"))
 
 
 def test_an_assignment_issuer_refuses_a_dropped_chain_offered_concurrently():
@@ -2795,7 +2797,7 @@ def test_an_assignment_issuer_refuses_a_dropped_chain_offered_concurrently():
     def attempt(refs, ts):
         barrier.wait()
         try:
-            issuer.issue(AssignmentCheckpoint("assignment-race", refs, ts,
+            issuer.issue(AssignmentStatement("assignment-race", refs, ts,
                                               "custodian"))
             outcome = "ok"
         except AssignmentRefusal:
@@ -2817,9 +2819,9 @@ def test_an_assignment_issuer_refuses_a_chain_that_lost_entries():
     issuer = AssignmentIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     full = (ChainRef(chain.chain_id, chain.head, len(chain.entries)),)
-    issuer.issue(AssignmentCheckpoint("assignment-1", full, T0, "custodian"))
+    issuer.issue(AssignmentStatement("assignment-1", full, T0, "custodian"))
 
     shortened = (ChainRef(chain.chain_id, chain.head, len(chain.entries) - 1),)
     with pytest.raises(AssignmentRefusal, match="shrank"):
-        issuer.issue(AssignmentCheckpoint("assignment-1", shortened,
+        issuer.issue(AssignmentStatement("assignment-1", shortened,
                                           T0 + 1, "custodian"))

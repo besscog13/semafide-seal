@@ -22,7 +22,7 @@ A signature over a supplied bundle is not a witness attestation, and successful 
 
 A cryptographically valid chain can still be an incomplete disclosure. An operator can seal five runs and disclose three. The three can all verify perfectly while saying nothing about the two that were withheld.
 
-The assignment checkpoint therefore answers a separate question: whether the supplied chains constitute the assignment-level disclosure represented by the custodian. Without an independent assignment-level statement, the verifier reports that completeness was not checked rather than treating a valid chain as complete.
+The assignment statement therefore answers a separate question: whether the supplied chains constitute the assignment-level disclosure represented by the custodian. Without an independent assignment-level statement, the verifier reports that completeness was not checked rather than treating a valid chain as complete.
 
 Assignment anchoring also has a narrower role. It commits a chain to its assignment when the chain opens and prevents relabelling the completed chain later. It does not prove that no sibling chain exists. That requires assignment-level custody and disclosure.
 
