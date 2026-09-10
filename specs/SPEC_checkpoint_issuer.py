@@ -205,7 +205,7 @@ def conformance() -> None:
     """
     from cryptography.hazmat.primitives.asymmetric import ec
 
-    from seal import Checkpoint, EntryKind, SealChain
+    from seal import ChainStatement, EntryKind, SealChain
     from seal.checkpoint import CheckpointIssuer, CheckpointRefusal
 
     def build(label: str) -> SealChain:
@@ -233,7 +233,7 @@ def conformance() -> None:
                     extends=(label == prior[0] and size > prior[1]),
                     z3=False)
             try:
-                issuer.issue(Checkpoint("assignment-1", size, head, 0,
+                issuer.issue(ChainStatement("assignment-1", size, head, 0,
                                         "custodian"), entries)
                 actual = True
             except CheckpointRefusal:

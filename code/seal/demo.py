@@ -33,7 +33,7 @@ from .primitives import (
     commit,
     merkle_root,
 )
-from .checkpoint import Checkpoint, issue
+from .checkpoint import ChainStatement, issue
 from .retention import Holding, RetentionDetermination
 from .retention import issue as issue_determination
 from .verifier import verify
@@ -304,7 +304,7 @@ def main() -> None:
     # 7. The one thing the sealer does not author.
     chain = build(AttestationMode.REDERIVABLE, rederivable=True)
     custodian = CUSTODIAN
-    cp = issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
+    cp = issue(ChainStatement("assignment-1", len(chain.entries), chain.head,
                           T0 + 99, "custodian"), custodian)
     doc = export_artifact(chain)
     doc["entries"] = doc["entries"][:-1]        # drop the tail, no re-signing
@@ -341,7 +341,7 @@ def main() -> None:
     # A per-chain checkpoint for the one chain that gets handed over. It is
     # entirely truthful, which is the point of the scenario.
     per_chain = issue(
-        Checkpoint("assignment-1", len(siblings[0].entries),
+        ChainStatement("assignment-1", len(siblings[0].entries),
                    siblings[0].head, T0 + 99, "custodian"),
         custodian,
     )

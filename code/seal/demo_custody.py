@@ -5,7 +5,7 @@ Runnable walkthrough of the custody chain: `log.py` and `witness.py`.
 
 `demo.py` and `demo_60s.py` both answer the same question -- what does the
 verifier establish about ONE sealed artifact -- and both stand in a simpler
-mechanism, `checkpoint.py`'s per-chain `Checkpoint`, for the outside party
+mechanism, `checkpoint.py`'s per-chain `ChainStatement`, for the outside party
 that vouches for it. Neither ever builds a `TransparencyLog` or asks a
 `Witness` to cosign anything.
 
@@ -136,7 +136,7 @@ def main() -> None:
 
     print(f"\n{RULE}")
     print("  Neither structure here appears in `demo.py`. That file hand-signs")
-    print("  a per-chain Checkpoint for one artifact; this one is the")
+    print("  a per-chain ChainStatement for one artifact; this one is the")
     print("  custodian's own history, checkable by anyone holding two of its")
     print("  signed heads, independent of whether any single artifact inside")
     print("  it verifies. Consistency proofs make a rewrite arithmetic rather")
