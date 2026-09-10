@@ -55,7 +55,7 @@ from .assignment import (
     issue as issue_assignment_checkpoint,
 )
 from .checkpoint import (
-    Checkpoint,
+    ChainStatement,
     CheckpointIssuer,
     CheckpointRefusal,
     issue as issue_checkpoint,
@@ -140,7 +140,7 @@ __all__ = [
     "EvidencePropositions",
     "WitnessAttestation",
     "witness_attestation_payload",
-    "Checkpoint",
+    "ChainStatement",
     "Holding",
     "HoldingReport",
     "Provenance",

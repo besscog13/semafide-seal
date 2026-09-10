@@ -1181,13 +1181,13 @@ def test_canonicalisation_rejects_values_json_cannot_represent():
 
 from cryptography.hazmat.primitives.asymmetric import ec  # noqa: E402
 
-from seal import Checkpoint, Completeness, issue_checkpoint  # noqa: E402
+from seal import ChainStatement, Completeness, issue_checkpoint  # noqa: E402
 
 
 def _custodian_checkpoint(chain: SealChain, key=None, *, count=None, head=None):
     key = key or ec.generate_private_key(ec.SECP256R1())
     return issue_checkpoint(
-        Checkpoint(
+        ChainStatement(
             assignment_id="assignment-1",
             entry_count=len(chain.entries) if count is None else count,
             chain_head=chain.head if head is None else head,
@@ -2581,11 +2581,11 @@ def test_a_stateful_issuer_refuses_the_second_chain():
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
     b = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="b")
 
-    issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
+    issuer.issue(ChainStatement("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
     with pytest.raises(CheckpointRefusal, match="equivocation"):
         issuer.issue(
-            Checkpoint("assignment-1", len(b.entries), b.head, T0 + 1, "custodian"),
+            ChainStatement("assignment-1", len(b.entries), b.head, T0 + 1, "custodian"),
             b.entries)
 
 
@@ -2593,19 +2593,19 @@ def test_an_issuer_signs_a_genuine_extension_and_refuses_a_shrink():
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
     first = len(chain.entries)
-    issuer.issue(Checkpoint("assignment-1", first, chain.head, T0, "custodian"),
+    issuer.issue(ChainStatement("assignment-1", first, chain.head, T0, "custodian"),
                  chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
         "run-2", _primitives(merkle_root(_rows())), None,
         AttestationMode.SELF_ATTESTED).to_body(), T0 + 9_000_000_000)
     signed = issuer.issue(
-        Checkpoint("assignment-1", len(chain.entries), chain.head,
+        ChainStatement("assignment-1", len(chain.entries), chain.head,
                    T0 + 2, "custodian"), chain.entries)
     assert cp_signature_valid(signed)
 
     with pytest.raises(CheckpointRefusal, match="shrank"):
-        issuer.issue(Checkpoint("assignment-1", first, chain.head,
+        issuer.issue(ChainStatement("assignment-1", first, chain.head,
                                 T0 + 3, "custodian"), chain.entries)
 
 
@@ -2625,7 +2625,7 @@ def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
     """
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
+    issuer.issue(ChainStatement("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
@@ -2636,7 +2636,7 @@ def test_an_issuer_refuses_entries_claiming_a_head_they_do_not_have():
     assert wrong_head != chain.head
     with pytest.raises(CheckpointRefusal, match="not an extension"):
         issuer.issue(
-            Checkpoint("assignment-1", len(chain.entries), wrong_head,
+            ChainStatement("assignment-1", len(chain.entries), wrong_head,
                       T0 + 1, "custodian"),
             chain.entries)
 
@@ -2656,7 +2656,7 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
 
     issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
     chain = _build(AttestationMode.REDERIVABLE, rederivable=True)
-    issuer.issue(Checkpoint("assignment-1", len(chain.entries), chain.head,
+    issuer.issue(ChainStatement("assignment-1", len(chain.entries), chain.head,
                            T0, "custodian"), chain.entries)
 
     chain.append(EntryKind.RUN_SEAL, RunSeal(
@@ -2673,7 +2673,7 @@ def test_an_issuer_refuses_entries_whose_internal_linkage_is_broken():
 
     with pytest.raises(CheckpointRefusal, match="not an extension"):
         issuer.issue(
-            Checkpoint("assignment-1", len(tampered), chain.head,
+            ChainStatement("assignment-1", len(tampered), chain.head,
                       T0 + 1, "custodian"),
             tampered)
 
@@ -2701,7 +2701,7 @@ def test_a_checkpoint_issuer_refuses_a_conflicting_race_for_a_fresh_assignment()
         barrier.wait()
         try:
             issuer.issue(
-                Checkpoint("assignment-race", len(chain.entries), chain.head,
+                ChainStatement("assignment-race", len(chain.entries), chain.head,
                           ts, "custodian"),
                 chain.entries)
             outcome = "ok"
@@ -2727,14 +2727,14 @@ def test_growth_without_the_entries_cannot_be_established():
     a = _build(AttestationMode.REDERIVABLE, rederivable=True, chain_label="a")
     longer = _build(AttestationMode.REDERIVABLE, rederivable=True,
                     chain_label="b", runs_after_binding=1)
-    issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
+    issuer.issue(ChainStatement("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
 
     with pytest.raises(CheckpointRefusal, match="not an extension"):
-        issuer.issue(Checkpoint("assignment-1", len(longer.entries),
+        issuer.issue(ChainStatement("assignment-1", len(longer.entries),
                                 longer.head, T0 + 1, "custodian"))
     with pytest.raises(CheckpointRefusal, match="not an extension"):
-        issuer.issue(Checkpoint("assignment-1", len(longer.entries),
+        issuer.issue(ChainStatement("assignment-1", len(longer.entries),
                                 longer.head, T0 + 1, "custodian"),
                      longer.entries)
 
@@ -2744,10 +2744,10 @@ def test_one_issuer_state_does_not_leak_between_assignments():
     a = _build(AttestationMode.REDERIVABLE, rederivable=True)
     b = _build(AttestationMode.REDERIVABLE, rederivable=True,
                assignment_id="assignment-2", chain_label="other")
-    issuer.issue(Checkpoint("assignment-1", len(a.entries), a.head, T0, "custodian"),
+    issuer.issue(ChainStatement("assignment-1", len(a.entries), a.head, T0, "custodian"),
                  a.entries)
     assert issuer.issue(
-        Checkpoint("assignment-2", len(b.entries), b.head, T0 + 1, "custodian"),
+        ChainStatement("assignment-2", len(b.entries), b.head, T0 + 1, "custodian"),
         b.entries)
 
 

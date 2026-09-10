@@ -36,7 +36,7 @@ from hypothesis import strategies as st
 from seal import (
     AssignmentCheckpoint,
     ChainRef,
-    Checkpoint,
+    ChainStatement,
     EntryKind,
     EvidenceCommitment,
     Holding,
@@ -404,7 +404,7 @@ def _build_side_doc_artifact():
 _SIDE_CHAIN, _SIDE_DOC = _build_side_doc_artifact()
 
 _REAL_CHECKPOINT = issue_checkpoint(
-    Checkpoint("assignment-1", len(_SIDE_CHAIN.entries), _SIDE_CHAIN.head,
+    ChainStatement("assignment-1", len(_SIDE_CHAIN.entries), _SIDE_CHAIN.head,
               _SIDE_T0 + 2, "custodian"),
     _SIDE_CUSTODIAN,
 )
