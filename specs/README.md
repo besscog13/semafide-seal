@@ -33,7 +33,7 @@ symbolic: every element of the proof is a free variable over the whole hash
 space, with the hash modelled as an injective, domain-separated datatype, and
 the solver is asked whether any assignment at all makes the verifier accept.
 
-**Three components keep state and refuse**: `checkpoint.CheckpointIssuer`,
+**Three components keep state and refuse**: `checkpoint.ChainStatementIssuer`,
 `assignment.AssignmentIssuer`, and `witness.Witness`. Each compares a proposal against its
 immediate predecessor and nothing earlier, which is O(1) memory and is the
 reason a witness is cheap to run.

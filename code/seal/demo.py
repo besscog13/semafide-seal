@@ -310,17 +310,17 @@ def main() -> None:
     doc["entries"] = doc["entries"][:-1]        # drop the tail, no re-signing
 
     for label, ckpt, note in [
-        ("without a checkpoint", None,
+        ("without a chain statement", None,
          "The chain links from genesis and every signature verifies.\n"
          "   Nothing in the document says how long it was meant to be."),
-        ("with a custodian checkpoint", cp,
+        ("with a custodian's chain statement", cp,
          "Somebody else recorded the length. Completeness is the only\n"
          "   check here whose input the sealer did not write."),
     ]:
         r = verify(doc, trusted_keys=[chain.public_key_pem],
                    rederive=lambda x: x.get("output_digest",
                                             commit(ACTION_PAYLOAD)),
-                   checkpoint=ckpt)
+                   chain_statement=ckpt)
         print(f"\n{RULE}\n7. A truncated artifact, {label}")
         print("   The last entry was deleted from the export.\n")
         print(f"   chain_intact      {r.chain_intact}")
@@ -329,7 +329,7 @@ def main() -> None:
         print(f"\n   {note}")
 
     # 8. Five chains, one assignment, one of them disclosed.
-    from .assignment import AssignmentCheckpoint, ChainRef
+    from .assignment import AssignmentStatement, ChainRef
     from .assignment import issue as issue_assignment
 
     siblings = [
@@ -338,7 +338,7 @@ def main() -> None:
         for i in range(5)
     ]
     refs = [ChainRef(c.chain_id, c.head, len(c.entries)) for c in siblings]
-    # A per-chain checkpoint for the one chain that gets handed over. It is
+    # A chain statement for the one chain that gets handed over. It is
     # entirely truthful, which is the point of the scenario.
     per_chain = issue(
         ChainStatement("assignment-1", len(siblings[0].entries),
@@ -346,21 +346,21 @@ def main() -> None:
         custodian,
     )
     whole = issue_assignment(
-        AssignmentCheckpoint("assignment-1", tuple(refs), T0 + 100,
+        AssignmentStatement("assignment-1", tuple(refs), T0 + 100,
                              "custodian"),
         custodian,
     )
 
     print(f"\n{RULE}\n8. Five analyses, five chains, one handed over")
     print("   Every chain is honest. Each links from genesis, each verifies,")
-    print("   and the per-chain checkpoint for the disclosed one is true.\n")
+    print("   and the chain statement for the disclosed one is true.\n")
 
-    for label, acheck in [("without an assignment checkpoint", None),
+    for label, acheck in [("without an assignment statement", None),
                           ("with one", whole)]:
         r = verify(export_artifact(siblings[0]),
                    trusted_keys=[siblings[0].public_key_pem],
                    rederive=lambda x: commit(ACTION_PAYLOAD),
-                   checkpoint=per_chain, assignment_checkpoint=acheck)
+                   chain_statement=per_chain, assignment_statement=acheck)
         print(f"   {label}")
         print(f"     completeness    {r.completeness.name}")
         print(f"     disclosure      {r.disclosure.name}")

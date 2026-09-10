@@ -34,7 +34,7 @@ from hypothesis import HealthCheck, assume, given, settings
 from hypothesis import strategies as st
 
 from seal import (
-    AssignmentCheckpoint,
+    AssignmentStatement,
     ChainRef,
     ChainStatement,
     EntryKind,
@@ -52,8 +52,8 @@ from seal import (
     canonical_bytes,
     commit,
     export_artifact,
-    issue_assignment_checkpoint,
-    issue_checkpoint,
+    issue_assignment_statement,
+    issue_chain_statement,
     issue_retention_determination,
     issue_time_anchor,
     load_artifact,
@@ -335,7 +335,7 @@ def test_truncating_any_prefix_never_yields_trust(cut):
 #
 # `test_verify_never_raises_and_never_trusts_garbage` above calls
 # `verify(doc)` with every other parameter absent, so it never exercises a
-# single line inside checkpoint, assignment-checkpoint, time-anchor, or
+# single line inside chain-statement, assignment-statement, time-anchor, or
 # retention-determination handling: none of that code runs unless a caller
 # actually supplies one. Every fix made against this class of bug this
 # session (a non-string `public_key`, a non-string `signature`, a non-dict
@@ -403,13 +403,13 @@ def _build_side_doc_artifact():
 
 _SIDE_CHAIN, _SIDE_DOC = _build_side_doc_artifact()
 
-_REAL_CHECKPOINT = issue_checkpoint(
+_REAL_CHAIN_STATEMENT = issue_chain_statement(
     ChainStatement("assignment-1", len(_SIDE_CHAIN.entries), _SIDE_CHAIN.head,
               _SIDE_T0 + 2, "custodian"),
     _SIDE_CUSTODIAN,
 )
-_REAL_ASSIGNMENT_CHECKPOINT = issue_assignment_checkpoint(
-    AssignmentCheckpoint(
+_REAL_ASSIGNMENT_STATEMENT = issue_assignment_statement(
+    AssignmentStatement(
         "assignment-1",
         (ChainRef(_SIDE_CHAIN.chain_id, _SIDE_CHAIN.head, len(_SIDE_CHAIN.entries)),),
         _SIDE_T0 + 2, "custodian"),
@@ -437,7 +437,7 @@ def _mutate(real: dict, key, value) -> dict:
 
 
 @given(
-    which=st.sampled_from(["checkpoint", "assignment_checkpoint", "time_anchor", "determination"]),
+    which=st.sampled_from(["chain_statement", "assignment_statement", "time_anchor", "determination"]),
     key=st.sampled_from(["signature", "public_key", "entry_count", "chains", "digest",
                          "time_ns", "holding", "source_digest", "issuer", "assignment_id",
                          "chain_head", "observed_ns", "authority", "tool", "version"]),
@@ -448,17 +448,17 @@ def test_verify_never_raises_with_one_field_of_a_real_signed_side_document_corru
     which, key, value,
 ):
     """
-    A real, validly signed checkpoint, assignment checkpoint, time anchor, or
+    A real, validly signed chain statement, assignment statement, time anchor, or
     retention determination, with exactly one field replaced by an arbitrary
     JSON value. Every prior bug in this family (a non-string `public_key`, a
     non-string `signature`) looked exactly like this: a document that is
     correct everywhere except one field a hostile or buggy party controls.
     """
-    checkpoint = assignment_checkpoint = time_anchors = retention_determinations = None
-    if which == "checkpoint":
-        checkpoint = _mutate(_REAL_CHECKPOINT, key, value)
-    elif which == "assignment_checkpoint":
-        assignment_checkpoint = _mutate(_REAL_ASSIGNMENT_CHECKPOINT, key, value)
+    chain_statement = assignment_statement = time_anchors = retention_determinations = None
+    if which == "chain_statement":
+        chain_statement = _mutate(_REAL_CHAIN_STATEMENT, key, value)
+    elif which == "assignment_statement":
+        assignment_statement = _mutate(_REAL_ASSIGNMENT_STATEMENT, key, value)
     elif which == "time_anchor":
         time_anchors = [_mutate(_REAL_TIME_ANCHOR, key, value)]
     elif which == "determination":
@@ -468,8 +468,8 @@ def test_verify_never_raises_with_one_field_of_a_real_signed_side_document_corru
         _SIDE_DOC,
         trusted_keys=[_SIDE_CHAIN.public_key_pem],
         rederive=lambda r: _SIDE_ACTION_DIGEST,
-        checkpoint=checkpoint,
-        assignment_checkpoint=assignment_checkpoint,
+        chain_statement=chain_statement,
+        assignment_statement=assignment_statement,
         time_anchors=time_anchors,
         trusted_authorities=[_SIDE_TSA_PEM],
         retention_determinations=retention_determinations,

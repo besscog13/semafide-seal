@@ -4,15 +4,15 @@ Assignment-level custody: how many chains an assignment holds.
 The anchor in `artifact.py` stops a chain being moved between assignments. It
 does nothing about the harder attack: seal five analyses in five separate
 chains under one assignment and disclose the one you like. Every chain links from genesis. Every signature
-verifies. Every per-chain checkpoint is honest, because each chain really is
-the length its checkpoint says. The examiner is handed one of five and has no
+verifies. Every chain statement is honest, because each chain really is
+the length its statement says. The examiner is handed one of five and has no
 way to learn that four exist.
 
 This is the truncation finding one dimension over, and it has the same shape.
 Truncation hides entries inside a chain. Sibling chains hide whole chains inside
 an assignment. Both are claims about what is absent, and no field added to a
 self-contained document establishes one, because the party choosing what ships
-also chooses what to omit. A per-chain checkpoint cannot close it either: it
+also chooses what to omit. A chain statement cannot close it either: it
 speaks for the chain it names and says nothing about any other.
 
 So the fix is the same move made one level out. `checkpoint.py` is a statement
@@ -58,18 +58,19 @@ class ChainRef:
 
 
 @dataclass(frozen=True)
-class AssignmentCheckpoint:
+class AssignmentStatement:
     """
     A signed statement of every chain an assignment holds.
 
-    The chain list is what a per-chain checkpoint cannot carry. Sorted by
-    `chain_id` on the way into the signature, so the same set of chains signs
-    identically whatever order the custodian happened to hold them in and a
-    reordered list is not a different statement.
+    The chain list is what a chain statement cannot carry, since one names
+    only the chain it was issued for. Sorted by `chain_id` on the way into
+    the signature, so the same set of chains signs identically whatever order
+    the custodian happened to hold them in and a reordered list is not a
+    different statement.
 
     `issuer` and `observed_ns` belong to the custodian. As with the per-chain
-    checkpoint, nothing in this module can enforce that the signing key is not
-    the sealer's, which is why `assess` refuses a checkpoint sharing a key with
+    statement, nothing in this module can enforce that the signing key is not
+    the sealer's, which is why `assess` refuses a statement sharing a key with
     the artifacts rather than trusting the issuer to have used another.
     """
 
@@ -95,9 +96,9 @@ class AssignmentRefusal(Exception):
 @dataclass
 class AssignmentIssuer:
     """
-    A stateful assignment-checkpoint issuer.
+    A stateful assignment-statement issuer.
 
-    The same defect the per-chain checkpoint had, one level out. A stateless
+    The same defect the chain statement had, one level out. A stateless
     signer can be asked twice for one assignment and will happily sign a
     five-chain statement and then a three-chain statement, and a sealer
     produces whichever one suits. An assignment only ever gains chains, so
@@ -111,10 +112,10 @@ class AssignmentIssuer:
 
     name: str
     key: ec.EllipticCurvePrivateKey
-    _last: dict[str, AssignmentCheckpoint] = field(default_factory=dict)
+    _last: dict[str, AssignmentStatement] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def issue(self, checkpoint: AssignmentCheckpoint) -> dict[str, Any]:
+    def issue(self, statement: AssignmentStatement) -> dict[str, Any]:
         """
         Checking `_last` and writing to it are one locked step, for the same
         reason `witness.Witness.cosign` locks: two concurrent requests for the
@@ -124,14 +125,14 @@ class AssignmentIssuer:
         exists to prevent through a race rather than through a missing check.
         """
         with self._lock:
-            prior = self._last.get(checkpoint.assignment_id)
+            prior = self._last.get(statement.assignment_id)
             if prior is not None:
-                now = {c.chain_id: c for c in checkpoint.chains}
+                now = {c.chain_id: c for c in statement.chains}
                 dropped = sorted({c.chain_id for c in prior.chains} - set(now))
                 if dropped:
                     raise AssignmentRefusal(
                         f"{len(dropped)} chain or chains previously recorded "
-                        f"under assignment {checkpoint.assignment_id} are "
+                        f"under assignment {statement.assignment_id} are "
                         "absent from this statement")
                 for old in prior.chains:
                     if now[old.chain_id].entry_count < old.entry_count:
@@ -139,22 +140,22 @@ class AssignmentIssuer:
                             f"chain {old.chain_id[:12]} shrank from "
                             f"{old.entry_count} to "
                             f"{now[old.chain_id].entry_count} entries")
-            signed = issue(checkpoint, self.key)
-            self._last[checkpoint.assignment_id] = checkpoint
+            signed = issue(statement, self.key)
+            self._last[statement.assignment_id] = statement
             return signed
 
 
-def issue(checkpoint: AssignmentCheckpoint,
+def issue(statement: AssignmentStatement,
           private_key: ec.EllipticCurvePrivateKey) -> dict[str, Any]:
     """
-    Sign an assignment checkpoint with no memory of what was signed before.
+    Sign an assignment statement with no memory of what was signed before.
 
     The primitive rather than the mechanism. A custodian must use
     `AssignmentIssuer`, for the reason recorded there and in
-    `checkpoint.CheckpointIssuer`. The key must not be the sealer's.
+    `checkpoint.ChainStatementIssuer`. The key must not be the sealer's.
     """
-    raw = canonical_bytes(checkpoint.signing_payload())
-    d = checkpoint.signing_payload()
+    raw = canonical_bytes(statement.signing_payload())
+    d = statement.signing_payload()
     d["signature"] = private_key.sign(raw, ec.ECDSA(hashes.SHA256())).hex()
     d["public_key"] = private_key.public_key().public_bytes(
         encoding=serialization.Encoding.PEM,
@@ -163,9 +164,9 @@ def issue(checkpoint: AssignmentCheckpoint,
     return d
 
 
-def load(doc: dict[str, Any]) -> AssignmentCheckpoint:
-    """Read a transported assignment checkpoint. No verification here."""
-    return AssignmentCheckpoint(
+def load(doc: dict[str, Any]) -> AssignmentStatement:
+    """Read a transported assignment statement. No verification here."""
+    return AssignmentStatement(
         assignment_id=doc["assignment_id"],
         chains=tuple(ChainRef(c["chain_id"], c["head"], c["entry_count"])
                      for c in doc["chains"]),
@@ -217,13 +218,13 @@ class DisclosureReport:
 
 
 def assess(artifacts: Iterable[dict[str, Any]],
-           checkpoint: Optional[dict[str, Any]]) -> DisclosureReport:
+           statement: Optional[dict[str, Any]]) -> DisclosureReport:
     """
     Compare what was disclosed against what the assignment holds.
 
     Takes the artifacts an examiner was actually given, which is one document
     in the ordinary case and several where a party discloses more than one
-    chain. Anything the checkpoint lists and the disclosure does not is a
+    chain. Anything the statement lists and the disclosure does not is a
     withheld chain, and the count is the finding.
     """
     docs = list(artifacts or [])
@@ -243,43 +244,43 @@ def assess(artifacts: Iterable[dict[str, Any]],
                       "checked against it.",),
         )
 
-    if checkpoint is None:
+    if statement is None:
         return DisclosureReport(
             state=Disclosure.UNCHECKED,
             disclosed=len(docs),
-            findings=("No assignment checkpoint supplied. Sibling chains are "
+            findings=("No assignment statement supplied. Sibling chains are "
                       "undetectable without one: one chain and one chain out "
                       "of five are the same document.",),
         )
 
-    if not signature_valid(checkpoint):
+    if not signature_valid(statement):
         return DisclosureReport(
             state=Disclosure.UNUSABLE,
-            findings=("The assignment checkpoint does not verify against its "
+            findings=("The assignment statement does not verify against its "
                       "own key.",),
         )
 
-    signer = (checkpoint.get("public_key") or "").strip()
+    signer = (statement.get("public_key") or "").strip()
     if any(signer == e.public_key.strip()
            for entries in entries_per_doc for e in entries):
         return DisclosureReport(
             state=Disclosure.UNUSABLE,
-            findings=("The assignment checkpoint is signed by a key that also "
+            findings=("The assignment statement is signed by a key that also "
                       "signed a chain, so the party under examination is "
                       "counting its own chains.",),
         )
 
-    cp = load(checkpoint)
+    asg = load(statement)
     findings: list[str] = []
 
     wrong_assignment = sorted({aid for aid, _ in identities
-                               if aid != cp.assignment_id})
+                               if aid != asg.assignment_id})
     if wrong_assignment:
         findings.append(
             f"Artifacts anchored to {wrong_assignment} were offered against a "
-            f"checkpoint for assignment {cp.assignment_id}.")
+            f"statement for assignment {asg.assignment_id}.")
 
-    expected = {c.chain_id: c for c in cp.chains}
+    expected = {c.chain_id: c for c in asg.chains}
     seen: dict[str, list[Entry]] = {}
     for (_, cid), entries in zip(identities, entries_per_doc):
         seen[cid] = entries
@@ -292,14 +293,14 @@ def assess(artifacts: Iterable[dict[str, Any]],
     # mean the disclosure is whole, or a caller reading one field gets a pass
     # on a truncated hand-over, which is the mistake `signatures_valid` made.
     #
-    # A chain is allowed to grow past what the checkpoint recorded --
+    # A chain is allowed to grow past what the statement recorded --
     # `AssignmentIssuer.issue`'s own docstring says so: sizes may only grow between
     # two statements, since a chain open when the first was made is longer
     # by the second. The head comparison below therefore checks the entry
     # AT the recorded position, not the last entry disclosed. Comparing
     # against the last entry instead, as this used to, meant any chain
-    # that simply grew after its checkpoint -- the ordinary shape of a
-    # checkpoint issued mid-assignment followed by more work before final
+    # that simply grew after its statement -- the ordinary shape of a
+    # statement issued mid-assignment followed by more work before final
     # disclosure -- compared a newer head against an older one and always
     # disagreed, degrading a strictly more complete disclosure to PARTIAL.
     # That manufactures a false accusation rather than a false clearance,
@@ -320,7 +321,7 @@ def assess(artifacts: Iterable[dict[str, Any]],
             findings.append(
                 f"Chain {cid[:12]} does not match what the custodian recorded "
                 f"at entry {ref.entry_count}. The chain has diverged from the "
-                "checkpointed state.")
+                "recorded state.")
 
     report = DisclosureReport(
         expected=len(expected),
@@ -352,7 +353,7 @@ def assess(artifacts: Iterable[dict[str, Any]],
 __all__ = [
     "AssignmentRefusal",
     "ChainRef",
-    "AssignmentCheckpoint",
+    "AssignmentStatement",
     "Disclosure",
     "DisclosureReport",
     "AssignmentIssuer",

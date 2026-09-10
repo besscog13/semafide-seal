@@ -39,9 +39,9 @@ from .artifact import (
 from .anchor import Anchoring, BeaconResolver, resolve_bounds
 from .assignment import Disclosure
 from .assignment import assess as assess_disclosure
-from .checkpoint import load as cp_load
-from .checkpoint import signature_valid as cp_signature_valid
-from .checkpoint import signer_pem as cp_signer_pem
+from .checkpoint import load as cs_load
+from .checkpoint import signature_valid as cs_signature_valid
+from .checkpoint import signer_pem as cs_signer_pem
 from .primitives import PrimitiveKind, Pinning, canonical_bytes
 from .retention import Holding, Provenance
 from .retention import assess as assess_holding
@@ -81,8 +81,8 @@ class Completeness(Enum):
     """
     Whether anything outside the artifact vouches for how long the chain is.
 
-    UNCHECKED is the honest default. Without a checkpoint from another party,
-    an artifact showing
+    UNCHECKED is the honest default. Without a chain statement from another
+    party, an artifact showing
     three entries and an artifact truncated from five to three are the same
     document, and no amount of verification distinguishes them.
     """
@@ -214,8 +214,8 @@ def _verify(
     artifact: dict[str, Any],
     trusted_keys: Optional[Iterable[str]] = None,
     rederive: Optional[Callable[[dict[str, Any]], Optional[str]]] = None,
-    checkpoint: Optional[dict[str, Any]] = None,
-    assignment_checkpoint: Optional[dict[str, Any]] = None,
+    chain_statement: Optional[dict[str, Any]] = None,
+    assignment_statement: Optional[dict[str, Any]] = None,
     time_anchors: Optional[Iterable[dict[str, Any]]] = None,
     beacon_resolver: Optional[BeaconResolver] = None,
     trusted_authorities: Optional[Iterable[str]] = None,
@@ -246,8 +246,8 @@ def _verify(
     """
     report = VerificationReport()
     entries = load_artifact(artifact)
-    _check_completeness(artifact, entries, checkpoint, report)
-    _check_assignment(artifact, entries, assignment_checkpoint, report)
+    _check_completeness(artifact, entries, chain_statement, report)
+    _check_assignment(artifact, entries, assignment_statement, report)
     _check_anchoring(entries, time_anchors, beacon_resolver,
                      trusted_authorities, report)
 
@@ -574,7 +574,7 @@ def _verify(
 def _check_completeness(
     artifact: dict[str, Any],
     entries: list[Entry],
-    checkpoint: Optional[dict[str, Any]],
+    chain_statement: Optional[dict[str, Any]],
     report: VerificationReport,
 ) -> None:
     """
@@ -584,65 +584,66 @@ def _check_completeness(
     Everything else reads fields from the artifact, which is why the cold
     review concluded that KC2 was being transcribed rather than computed.
     """
-    if checkpoint is None:
+    if chain_statement is None:
         report.completeness = Completeness.UNCHECKED
         report.findings.append(
             Finding(
                 "no_checkpoint",
-                "No checkpoint supplied. Truncation is undetectable without "
-                "one: an artifact of three entries and an artifact cut from "
-                "five to three are the same document.",
+                "No chain statement supplied. Truncation is undetectable "
+                "without one: an artifact of three entries and an artifact "
+                "cut from five to three are the same document.",
                 "completeness",
             )
         )
         return
 
-    if not cp_signature_valid(checkpoint):
+    if not cs_signature_valid(chain_statement):
         report.completeness = Completeness.UNUSABLE
         report.findings.append(
             Finding("checkpoint_signature_invalid",
-                    "The checkpoint does not verify against its own key.",
+                    "The chain statement does not verify against its own key.",
                     "completeness")
         )
         return
 
-    # A checkpoint signed by the sealer is the sealer vouching for themselves,
-    # which is the situation the checkpoint exists to escape.
-    signer = (cp_signer_pem(checkpoint) or "").strip()
+    # A statement signed by the sealer is the sealer vouching for themselves,
+    # which is the situation the statement exists to escape.
+    signer = (cs_signer_pem(chain_statement) or "").strip()
     if any(signer == e.public_key.strip() for e in entries):
         report.completeness = Completeness.UNUSABLE
         report.findings.append(
             Finding(
                 "checkpoint_self_issued",
-                "The checkpoint is signed by the same key that signed the "
-                "chain, so it adds nothing the artifact did not already claim.",
+                "The chain statement is signed by the same key that signed "
+                "the chain, so it adds nothing the artifact did not already "
+                "claim.",
                 "completeness",
             )
         )
         return
 
-    cp, _, _ = cp_load(checkpoint)
+    stmt, _, _ = cs_load(chain_statement)
     head = entries[-1].block_hash if entries else GENESIS
 
-    if cp.entry_count > len(entries):
+    if stmt.entry_count > len(entries):
         report.completeness = Completeness.SHORT
         report.findings.append(
             Finding(
                 "artifact_truncated",
-                f"The checkpoint records {cp.entry_count} entries and the "
-                f"artifact carries {len(entries)}. "
-                f"{cp.entry_count - len(entries)} were not disclosed.",
+                f"The chain statement records {stmt.entry_count} entries and "
+                f"the artifact carries {len(entries)}. "
+                f"{stmt.entry_count - len(entries)} were not disclosed.",
                 "completeness",
             )
         )
-    elif cp.chain_head != head or cp.entry_count < len(entries):
+    elif stmt.chain_head != head or stmt.entry_count < len(entries):
         report.completeness = Completeness.MISMATCHED
         report.findings.append(
             Finding(
                 "checkpoint_describes_another_chain",
-                "The checkpoint names a head or a length this artifact does "
-                "not have. It may belong to a different chain for the same "
-                "assignment.",
+                "The chain statement names a head or a length this artifact "
+                "does not have. It may belong to a different chain for the "
+                "same assignment.",
                 "completeness",
             )
         )
@@ -653,22 +654,22 @@ def _check_completeness(
 def _check_assignment(
     artifact: dict[str, Any],
     entries: list[Entry],
-    assignment_checkpoint: Optional[dict[str, Any]],
+    assignment_statement: Optional[dict[str, Any]],
     report: VerificationReport,
 ) -> None:
     """
     Whether anything outside this chain says how many chains the assignment has.
 
-    A per-chain checkpoint is honest about the chain it names and silent about
+    A chain statement is honest about the chain it names and silent about
     every other, so five chains under one assignment each verify perfectly and
-    each carry a true checkpoint. Counting siblings is a question only the party
+    each carry a true statement. Counting siblings is a question only the party
     holding all of them can answer, which is why the input here is the
     custodian's and not the sealer's.
     """
     ident = chain_identity(entries)
     report.assignment_id = ident[0] if ident else None
 
-    result = assess_disclosure([artifact], assignment_checkpoint)
+    result = assess_disclosure([artifact], assignment_statement)
     report.disclosure = result.state
     report.chains_withheld = len(result.withheld)
 
@@ -995,8 +996,8 @@ def verify(
     artifact: dict[str, Any],
     trusted_keys: Optional[Iterable[str]] = None,
     rederive: Optional[Callable[[dict[str, Any]], Optional[str]]] = None,
-    checkpoint: Optional[dict[str, Any]] = None,
-    assignment_checkpoint: Optional[dict[str, Any]] = None,
+    chain_statement: Optional[dict[str, Any]] = None,
+    assignment_statement: Optional[dict[str, Any]] = None,
     time_anchors: Optional[Iterable[dict[str, Any]]] = None,
     beacon_resolver: Optional[BeaconResolver] = None,
     trusted_authorities: Optional[Iterable[str]] = None,
@@ -1018,8 +1019,8 @@ def verify(
     """
     try:
         return _verify(artifact, trusted_keys=trusted_keys,
-                       rederive=rederive, checkpoint=checkpoint,
-                       assignment_checkpoint=assignment_checkpoint,
+                       rederive=rederive, chain_statement=chain_statement,
+                       assignment_statement=assignment_statement,
                        time_anchors=time_anchors,
                        beacon_resolver=beacon_resolver,
                        trusted_authorities=trusted_authorities,

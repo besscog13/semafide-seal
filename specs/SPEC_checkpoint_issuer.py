@@ -1,13 +1,13 @@
 """
-SPEC: a checkpoint issuer that remembers only its last statement is sufficient.
+SPEC: a chain-statement issuer that remembers only its last statement is sufficient.
 
 WHAT IS BEING PROVED, AND WHY IT IS WORTH PROVING
 
-`checkpoint.CheckpointIssuer` keeps one checkpoint per assignment. That is O(1) state, and
-it is the reason witnesses are cheap to run. It is not obvious that O(1) is
-enough. The property an examiner needs is global: across the whole history, the
-issuer never signed two different chains at one size. The issuer only ever
-compares against its immediate predecessor.
+`checkpoint.ChainStatementIssuer` keeps one chain statement per assignment. That is O(1)
+state, and it is the reason witnesses are cheap to run. It is not obvious that
+O(1) is enough. The property an examiner needs is global: across the whole
+history, the issuer never signed two different chains at one size. The issuer
+only ever compares against its immediate predecessor.
 
 This spec proves the local check implies the global property, for histories of
 any length. That is an induction, so it is the kind of claim a test suite cannot
@@ -18,9 +18,9 @@ WHAT IS NOT BEING PROVED
 This proves a protocol, not a program. A proof about a model that nothing ties
 to the implementation is the same defect as a re-derivation recipe compared
 against itself, which is KC2 stated. So the model is not left to speak for the
-code. The conformance pass drives the real `checkpoint.CheckpointIssuer` over concrete
-traces and asserts it accepts and refuses exactly where the model says it must.
-If the two ever disagree, this exits non-zero and names the trace.
+code. The conformance pass drives the real `checkpoint.ChainStatementIssuer` over
+concrete traces and asserts it accepts and refuses exactly where the model says
+it must. If the two ever disagree, this exits non-zero and names the trace.
 
 It also does not prove the guard is the right guard. That is a specification
 question. Formal machinery raises confidence in the implementation and does
@@ -76,7 +76,7 @@ def accepts(has_prior, last_size, last_head, size, head, extends, *, z3=True):
     Whether an issuer holding (last_size, last_head) signs (size, head).
 
     Written so the same expression evaluates under Z3 and under Python. The
-    guard mirrors `checkpoint.CheckpointIssuer.issue` clause for clause.
+    guard mirrors `checkpoint.ChainStatementIssuer.issue` clause for clause.
     """
     and_, or_, not_, imp = (And, Or, Not, Implies) if z3 else (
         lambda *a: all(a), lambda *a: any(a), lambda a: not a,
@@ -206,7 +206,7 @@ def conformance() -> None:
     from cryptography.hazmat.primitives.asymmetric import ec
 
     from seal import ChainStatement, EntryKind, SealChain
-    from seal.checkpoint import CheckpointIssuer, CheckpointRefusal
+    from seal.checkpoint import ChainStatementIssuer, ChainStatementRefusal
 
     def build(label: str) -> SealChain:
         chain = SealChain("assignment-1", opened_ns=0, chain_label=label)
@@ -220,7 +220,7 @@ def conformance() -> None:
 
     mismatches = 0
     for trace in itertools.product(proposals, repeat=3):
-        issuer = CheckpointIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
+        issuer = ChainStatementIssuer("custodian", ec.generate_private_key(ec.SECP256R1()))
         prior = None  # (label, size, head)
         for step, (label, size) in enumerate(trace):
             entries = chains[label].entries[:size]
@@ -236,7 +236,7 @@ def conformance() -> None:
                 issuer.issue(ChainStatement("assignment-1", size, head, 0,
                                         "custodian"), entries)
                 actual = True
-            except CheckpointRefusal:
+            except ChainStatementRefusal:
                 actual = False
             if actual != predicted:
                 mismatches += 1
@@ -246,7 +246,7 @@ def conformance() -> None:
             if actual:
                 prior = (label, size, head)
 
-    report(f"conformance: real CheckpointIssuer matches the model on "
+    report(f"conformance: real ChainStatementIssuer matches the model on "
            f"{len(proposals) ** 3} traces", mismatches == 0,
            f"{mismatches} traces disagreed")
 
