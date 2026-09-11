@@ -8,31 +8,72 @@
 
 Appraisals and automated valuations get challenged years after they run. By then the data they used may have changed, been corrected, or disappeared, and rerunning the analysis can produce a different number. Semafide is testing whether independent custody can preserve enough evidence to establish what actually happened.
 
-Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test. The same structural gap recurs wherever an automated system executes a consequential decision that nobody observes and no independent record survives. Section 9.4 of the executive thesis names where that is expected to matter next, stated as a hypothesis rather than a claim.
+Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test.
 
-**This repository is the verification core, and it now includes a capture scaffold.** It defines and tests what evidence a record needs to support claims about an automated execution, and `code/seal/capture/` seals a live function call into a real artifact against that verifier. What it does not yet do is enforce that every run in an assignment reaches the chain, or provide a hosted, production custody service. The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
+## What a partner should look at first
 
-**Run the demo**
+Not a library clone. One sealed run, and what an examiner is allowed to say about it.
 
-```bash
-pip install -r code/seal/requirements.txt
-cd code
-python -m seal.demo
+`python -m seal.demo_60s` walks an honest valuation on assignment `ASG-8942`, then two attacks. On the honest case the verifier prints:
+
+```
+HONEST EXECUTION (Collateral Valuation #ASG-8942)
+------------------------------------------------------------------------
+  Precedence              ✓ ESTABLISHED
+  Witness attestation     ✗ NOT ESTABLISHED
+  Recipe available        ✓ ESTABLISHED
+  Recipe reproduced       ✓ ESTABLISHED
+  Historical execution    ✗ NOT ESTABLISHED
+  Completeness            ✗ NOT ESTABLISHED
+------------------------------------------------------------------------
+  CRYPTOGRAPHIC RESULT    ✓ ESTABLISHED
+  EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
 ```
 
-For the same state space explored interactively rather than read as terminal output, see [the design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a): a five-decision panel showing which of the five propositions survive each of the 96 reachable combinations, driven by the real verifier rather than illustrative numbers. It speaks the verifier's own vocabulary directly (`OPERATOR_CANNOT_HOLD`, `kc2_fires`), so it assumes the reader already has the propositions table below rather than explaining them from scratch.
+An examiner can say the evidence commitment predates the seal, and that a pinned recipe later reproduced the sealed output. An examiner cannot say a witness observed the run, that historical execution is established, or that this was the only run in the assignment. Cryptographic integrity is not evidentiary reliance.
 
-The rest of this README explains the problem, what the verifier can establish, what it cannot establish, and what remains unsolved.
+That refusal is the product. The rest of this README is the argument underneath it.
 
-**For the broader architecture and commercial thesis, see [`docs/executive-thesis.md`](docs/executive-thesis.md).**
+**See it run** (sixty seconds, built for someone outside the project):
 
-**For a one-file interactive map of the intended architecture — carrying the same BUILT / UNBUILT / OPEN distinctions used here — see [`docs/semafide-system-map.html`](docs/semafide-system-map.html), served at [besscog13.github.io/semafide-seal](https://besscog13.github.io/semafide-seal/). It is generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json), which is the inspectable source.**
+```bash
+cd code
+pip install -r seal/requirements.txt
+python -m seal.demo_60s
+```
 
-**For one guide to all four of the above, in the order that builds the argument from a concrete example to the full architecture, see [`docs/demos/README.md`](docs/demos/README.md).**
+Talk: eli@semafide.com
 
-The map's proposition vocabulary matches the five propositions in the table below, checked directly against `code/seal/verifier.py`. The CI check in this repository verifies the map against its own JSON source only, not against the code, so a later edit to either file can drift without CI catching it.
+## Built / unbuilt
 
-In the intended integration, an analytical tool, automated valuation model, or regression script submits an execution manifest containing the input evidence commitment, parameters, tool and model version, and output. `code/seal/capture/` shows this working for a decorated function call. The verifier in this repository defines what that record must establish without treating a self-authored declaration as independent evidence.
+| | Status |
+|---|---|
+| Verifier for five independent propositions | **Built** |
+| Capture scaffold that seals a decorated function call into a chain | **Built** |
+| Assignment checkpoint and disclosure check | **Built** as a model |
+| Hosted production custody service | **Unbuilt** |
+| Enforcement that every run in an assignment reaches the chain | **Unbuilt** — an undecorated call is invisible |
+| Independent operational witness | **Unbuilt** |
+
+The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
+
+## What an examiner can and cannot say
+
+The verifier records five independent propositions. They are not a ladder.
+
+| Proposition | What it establishes | What it does not establish |
+|---|---|---|
+| Precedence | The evidence commitment predates the run seal. | The analysis consumed that evidence. |
+| Witness attestation | A separately trusted witness key signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness organization is operationally independent or truthful. |
+| Recipe availability | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
+| Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
+| Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
+
+Successful re-derivation does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true.
+
+This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names.
+
+Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md) (worked example to architecture), [`docs/executive-thesis.md`](docs/executive-thesis.md) (commercial thesis), and the [system map](https://besscog13.github.io/semafide-seal/) generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json). The interactive [design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a) assumes this table.
 
 ## The problem
 
@@ -55,22 +96,6 @@ The question is adjudicated retrospectively, but the evidence needed to answer i
 A record showing that an analysis and its inputs sat together in one file is not evidence that the output was derived from those inputs at that moment. **Co-occurrence is not binding.**
 
 A prior evidence commitment establishes precedence: the evidence commitment existed in the chain before the run seal that names it. That rules out selecting the committed evidence after seeing the output. It does not by itself prove that the analysis actually consumed those inputs.
-
-## The epistemic evidence model
-
-The verifier records five independent propositions. They are not a ladder: each establishes a different fact, and a claim is true only where the corresponding evidence supports it.
-
-| Proposition | What it establishes | What it does not establish |
-|---|---|---|
-| Precedence | The evidence commitment predates the run seal. | The analysis consumed that evidence. |
-| Witness attestation | A separately trusted witness key signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness organization is operationally independent or truthful. |
-| Recipe availability | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
-| Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
-| Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
-
-Successful re-derivation therefore does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true.
-
-This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names. The site derives its own claim vocabulary from here, not the other way around, so a public label that has drifted from this table is the site's error to fix, not a second valid naming.
 
 ## Why custody rather than a file
 
@@ -138,7 +163,7 @@ The package deliberately does not present its experimental transparency-log impl
 
 It depends on `cryptography` alone.
 
-## Quickstart
+## Reproduce the verifier
 
 ```bash
 git clone https://github.com/besscog13/semafide-seal.git
