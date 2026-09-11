@@ -219,8 +219,9 @@ class TreeHead:
     """
     The custodian's signed statement of the whole log at a moment.
 
-    A checkpoint speaks for one assignment. A tree head speaks for everything
-    the custodian has ever recorded, which is what makes it comparable across
+    A chain statement speaks for one chain, and an assignment statement for
+    the chains one assignment holds. A tree head speaks for everything the
+    custodian has ever recorded, which is what makes it comparable across
     examiners and across years.
     """
 

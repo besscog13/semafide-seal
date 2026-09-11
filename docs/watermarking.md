@@ -67,22 +67,27 @@ about documents nobody was shown.
 
 The record does not stay with the party being examined.
 
-A checkpoint is a statement about how long a chain is, made by a key that is not
-the sealer's. An assignment checkpoint is a statement about how many chains the
-assignment holds. Both are things the sealer does not author, and the verifier
-computes over inputs of that kind, because a field the sealer writes is a
-transcription of the sealer's claim rather than a computation of it. An examiner
-holding a checkpoint can detect a short chain, because the count and the head
-disagree with what they were handed.
+A chain statement is a statement about how long a chain is, made by a key that
+is not the sealer's. An assignment statement is a statement about how many
+chains the assignment holds. Both are things the sealer does not author, and
+the verifier computes over inputs of that kind, because a field the sealer
+writes is a transcription of the sealer's claim rather than a computation of
+it. An examiner holding a chain statement can detect a short chain, because
+the count and the head disagree with what they were handed.
 
-The vocabulary already exists. A checkpoint here is a signed tree head and the
-signature that makes it worth anything is a witness cosignature, both specified
-at c2sp.org. The transparency-log implementation in this repository is a
-scaffold rather than a production foundation, and a deployment should use the
-established specifications rather than this code.
+The vocabulary already exists one level up. The c2sp.org specifications name a
+signed tree head a checkpoint, and the signature that makes it worth anything
+a witness cosignature. This repository's tree head and witness implement
+those roles at the scope the specification means, one log holding every
+chain a custodian has ever recorded. A chain statement and an assignment
+statement are scoped smaller, to one chain and to one assignment's chains,
+and are not the specification's checkpoint under a different name. The
+transparency-log implementation in this repository is a scaffold rather than
+a production foundation, and a deployment should use the established
+specifications rather than this code.
 
 Trust does not disappear under this design. It moves to whoever signs the
-checkpoint. That is the point. The party being examined stops being the only
+statement. That is the point. The party being examined stops being the only
 source of the record they are being examined on.
 
 ## What this is not
