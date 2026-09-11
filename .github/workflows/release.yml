@@ -1,0 +1,38 @@
+name: Release
+
+# Attach sdist and wheel to a GitHub Release when a version tag is pushed.
+# This is not a PyPI publish. Uploading to PyPI needs a trusted publisher
+# or an API token and a decision that 0.0.1-pre-alpha should be on the index.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: attach dist to GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --generate-notes \
+            --title "${GITHUB_REF_NAME}"
