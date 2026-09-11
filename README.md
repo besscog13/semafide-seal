@@ -75,7 +75,7 @@ Successful re-derivation does not make `historical_execution_established` true. 
 
 This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names.
 
-Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md) (worked example to architecture), [`docs/executive-thesis.md`](docs/executive-thesis.md) (commercial thesis), and the [system map](https://besscog13.github.io/semafide-seal/) generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json). The interactive [design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a) assumes this table.
+Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md) (worked example to architecture), [`docs/executive-thesis.md`](docs/executive-thesis.md) (commercial thesis), and the [system map](https://besscog13.github.io/semafide-seal/) generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json). The interactive [design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a) assumes this table. A rehearsal of comparing an outside count to the files an examiner is shown is in [`docs/handover-rehearsal.md`](docs/handover-rehearsal.md).
 
 ## The problem
 
