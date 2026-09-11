@@ -5,10 +5,36 @@ docs/public-api.md must be that same set.
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import seal
 from seal.public_api import SUPPORTED_PUBLIC_API
+
+
+def _public_api_doc() -> Path:
+    """docs/public-api.md lives in the repository, not in the wheel.
+
+    The clean-install job copies code/tests into $RUNNER_TEMP and runs
+    pytest there. parents[2] of that copy is $RUNNER_TEMP, not the
+    checkout, which is why this test failed with FileNotFoundError.
+    Walk from the test file, then from GITHUB_WORKSPACE / cwd.
+    """
+    names = []
+    workspace = os.environ.get("GITHUB_WORKSPACE")
+    if workspace:
+        names.append(Path(workspace) / "docs" / "public-api.md")
+    here = Path(__file__).resolve()
+    for parent in here.parents:
+        names.append(parent / "docs" / "public-api.md")
+    names.append(Path.cwd() / "docs" / "public-api.md")
+    for path in names:
+        if path.is_file():
+            return path
+    raise FileNotFoundError(
+        "docs/public-api.md not found from the test file, "
+        "GITHUB_WORKSPACE, or cwd"
+    )
 
 
 def test_supported_is_subset_of_all():
@@ -24,9 +50,7 @@ def test_every_supported_name_imports_from_seal():
 
 
 def test_docs_supported_block_matches_the_module():
-    text = Path(__file__).resolve().parents[2].joinpath("docs/public-api.md").read_text(
-        encoding="utf-8"
-    )
+    text = _public_api_doc().read_text(encoding="utf-8")
     heading = "## Supported"
     assert heading in text, "docs/public-api.md has no Supported section"
     after = text.split(heading, 1)[1]
