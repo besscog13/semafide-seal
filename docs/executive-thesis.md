@@ -4,6 +4,8 @@
 
 When an automated system becomes the observable point where a consequential decision is made, the evidentiary function once supplied by the human decision-maker has to be supplied by something else. Semafide is testing whether independent custody can provide that function where the execution evidence cannot otherwise be reliably retained or reconstructed. That is the idea connecting the AVM wedge in Section 9.3 to the expansion markets in Section 9.4, without treating the expansion as already validated.
 
+A valuation is produced today by an automated system. Three years later it is challenged. The model has changed. The data source has changed. The software environment has changed. The organization still has an API record, a result, and ordinary application logs. The question is no longer simply whether those records are authentic. The question is what they can establish about the execution that occurred three years earlier, and whether the records presented are the complete set of relevant executions. How an institution groups those executions, and whether an outside party would hold a count of them, is a hypothesis this document tests rather than a settled product shape.
+
 ## Status of the Claims
 
 This document separates what is implemented from what Semafide is proposing and what remains commercially unproven:
@@ -147,6 +149,9 @@ The Semafide verification engine separates two distinct questions:
 
 These are related but non-equivalent results. A cryptographically valid record can still fail to establish a historical or independent claim.
 
+Each mechanism establishes a different fact. A signature can establish who signed a record; it does not establish that the signed statement is historically true or complete. An append-only log can establish what entered the log; it does not establish that every relevant execution entered it. A capture mechanism can create a record at an execution boundary; it does not establish that an execution bypassing that boundary did not occur. An independent witness can attest to an observed execution relation; a different signing key does not, by itself, establish institutional independence. Re-derivation can show that a supplied recipe reproduces a result now; it does not establish that the historical execution used that recipe.
+
+The five propositions below are how the current verifier reports those distinctions. They are the instrument's language, not a claim that every market will buy this exact packaging.
 ### 4.3 The Five Independent Evidence Propositions
 
 The verifier's source of truth is five independent propositions. They are **not a ladder**: each establishes a different fact, and a claim holds only where the corresponding evidence supports it. These are the field names the verifier actually reports.
