@@ -160,3 +160,32 @@ jobs:
           name: semafide-seal-dist
           path: dist/
           if-no-files-found: error
+
+      # Building is not evidence the distribution works. pip install -e . and
+      # pytest from code/ resolve seal from the checkout via pythonpath.
+      # This step installs the wheel in a venv that is not the repository,
+      # then refuses to proceed if import seal still points at the checkout.
+      - name: Install wheel outside the checkout
+        run: |
+          set -euo pipefail
+          VENV="${RUNNER_TEMP}/wheel-venv"
+          WORK="${RUNNER_TEMP}/wheel-work"
+          python -m venv "$VENV"
+          "$VENV/bin/pip" install --upgrade pip
+          "$VENV/bin/pip" install dist/*.whl pytest hypothesis
+          mkdir -p "$WORK"
+          cp -R code/tests "$WORK/tests"
+          unset PYTHONPATH
+          "$VENV/bin/python" - <<PY
+          import pathlib, seal, sys
+          here = pathlib.Path(seal.__file__).resolve()
+          checkout = pathlib.Path("${{ github.workspace }}").resolve()
+          print("seal.__file__ =", here)
+          if checkout in here.parents or here == checkout:
+              sys.exit(f"import seal resolved to the checkout ({here})")
+          print("import seal resolved to the installed wheel")
+          PY
+          "$VENV/bin/python" -m seal.demo_60s
+          # -o pythonpath= defeats pyproject.toml's pythonpath = ["code"].
+          # Running from $WORK keeps cwd off the package source.
+          "$VENV/bin/pytest" "$WORK/tests" -q -o pythonpath= -o testpaths=
