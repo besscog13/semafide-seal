@@ -1,11 +1,14 @@
-"""Dummy custodian: receive artifacts, issue an AssignmentStatement.
+"""Rehearsal of assignment handover for a later examiner.
 
-Not a hosted service. Not a supported API. The capture decorator still cannot
-open a second chain under one assignment id; sibling chains here are built
-with SealChain(chain_label=...) so assess() has two chain_ids to compare.
+Public purpose: show that “how many runs did this assignment hold?” is answered
+by a count from a second key, not by the file the operator chooses to produce.
 
-An undecorated run never becomes an artifact. The custodian can only attest
-to what it received. That is KC3 and this script does not close it.
+This is not a hosted custodian and not a supported API. Sibling artifacts are
+built directly so the check has two records to compare; the live capture
+decorator still cannot open a second chain under one assignment id.
+
+A valuation that is never sent never appears in the count. The rehearsal does
+not watch the operator's machine.
 """
 from __future__ import annotations
 
@@ -30,7 +33,6 @@ def sibling_artifacts(
     labels: tuple[str, ...] = ("A", "B"),
     opened_ns: int = 1,
 ) -> list[dict[str, Any]]:
-    """Two (or more) chains under one assignment, operator-signed."""
     out: list[dict[str, Any]] = []
     for label in labels:
         chain = SealChain(
@@ -66,7 +68,6 @@ def issue_statement(
     issuer: AssignmentIssuer,
     observed_ns: int,
 ) -> dict[str, Any]:
-    """Custodian view: sign only what was handed over."""
     assignment_id, chains = refs_from_artifacts(artifacts)
     return issuer.issue(
         AssignmentStatement(
@@ -103,28 +104,28 @@ def run_cases() -> dict[str, Any]:
         "whole": whole,
         "partial": partial,
         "unusable": unusable,
-        "kc3": (
-            "A third valuation that never hit the decorator produced no "
-            "artifact. The custodian attested to the two chains it received. "
-            "It cannot attest that no other run occurred."
+        "unsent_run": (
+            "A valuation that was never sent produced no record. The outside "
+            "count covers only what was received. It does not cover the shop floor."
         ),
     }
 
 
 def main() -> None:
     cases = run_cases()
-    print("WHOLE", cases["whole"].state, "expected", cases["whole"].expected,
-          "disclosed", cases["whole"].disclosed)
-    print("PARTIAL", cases["partial"].state, "expected", cases["partial"].expected,
-          "disclosed", cases["partial"].disclosed, "withheld",
-          len(cases["partial"].withheld))
-    print("UNUSABLE", cases["unusable"].state)
-    print("KC3", cases["kc3"])
-    if cases["whole"].state is not Disclosure.WHOLE:
+    w, p, u = cases["whole"], cases["partial"], cases["unusable"]
+    print("Whole disclosure:", w.state.value,
+          f"(examiner saw {w.disclosed} of {w.expected} records the outside party held)")
+    print("Partial disclosure:", p.state.value,
+          f"(examiner saw {p.disclosed} of {p.expected}; {len(p.withheld)} withheld)")
+    print("Self-signed count:", u.state.value,
+          "(the shop that ran the valuations signed its own list)")
+    print("Unsent run:", cases["unsent_run"])
+    if w.state is not Disclosure.WHOLE:
         raise SystemExit(1)
-    if cases["partial"].state is not Disclosure.PARTIAL:
+    if p.state is not Disclosure.PARTIAL:
         raise SystemExit(1)
-    if cases["unusable"].state is not Disclosure.UNUSABLE:
+    if u.state is not Disclosure.UNUSABLE:
         raise SystemExit(1)
 
 
