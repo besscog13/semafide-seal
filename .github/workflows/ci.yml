@@ -2,9 +2,6 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
-      - "claude/**"
   pull_request:
     branches:
       - main
@@ -14,33 +11,20 @@ on:
 # stating the minimum explicitly, read-only, means a compromised step or a
 # malicious dependency pulled in by pip has nothing to write with, regardless
 # of what the default happens to be.
+#
+# Feature branches used to get CI only via a PR into main (except claude/**).
+# Push-to-any-branch is cheap here and means a branch exists as evidence
+# before anyone opens a PR.
 permissions:
   contents: read
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # The seal package is the only live code in this repository.
-  # ---------------------------------------------------------------------------
   seal:
     name: seal package
     runs-on: ubuntu-latest
-    # None of these steps normally take more than a few seconds. A ceiling
-    # here is not about the happy path: the sibling private repository has
-    # already found real concurrency bugs in this same code/seal/ that could
-    # deadlock under the wrong timing. Without an explicit bound, a future
-    # one that hangs a test burns the default 360-minute ceiling before
-    # anyone notices, rather than failing fast and visibly.
     timeout-minutes: 10
 
     steps:
-      # Pinned to a commit rather than the floating v4/v5 tags. A tag is a
-      # mutable pointer; anyone who can push to these upstream repositories
-      # (or compromise a maintainer's credentials) can retarget it to a
-      # different commit, and every consumer using @v4 picks that up
-      # silently on its next run. Pinning to the exact commit the tag
-      # currently names is the standard mitigation. Each SHA below was
-      # confirmed via `git ls-remote` (not a web page) to be what the named
-      # tag actually points to at the time it was pinned.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -58,11 +42,6 @@ jobs:
         working-directory: code
         run: python -m seal.demo
 
-      # README.md quotes what seal.demo_60s prints. Copied output is a claim
-      # about the code that nothing keeps true, so CI asserts the relationship.
-      # Fails if the heading is missing as well as if the block has drifted. A
-      # check that quietly asserts nothing because somebody renamed a section
-      # is worse than no check, since it still reports green.
       - name: README quotes the demo accurately
         run: |
           python - <<'PY'
@@ -98,35 +77,13 @@ jobs:
           sys.exit(1)
           PY
 
-      # README.md says docs/semafide-system-map.html is generated from
-      # docs/semafide.architecture.json. An unchecked generation claim is the
-      # defect this repository exists to name, so the relationship is asserted
-      # here rather than trusted.
-      #
-      # What this establishes is correspondence, not generation. It cannot show
-      # that the exporter ran. It shows that the rendered map and the source
-      # agree on every fact the source states, which is the weaker claim and the
-      # one being made. The script lives in a file because the Pages workflow
-      # runs the same assertion before it publishes the map, and two copies of
-      # a check are two checks that can disagree.
+      # Correspondence, not generation. There is no exporter in this repository.
       - name: The system map agrees with its source
         run: python .github/scripts/check_system_map.py
 
-      # `BindingLevel` and its five rungs are a lossy legacy projection, not a
-      # claim vocabulary of their own, and README.md and executive-thesis.md
-      # both say so explicitly in the few places they still name it. A flat
-      # forbidden list fails on those correct uses the moment it runs, so this
-      # asserts the narrower relationship instead: every line naming a retired
-      # term must be one of the exact lines already licensed to carry it.
       - name: Retired vocabulary stays on its licensed lines
         run: python .github/scripts/check_retired_vocabulary.py
 
-      # The package claims to depend on cryptography and the standard library
-      # and nothing else. That claim is load-bearing, since it is what lets the
-      # live code be installed and run without any numerical or web stack, so it
-      # is asserted here rather than trusted. The forbidden list is deliberately
-      # broader than what is currently installed: it fails the moment a future
-      # change pulls one of these into the live import path.
       - name: Dependency isolation
         working-directory: code
         run: |
@@ -144,24 +101,9 @@ jobs:
           print("clean: cryptography and the standard library only")
           PY
 
-  # ---------------------------------------------------------------------------
-  # Formal checks over the state machines that hold the custody guarantees.
-  #
-  # A separate job on purpose. z3 is a verification dependency and must never
-  # reach the live package, so it is installed in an environment the seal job
-  # never sees, and the isolation assertion above lists z3 as forbidden.
-  #
-  # Each spec proves a safety property over unbounded histories AND drives the
-  # real implementation over concrete traces, asserting the code accepts and
-  # refuses exactly where the model says. A proof about a model that nothing
-  # ties to the code is the defect that fires KC2, one level up.
-  # ---------------------------------------------------------------------------
   specs:
     name: formal specs
     runs-on: ubuntu-latest
-    # Z3 solving time is the one place in this workflow with any real
-    # variance, but the bounded traces here have run in low single-digit
-    # seconds each. Ten minutes is headroom, not an expectation.
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -179,8 +121,6 @@ jobs:
         run: |
           set -o pipefail
           failed=0
-          # Recursive on purpose. A depth limit here would silently skip a
-          # spec in a subdirectory and report a pass over less than it checked.
           mapfile -t specs < <(find specs -name "SPEC_*.py" -type f | sort)
           if [ ${#specs[@]} -eq 0 ]; then
             echo "No specs found. This job asserts something, so that is a failure."
@@ -197,3 +137,26 @@ jobs:
             fi
           done
           exit $failed
+
+  dist:
+    name: build artifacts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Build sdist and wheel
+        run: |
+          pip install build
+          python -m build
+          ls -l dist
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: semafide-seal-dist
+          path: dist/
+          if-no-files-found: error
