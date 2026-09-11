@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Status: pre-alpha scaffold](https://img.shields.io/badge/status-pre--alpha%20scaffold-orange.svg)](#verification-status)
 [![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
+[![PyPI](https://img.shields.io/pypi/v/semafide-seal.svg)](https://pypi.org/project/semafide-seal/)
 
 Appraisals and automated valuations get challenged years after they run. By then the data they used may have changed, been corrected, or disappeared, and rerunning the analysis can produce a different number. Semafide is testing whether independent custody can preserve enough evidence to establish what actually happened.
 
@@ -37,10 +38,11 @@ That refusal is the product. The rest of this README is the argument underneath 
 **See it run** (sixty seconds, built for someone outside the project):
 
 ```bash
-cd code
-pip install -r seal/requirements.txt
+pip install semafide-seal
 python -m seal.demo_60s
 ```
+
+`semafide-seal` is a pre-alpha verifier for inspecting a supplied artifact. Installing it does not mean Semafide witnessed a run or holds an assignment record.
 
 Talk: eli@semafide.com
 
@@ -166,12 +168,19 @@ It depends on `cryptography` alone.
 ## Reproduce the verifier
 
 ```bash
+pip install semafide-seal
+python -m seal.demo_60s
+```
+
+From source:
+
+```bash
 git clone https://github.com/besscog13/semafide-seal.git
 cd semafide-seal
 pip install -e .
 
 python -m seal.demo    # the guided walkthrough
-python -m seal.demo_60s # a 60-second external-facing walkthrough: honest execution, tamper detection, and a selective-disclosure attack
+python -m seal.demo_60s
 ```
 
 The demo exercises the verifier against cases including truncation, assignment-level disclosure, retention determinations, and time-bound failures. It is the fastest way to see what the verifier refuses to grant.
