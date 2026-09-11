@@ -3,9 +3,18 @@ name: Publish to TestPyPI
 # Manual only. This workflow publishes to TestPyPI, never production PyPI.
 # Trusted Publishing must be configured on TestPyPI for this repository,
 # workflow, and environment before the workflow can upload.
+#
+# The claim under test is that this exact state of main can be distributed
+# through an index. The workflow therefore refuses any ref other than main.
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref to publish. Must be main."
+        required: true
+        default: "main"
+        type: string
 
 jobs:
   build:
@@ -14,9 +23,21 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Require main
+        run: |
+          ref='${{ inputs.ref }}'
+          case "$ref" in
+            main|refs/heads/main) ;;
+            *)
+              echo "Refusing to publish '$ref'. TestPyPI is for main only."
+              exit 1
+              ;;
+          esac
+
       - name: Check out repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
+          ref: ${{ inputs.ref }}
           persist-credentials: false
 
       - name: Set up Python
