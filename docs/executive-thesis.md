@@ -22,7 +22,7 @@ The claims in this document sit at different altitudes. Reading a claim at the w
 2. **Instrument.** Semafide is an instrument for testing whether evidence surrounding an automated execution supports specific claims about that execution.
 3. **Product.** What a partner integrates at execution, what Semafide holds and the producing party does not, and what an examiner receives later (Section 3).
 4. **Technical principle.** Cryptographic validity is not the same thing as evidentiary reliance (Section 4).
-5. **Evidence model.** Five independent propositions: `precedence`, `witness_attestation`, `recipe_available`, `recipe_reproduced`, `historical_execution_established`. Each answers a different question; none implies another (Section 4.3).
+5. **Evidence model.** Five independent propositions: `precedence`, `witness_attestation`, `recipe_available`, `recipe_reproduced`, `historical_execution_established`. Each answers a different question; none implies another (Section 4.5).
 6. **Commercial thesis.** Some high-consequence, opaque workflows face adversarial examination where the party who must prove what happened cannot retain the inputs, and there the cost of being unable to establish what happened may justify stronger evidence preservation (Section 2, applied in Section 8).
 7. **Market hypothesis.** AVMs in mortgage lending are the first market being tested. This is unproven and specific to that market, not a claim about automated decision-making generally (Section 9).
 
@@ -136,11 +136,35 @@ What decides it is what an institution turns out to be buying, which is the ques
 
 ## 4. The Epistemic Evidence Model: From Co-Occurrence to Independent Propositions
 
-### 4.1 The Core Problem: Co-Occurrence Is Not Binding
+### 4.1 The Six Primitives and the Grid
+
+A decision occurs. Later, someone asks about it. Six things have to be true for an answer to exist.
+
+**Action** is what was done. **Surface** is the rule set that was supposed to govern it. **Evidence** is what the decision consumed. **Evaluator** is the thing that applied surface to evidence. **Instant** is the moment of execution. **Claim** is the assertion made later about how the first five relate; the claim is the assertion itself, not whether the assertion turns out to be true.
+
+Each primitive is examined against three properties. **Existence** asks whether it was recorded at all. **Reach** asks whether the party who has to answer for the decision can get to it, which is a different question from whether it exists somewhere: a record held by a counterparty while the liable party holds only a summary is a reach failure, not an existence failure, and the two call for different products. **Pinning** asks whether the primitive is fixed to the instant of execution or floats to present state; a system that returns today's answer to a historical question has a pinning failure even where retention is otherwise complete.
+
+Six primitives against three properties makes eighteen cells. Applied to a time adjustment in an appraisal: Evidence by Existence asks whether the comparable-sales set was saved. Evidence by Reach asks whether the appraiser holds it or the multiple listing service does. Evidence by Pinning asks whether it shows the data as it stood at execution or as it stands today. The same three questions apply in turn to the other five primitives.
+
+All eighteen cells are ordinary retention, contract, and versioning problems. Save more, keep it longer, version the configuration, contract for access. A gap in any one of them is real and cheaply named, and it is somebody else's product rather than this one.
+
+One condition sits ahead of all eighteen cells. A primitive that never leaves a person's head cannot be scored on Existence, Reach, or Pinning, because there is nothing recorded to examine, and Surface is the primitive this bites hardest: an operator's filter and methodology choices that reach a report only as a number have failed Surface on Existence, and no amount of sealing repairs a primitive that was never externalized. Automated pipelines externalize by construction, since software has to write its parameters down in order to run. A judgment call that never leaves the operator's head is a different risk than the one this project addresses.
+
+### 4.2 Binding, Outside the Grid
+
+Score every one of the eighteen cells perfectly and the result is a folder holding six correct things. Nothing in that folder shows that the evaluator ran on that evidence, under that surface, to produce that action at that instant. Six accurate items can be assembled after the fact and placed in one envelope, and the assembled result is indistinguishable from a faithful record. That is co-occurrence, and the next section states the same idea at the level of one code-level record rather than six primitives.
+
+**Binding** is the separate claim that the evaluator actually consumed that surface and that evidence to produce that action at that instant. It is not a property of any single primitive, which is why it is not a nineteenth cell: it is a statement about the relationship between the six, and a relation is not the same kind of object as its relata. Of the nineteen elements, binding is the only one that better record-keeping does not cure. More retention, longer retention, and finer versioning all improve the six primitives without ever showing that they were consumed together rather than assembled together after the fact.
+
+The three properties still apply, but to the artifact that attests to binding rather than to binding itself, since binding is a fact about what happened and not a record. Existence, Reach, and Pinning asked of that attesting artifact are close to this document's own design constraints: whether it was made at execution or assembled afterward is a pinning question, and who holds it is a reach question about the attesting party rather than about the six primitives underneath.
+
+**Epistemic status.** The six primitives, the eighteen-cell grid, and binding as the relation outside it are original to this project. They are not drawn from an established evidentiary, decision-theory, or forensic ontology, and no such lineage is claimed for them. The grid is an organizing device for asking the same three questions six times, not a formally verified structure in the sense that `specs/` proves properties of the log. It sits at the Thesis altitude of the hierarchy above: a lens the codebase is built to test, not a result the codebase has proven.
+
+### 4.3 The Core Problem: Co-Occurrence Is Not Binding
 
 In standard analytical workflows, storing inputs and outputs together in a database or folder establishes mere co-occurrence. It does not establish that the output was derived from those inputs, that the inputs existed prior to execution, or that the record was not selectively assembled after the fact.
 
-### 4.2 The Foundational Separation: Cryptographic Trust vs. Evidentiary Reliance
+### 4.4 The Foundational Separation: Cryptographic Trust vs. Evidentiary Reliance
 
 The Semafide verification engine separates two distinct questions:
 
@@ -152,7 +176,7 @@ These are related but non-equivalent results. A cryptographically valid record c
 Each mechanism establishes a different fact. A signature can establish who signed a record; it does not establish that the signed statement is historically true or complete. An append-only log can establish what entered the log; it does not establish that every relevant execution entered it. A capture mechanism can create a record at an execution boundary; it does not establish that an execution bypassing that boundary did not occur. An independent witness can attest to an observed execution relation; a different signing key does not, by itself, establish institutional independence. Re-derivation can show that a supplied recipe reproduces a result now; it does not establish that the historical execution used that recipe.
 
 The five propositions below are how the current verifier reports those distinctions. They are the instrument's language, not a claim that every market will buy this exact packaging.
-### 4.3 The Five Independent Evidence Propositions
+### 4.5 The Five Independent Evidence Propositions
 
 The verifier's source of truth is five independent propositions. They are **not a ladder**: each establishes a different fact, and a claim holds only where the corresponding evidence supports it. These are the field names the verifier actually reports.
 
@@ -168,7 +192,7 @@ Two consequences are load-bearing and easy to get wrong. Successful re-derivatio
 
 **On the removed `BindingLevel` projection.** An earlier revision of the verifier also emitted an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`), a single summary figure derived from the table above. It has been removed. It could not represent `historical_execution_established`, the strongest of the five propositions, under any combination of the others, since the derivation rule never checked it; a summary figure that cannot express the strongest real claim is a defect rather than a convenience.
 
-### 4.4 The Key Principle
+### 4.6 The Key Principle
 
 > An epistemic fact should not become true merely because the party that created the record declared it. Where a claim depends on evidence outside the operator's unilateral control, the verifier must derive the claim from that evidence.
 
@@ -188,7 +212,7 @@ The goal is not to replace judgment. It is to make the factual substrate beneath
 
 ## 7. Codebase Architecture
 
-- `code/seal/primitives.py`: The six constituents of a decision, canonical JSON encoding, and the commitment and Merkle-root functions everything else is built on.
+- `code/seal/primitives.py`: The six constituents of a decision, canonical JSON encoding, and the commitment and Merkle-root functions everything else is built on. Sections 4.1 and 4.2 explain the six primitives and binding in prose.
 - `code/seal/artifact.py`: The record schema, meaning the entry kinds, the evidence commitment, the run seal, the re-derivation recipe, and the workfile binding.
 - `code/seal/log.py`: Append-only log primitives with inclusion and consistency proof machinery.
 - `code/seal/checkpoint.py`: Signed log-state checkpoints, issued by a stateful signer that remembers what it last signed for an assignment and refuses to sign a shorter or conflicting count afterward. That refusal is proved over unbounded histories in `specs/SPEC_checkpoint_issuer.py`, not only tested against examples.
