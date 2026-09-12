@@ -40,6 +40,9 @@ EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
     pathlib.Path("docs/executive-thesis.md"): {
         "**On the removed `BindingLevel` projection.** An earlier revision of the verifier also emitted an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`), a single summary figure derived from the table above. It has been removed. It could not represent `historical_execution_established`, the strongest of the five propositions, under any combination of the others, since the derivation rule never checked it; a summary figure that cannot express the strongest real claim is a defect rather than a convenience.",
     },
+    pathlib.Path("CONTRIBUTING.md"): {
+        "**`BindingLevel` was removed and must not be reintroduced.** It was a single derived value that collapsed the five propositions into one lossy summary rung, and its derivation rule never checked `historical_execution_established`, so it could not represent the strongest of the five claims under any combination of the others. The five propositions are the only source of truth. Do not add a derived summary level back, and do not add logic anywhere that branches on one.",
+    },
     # This file's whole job is to name what is retired and why, so unlike the
     # other two, several of its lines legitimately carry a retired term. Each
     # one is still licensed individually rather than exempting the file as a
