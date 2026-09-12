@@ -111,7 +111,13 @@ binding the run, the committed evidence, the sealed action, and a capture
 reference. It is never inferred from successful re-derivation, and a signature
 over a supplied bundle is not that attestation.
 
-**`BindingLevel` was removed and must not be reintroduced.** It was a single derived value that collapsed the five propositions into one lossy summary rung, and its derivation rule never checked `historical_execution_established`, so it could not represent the strongest of the five claims under any combination of the others. The five propositions are the only source of truth. Do not add a derived summary level back, and do not add logic anywhere that branches on one.
+**`BindingLevel` has been removed, and nothing replaces it.** An earlier
+revision of the verifier emitted an ordered level, `BUNDLED` through
+`REDERIVED`, derived from the five propositions. Its derivation rule never
+checked `historical_execution_established`, so it could not express the
+strongest of the five under any combination of the others. The five
+propositions are the result. Do not reintroduce a summary figure over them, and
+do not add logic that branches on one.
 
 **Absence is reported as unchecked, not as a pass.** When a checkpoint, a
 disclosure statement, or a time anchor was not supplied, the verifier says so.
