@@ -1,0 +1,83 @@
+# This file does not run here. It belongs in besscog13/semafide-seal, at
+# .github/workflows/sync-notify.yml, and is kept in this repository so the
+# sending half and the receiving half of the same mechanism sit next to each
+# other. GitHub only runs workflows under .github/workflows/, so its presence
+# here is inert.
+#
+# WHY IT EXISTS. This repository's `sync` job compares ten paths against the
+# public tree. It fires on push to main here, on a daily cron, and on manual
+# dispatch. None of those is "the public repository changed", so a divergence
+# resolved on the public side leaves this repository reporting red until
+# something unrelated pushes here or the cron comes around. On 2026-09-12 that
+# window was minutes. It could as easily be a day, and a stale red trains
+# everyone to stop reading the signal.
+#
+# WHY IT CALLS workflow_dispatch RATHER THAN repository_dispatch. Both refresh
+# the answer. They differ in what the sender has to be trusted with, and the
+# sender's credential lives inside a public repository, so that difference is
+# the whole decision. Repository dispatch needs Contents write on the private
+# repository. Workflow dispatch needs Actions write. Workflow dispatch also
+# needs no change on the receiving side at all, because ci.yml already accepts
+# it, so the narrower credential costs nothing. A repository_dispatch trigger
+# was added on 2026-09-12 and removed the same day for exactly this reason.
+# What is given up is expressiveness: the run shows as a manual dispatch and
+# does not say in its own metadata that the public tree moved. The step below
+# prints the public SHA into the log so that fact is still recorded somewhere.
+#
+# THE TOKEN, which is the part to decide before installing this. SYNC_NOTIFY_TOKEN
+# is a credential for a private repository stored as a secret in a public one.
+# Fork pull requests do not receive secrets, and the job is gated to push-on-main
+# besides, so the exposure runs to whoever can push to semafide-seal's main
+# rather than to the public at large. Use a fine-grained personal access token,
+# scoped to besscog13/semafide-authorization-provenance alone, granting only
+# "Actions: Read and write" and no other permission, with an expiry set. It
+# cannot read the private repository's contents, cannot push to it, and cannot
+# reach any other repository. The worst it can do is start or cancel workflow
+# runs there.
+
+name: Notify the private repository that main moved
+
+on:
+  push:
+    branches:
+      - main
+
+# Nothing here reads or writes this repository. The token that does the work is
+# the secret below, not GITHUB_TOKEN, so GITHUB_TOKEN is given nothing.
+permissions: {}
+
+jobs:
+  notify:
+    name: ask semafide-authorization-provenance to re-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # A missing or expired secret must fail loudly. Silently skipping would
+      # restore exactly the stale-red problem this file exists to remove, while
+      # showing green.
+      - name: Ask the private repository to run its sync job
+        env:
+          TOKEN: ${{ secrets.SYNC_NOTIFY_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::SYNC_NOTIFY_TOKEN is not set. The private repository"
+            echo "::error::will not re-check until its cron runs."
+            exit 1
+          fi
+          echo "public main is now ${GITHUB_SHA}"
+          code=$(curl -sS -o /tmp/resp.json -w '%{http_code}' -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/besscog13/semafide-authorization-provenance/actions/workflows/ci.yml/dispatches \
+            -d '{"ref":"main"}')
+          # 204 is the documented success for this endpoint. Anything else is a
+          # failure worth seeing, including the 404 that a token without access
+          # returns instead of a 403, and the 422 returned when the target
+          # workflow does not accept workflow_dispatch on the named ref.
+          if [ "$code" != "204" ]; then
+            echo "::error::workflow dispatch returned HTTP $code"
+            cat /tmp/resp.json
+            exit 1
+          fi
+          echo "asked the private repository to re-check against ${GITHUB_SHA}"
