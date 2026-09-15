@@ -3,7 +3,8 @@ The KC2 experiment, run as tests, plus regressions for constructed attacks.
 
 KC2 states the mechanism fails if it does nothing a third-party-timestamped
 bundle of the same local files could not do. The first half of this file
-constructs artifacts at each binding level and asserts what the verifier
+constructs artifacts across the proposition combinations and asserts what the
+verifier
 concludes, which is a finding about the architecture rather than a check on the
 code. The second half constructs artifacts that once verified and should not
 have.

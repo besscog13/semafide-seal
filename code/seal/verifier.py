@@ -233,8 +233,9 @@ def _verify(
 
     `rederive` is how an examiner actually performs the re-derivation. It takes
     a recipe and returns the digest of the output it produced, or None if the
-    pinned version could no longer be executed. Without it the verifier reports
-    REDERIVABLE at best, because a recipe that has not been run is a claim.
+    pinned version could no longer be executed. Without it the verifier can
+    establish `recipe_available` and not `recipe_reproduced`, because a recipe
+    that has not been run is a claim.
     That gap is the liveness dependency: this artifact is not self-contained
     the way a signature is, and it degrades if the partner stops serving the
     pinned version.
@@ -741,9 +742,9 @@ def _run_evidence(
 
     def _finalize(evidence: EvidencePropositions) -> EvidencePropositions:
         if has_witness_claim:
-            # Granting WITNESSED here would be the cheapest route to
-            # clearing KC2 in the whole package: nine characters in a
-            # field the sealer writes, with no recipe and no
+            # Granting `witness_attestation` here would be the cheapest route to
+            # clearing KC2 in the whole package: one string in a field
+            # the sealer writes, with no recipe and no
             # re-derivation. Nothing in this artifact can carry evidence
             # that an outside party observed anything, because there is
             # no second signature and no external anchor. Until one
