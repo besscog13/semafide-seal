@@ -24,8 +24,42 @@ RETIRED_WORDS = re.compile(r"\b(?:BUNDLED|WITNESSED|REDERIVABLE|REDERIVED)\b")
 BINDING_LEVEL = re.compile(r"BindingLevel|binding level")
 
 
+def _raw_hits(text: str) -> list[str]:
+    """Every occurrence, duplicates kept, because the wrap check counts them."""
+    return RETIRED_WORDS.findall(text) + BINDING_LEVEL.findall(text)
+
+
 def hits(text: str) -> list[str]:
-    return sorted(set(RETIRED_WORDS.findall(text) + BINDING_LEVEL.findall(text)))
+    return sorted(set(_raw_hits(text)))
+
+
+def wrap_spanning(text: str) -> list[str]:
+    """Occurrences a line-based scan cannot see, because a wrap splits them.
+
+    Every document here is hard-wrapped, so `binding level` routinely lands
+    with `binding` ending one line and `level` starting the next. Searching
+    line by line finds nothing and reports clean, while a reader sees the
+    term. That is a false negative in the one direction this check must not
+    fail, since it exists to stop exactly this term reaching a doc surface.
+
+    Adjacent lines are joined pairwise and a hit is reported only when the
+    join produces more matches than the two lines produce separately, which
+    is true precisely when a term straddles the boundary. Counting rather
+    than testing presence is what keeps two licensed lines sitting next to
+    each other from reporting against themselves.
+
+    A straddling occurrence is never licensed. EXEMPT_LINES licenses whole
+    lines, and a term split across two of them is on neither, so this needs
+    no exemption path of its own.
+    """
+    lines = text.splitlines()
+    found: list[str] = []
+    for first, second in zip(lines, lines[1:]):
+        joined = f"{first} {second}"
+        extra = len(_raw_hits(joined)) - len(_raw_hits(first)) - len(_raw_hits(second))
+        if extra > 0:
+            found.append(f"...{first[-46:]} / {second[:46]}...")
+    return found
 
 
 # Every line below is copied verbatim, byte for byte, from the file it
@@ -88,6 +122,17 @@ def main() -> int:
         found = hits(path.read_text(encoding="utf-8"))
         if found:
             failures.append(f"{path}: {found} appear with no licensed exemption in this file")
+
+    # Both loops above read one line at a time, so neither can see a term a
+    # line wrap has split. Every file is checked for that separately, the
+    # licensed ones included, since a straddling occurrence is on no single
+    # line and therefore on no licensed line.
+    for path in sorted(set(pathlib.Path("docs").rglob("*.md")) | set(EXEMPT_LINES)):
+        for straddle in wrap_spanning(path.read_text(encoding="utf-8")):
+            failures.append(
+                f"{path}: a retired term is split across a line wrap, where a "
+                f"line-by-line scan cannot see it: {straddle}"
+            )
 
     if failures:
         print("::error::Retired vocabulary leaked outside its licensed lines")
