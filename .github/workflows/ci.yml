@@ -5,6 +5,12 @@ on:
   pull_request:
     branches:
       - main
+  # The stranded-branch job below is the reason these two exist. A branch goes
+  # stale precisely because nobody is touching it, so a check that only runs
+  # when somebody pushes cannot see the case it was written for.
+  schedule:
+    - cron: "41 6 * * *"
+  workflow_dispatch:
 
 # Neither job below pushes, comments, or publishes anything. The default
 # GITHUB_TOKEN scope is an organisation setting this file cannot see, so
@@ -138,9 +144,125 @@ jobs:
           done
           exit $failed
 
+  # ---------------------------------------------------------------------------
+  # Work that exists only on a branch is work nobody can find.
+  #
+  # A commit pushed to a feature branch and never opened as a pull request is
+  # invisible: it is not on main, no review surface names it, and the branch
+  # list is not somewhere anyone looks. This repository has lost work that way,
+  # and the private tree that mirrors it added this check first for the same
+  # reason.
+  #
+  # Three states are acceptable and everything else is reported. A branch whose
+  # commits are already upstream is merged. A branch with an open pull request
+  # is in flight. A branch that moved within the grace window is too new to
+  # judge, since a branch is normally pushed before its pull request exists.
+  #
+  # Runs on main, on the schedule, and on manual dispatch. Not on pull requests
+  # and not on feature branches: the branch under review is exactly the one that
+  # legitimately has unmerged commits, so gating a pull request on this would
+  # make red the normal state and train everyone to ignore it.
+  # ---------------------------------------------------------------------------
+  stranded:
+    name: no work stranded off main
+    if: >-
+      github.event_name == 'schedule'
+      || github.event_name == 'workflow_dispatch'
+      || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Reading pull requests is the whole point: without it every in-flight
+    # branch reads as abandoned. Nothing here writes.
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # git cherry compares whole histories. The default shallow checkout
+          # cannot answer whether a commit is already upstream.
+          fetch-depth: 0
+
+      - name: Every branch is merged, in flight, or reported
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          GRACE_HOURS=12
+
+          git fetch --quiet --prune origin "+refs/heads/*:refs/remotes/origin/*"
+
+          # A failed or rate-limited call must not read as "no open pull
+          # requests", which would report every in-flight branch as abandoned.
+          if ! curl -sS --fail-with-body -o /tmp/prs.json \
+               -H "Accept: application/vnd.github+json" \
+               -H "Authorization: Bearer $GH_TOKEN" \
+               -H "X-GitHub-Api-Version: 2022-11-28" \
+               "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100"; then
+            echo "::error::could not list open pull requests; this is not a"
+            echo "::error::stranded-work result. Refusing to guess."
+            exit 1
+          fi
+          python3 -c "import json;print(chr(10).join(p['head']['ref'] for p in json.load(open('/tmp/prs.json'))))" > /tmp/open_prs.txt
+
+          now=$(date -u +%s)
+          stranded=0
+          looked=0
+
+          # `origin` is in that filter because refs/remotes/origin/HEAD
+          # abbreviates to `origin`, not to `origin/HEAD`, so filtering only
+          # the long name lets a phantom branch into the loop. It reads as
+          # merged and never fails the job, so the symptom is an inflated
+          # branch count rather than a false error. actions/checkout does not
+          # currently create that ref, which is why this has never shown up in
+          # a run, and that is a fact about the action rather than about this
+          # check. Confirmed directly against a local clone that does have it.
+          for ref in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin \
+                       | grep -vx 'origin/main' | grep -vx 'origin/HEAD' \
+                       | grep -vx 'origin'); do
+            branch=${ref#origin/}
+            looked=$((looked + 1))
+
+            # `git cherry` marks a commit `-` when an equivalent change is
+            # already upstream, which is what makes this correct across squash
+            # merges: the branch ref can survive the merge and still be empty.
+            unmerged=$(git cherry origin/main "$ref" | grep -c '^+' || true)
+            if [ "$unmerged" -eq 0 ]; then
+              echo "merged     $branch"
+              continue
+            fi
+
+            if grep -qxF "$branch" /tmp/open_prs.txt; then
+              echo "in flight  $branch ($unmerged not on main, open pull request)"
+              continue
+            fi
+
+            age_h=$(( (now - $(git log -1 --format=%ct "$ref")) / 3600 ))
+            if [ "$age_h" -lt "$GRACE_HOURS" ]; then
+              echo "recent     $branch ($unmerged not on main, ${age_h}h old, inside the grace window)"
+              continue
+            fi
+
+            echo "::error::$branch carries $unmerged commit(s) that are not on main, has no open pull request, and last moved ${age_h}h ago"
+            git cherry -v origin/main "$ref" | sed 's/^+ /  stranded: /'
+            stranded=1
+          done
+
+          if [ "$stranded" -ne 0 ]; then
+            echo "::error::Work is recorded on a branch and is not on main. Open a"
+            echo "::error::pull request for it, or delete the branch if it is dead."
+            exit 1
+          fi
+          echo "clean: $looked branch(es) beside main, none carrying stranded work"
+
   dist:
     name: build artifacts
     runs-on: ubuntu-latest
+    # Skipped on the daily cron. The schedule was added for the stranded job,
+    # and this one uploads an artifact on every run, so leaving it ungated
+    # would accumulate a build a day to answer a question nobody asked. A
+    # scheduled run is asking whether work is stranded, not whether the wheel
+    # still builds; every push and every pull request still answers that.
+    if: github.event_name != 'schedule'
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
