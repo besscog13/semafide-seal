@@ -330,10 +330,11 @@ class RederivationRecipe:
     """
     What a third party needs to re-execute the analysis and compare.
 
-    Re-derivation is the only mechanism this product targets for the
-    evidentiary bar. A recipe a stranger cannot execute is a claim rather
-    than a proof, so every field here is required and the verifier treats a
-    partial recipe as absent.
+    Re-derivation is one of the two mechanisms that reach the evidentiary
+    bar, the other being a witness attestation; `evidence.py` accepts either.
+    A recipe a stranger cannot execute is a claim rather than a proof, so
+    every field here is required and the verifier treats a partial recipe as
+    absent.
 
     `version` must be an exact pinned version and never a range, because a
     range does not identify what ran. `service_window` records how long the
@@ -352,10 +353,28 @@ class RederivationRecipe:
     than a false clearance, so it fails loudly against the honest partner and
     not quietly in favour of a dishonest one.
 
-    Not fixed here. The fix is an environment manifest beside the recipe, and
-    it waits on the determinism question being put to a vendor engineer,
-    because that answer decides whether an environment can be pinned tightly
-    enough to matter.
+    Not fixed here, and the fix that was pending has been withdrawn. This
+    docstring said until 2026-09-15 that an environment manifest beside the
+    recipe was waiting on the determinism question reaching a vendor
+    engineer. That question returned on 2026-08-23 from public documents
+    instead: LightGBM's own parameter documentation names different versions,
+    different compiler builds, and different systems as axes along which
+    output is expected to move. A manifest recording those fields would
+    document the drift rather than prevent it, so the manifest was withdrawn
+    and the defect stands.
+
+    What is open is larger than the manifest. Re-derivation clears KC2 only
+    where two conditions hold together: the operator cannot hold the raw
+    input, otherwise a local timestamp and a re-run reach the same place
+    without a custodian, and the tool is deterministic, otherwise a mismatch
+    is uninformative. Across every class examined so far those two have not
+    co-occurred. The class with no retainable input set is the hedonic and
+    machine-learning class, which is the class that disclaims determinism;
+    the tools that reproduce exactly are the ones whose input file already
+    sits on the operator's disk. No tool satisfying both has been named. The
+    evidence for nondeterminism is also strongest about training rather than
+    about scoring pinned weights, so this is a domain nobody can currently
+    state rather than a domain proved empty.
     """
 
     endpoint: str
@@ -407,8 +426,8 @@ class RunSeal:
     Layer 1, second move. The analysis, with all six primitives recorded.
 
     `evidence_commitment_hash` names the block hash of the evidence entry this
-    run consumed. A run that names no prior commitment can only ever reach the
-    weakest binding level, because nothing fixes the inputs ahead of the output.
+    run consumed. A run that names no prior commitment cannot establish
+    `precedence`, because nothing fixes the inputs ahead of the output.
     """
 
     run_id: str
