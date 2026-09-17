@@ -525,7 +525,9 @@ def _verify(
                     Finding(
                         "selective_binding",
                         f"Binding names a subset of the chain. Omitted: {omitted}. "
-                        "A run can be excluded without detection.",
+                        "Those omissions are named because this chain was supplied "
+                        "whole. A truncated chain whose binding matches what remains "
+                        "would read contiguous.",
                         "design question three",
                     )
                 )
@@ -549,7 +551,10 @@ def _verify(
                         "KC3",
                     )
                 )
-            if not (omitted or phantom or after or not head_ok):
+            # Head mismatches are named below. This remainder is extra
+            # sequences that exist on the chain and were not expected: neither
+            # omitted, phantom, nor sealed after the binding.
+            if not omitted and not phantom and not after and head_ok:
                 report.findings.append(
                     Finding(
                         "binding_covers_unexpected_seqs",
