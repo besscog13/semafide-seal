@@ -24,6 +24,8 @@ Five vocabularies for one set of five things, in a project whose entire proposit
 
 **The Demo output row is now stale, confirmed rather than merely suspected.** The change list below records that `demo.py` was fixed; the row above still describes what it printed before that fix and is left as the historical diagnosis, not the current state.
 
+**The `/instrument` row is now historical.** The live page is built on the canonical five. Completeness and Coverage sit on the record axis. Disclosure, Anchoring, and the timestamp-service determination sit under supporting determinations. The row above still describes the page this document diagnosed. It is left as the historical diagnosis, not the current state.
+
 ## The canonical five
 
 The public label and the code identifier are a fixed pair. Neither moves without the other.
@@ -33,7 +35,7 @@ The public label and the code identifier are a fixed pair. Neither moves without
 | **Precedence** | `precedence` | Was the input set committed before the run that consumed it? | Inputs could not be selected after somebody saw the output. | That the output was derived from those inputs. |
 | **Witness** | `witness_attestation` | Did a party other than the sealer sign the record at the time? | The record does not rest only on the sealer's own word. | That the witness checked the analysis, or that the witness is honest. |
 | **Recipe** | `recipe_available` | Does the record carry a complete re-run procedure — endpoint, version, invocation, expected digest? | A stranger could attempt the re-run. | That anyone has. Until somebody executes it, it is a claim. |
-| **Reproduction** | `recipe_reproduced` | Did a verifier execute the recipe and get the sealed output? | Derivation was demonstrated rather than asserted. | That the run happened at the time the record claims. |
+| **Reproduction** | `recipe_reproduced` | Did a verifier execute the recipe and get the sealed output? | Derivation was demonstrated rather than asserted. | That the run happened at the time the record claims. A matched reproduction adds nothing a commodity timestamping service could not do unless an outside retention determination says the operator could not have kept the input. |
 | **Execution** | `historical_execution_established` | Does the record establish that this run happened as described, when it says? | The strongest claim the instrument makes. | Correct, fair, wise, or lawful. Those are never established. |
 
 Reported independently. Unchecked is not a pass, and a yes on four does not imply the fifth.
@@ -57,6 +59,8 @@ These describe the document. They are never listed alongside the five, and never
 
 Supporting determinations that the verifier reports but does not present as claims: `Disclosure`, `Anchoring`, `Provenance` (input provenance), `Holding` (input holding), and `kc2_fires`.
 
+`/instrument` mirrors this split rather than collapsing it. Completeness and Coverage are titled as the record, not the run. Disclosure, Anchoring, provenance, holding, and `kc2_fires` sit under supporting determinations. The site does not present those as a single Secondary list, and does not number any of them as a sixth claim.
+
 ## Retired
 
 **Status update, superseding the rest of this section.** The original plan below was to keep `BindingLevel` in code for backward compatibility while banning it from every user-facing surface. That plan is superseded: the enum, the method that derived it, the field that carried it, and every print statement that showed it have all been removed from `code/seal` entirely. There is no compat shim and no output path left to guard, because there is no code path left at all. The table below is kept as the historical record of what each term meant and what replaced it, for a reader who encounters the word in an old document, screenshot, or memory and needs to know it is gone rather than merely hidden.
@@ -79,7 +83,7 @@ Supporting determinations that the verifier reports but does not present as clai
 
 **Homepage** — replace the five-item list with the canonical five. Drop Custody from the list and leave it in the footer line. Note as of this revision: the live homepage no longer carries any claims list at all, of any kind; it has been rewritten around the AVM cascade/configuration story since the diagnosis table above was first written. This item may already be moot. Check the live page before acting on it.
 
-**`/instrument`** — the larger rewrite. Rebuild on the five propositions using the four columns from the table above, which is close to the three-part structure already there. Move Completeness and Coverage into their own short section titled for what they are: whether the record is whole, not whether the run is established. As of this revision the live `/instrument` page still presents `Anchoring` (labeled "Time bounds") as a sixth claim inside the same table as the real five, which this rewrite needs to fix along with everything else.
+**`/instrument`** — done, and the diagnosis row above is now historical. The live page is built on the canonical five. Completeness and Coverage sit on the record axis. Disclosure, Anchoring, provenance, holding, and `kc2_fires` sit under supporting determinations. The page names Coverage's three values (contiguous, subset, absent), states the economic caveat on Reproduction, and closes with the two summary lines `demo_60s` prints: cryptographic result, and evidentiary reliance. The site mirrors this document's two tiers rather than collapsing them into one Secondary list.
 
 **`code/seal/verifier.py`** — done, superseded by a larger change. The `BindingLevel` docstring first gained a line stating the projection must not appear in user-facing output; `BindingLevel` itself, the class, the derivation method, the `VerificationReport` field, and every reference to it in `code/seal/__init__.py`, `code/seal/evidence.py`, and `code/seal/README.md`, have since been removed entirely, along with every test assertion that referenced it (rewritten to assert the same fact directly against the five propositions instead of through the derived value).
 
