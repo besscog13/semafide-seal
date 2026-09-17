@@ -909,7 +909,48 @@ def test_selective_binding_is_detected():
     chain = _build(AttestationMode.INDEPENDENT, omit_seq=0)
     r = verify(export_artifact(chain))
     assert r.coverage is Coverage.SUBSET
-    assert any(f.code == "selective_binding" for f in r.findings)
+    finding = next(f for f in r.findings if f.code == "selective_binding")
+    assert "supplied whole" in finding.detail
+    assert "truncated chain" in finding.detail
+    assert "without detection" not in finding.detail
+
+
+def test_binding_head_mismatch_is_named_even_when_sequences_match():
+    """
+    A binding that covers every expected sequence, has nothing sealed after
+    it, and fails only the chain_head comparison is still Coverage SUBSET.
+    The catch-all remainder used to skip this case because `not head_ok`
+    made its guard false; the dedicated `binding_head_mismatch` finding is
+    what names the cause. Confirmed directly: mutate only chain_head on an
+    otherwise contiguous binding.
+    """
+    chain = _build(AttestationMode.SELF_ATTESTED)
+    doc = export_artifact(chain)
+    binding = doc["entries"][-1]
+    assert binding["kind"] == EntryKind.WORKFILE_BINDING.value
+    binding["body"]["chain_head"] = "sha256:" + "aa" * 32
+    r = verify(doc)
+    codes = [f.code for f in r.findings]
+    assert r.coverage is Coverage.SUBSET
+    assert "binding_head_mismatch" in codes
+    assert "binding_covers_unexpected_seqs" not in codes
+    assert "malformed_artifact" not in codes
+
+
+def test_binding_covering_an_existing_unexpected_seq_is_named():
+    """
+    The catch-all remainder: extra sequences that exist on the chain and
+    were not expected. Naming the binding's own sequence does that. Head
+    is intact, nothing is omitted, nothing is phantom, nothing is after.
+    """
+    chain = _build(AttestationMode.SELF_ATTESTED)
+    doc = export_artifact(chain)
+    binding = doc["entries"][-1]
+    binding["body"]["covered_seqs"] = sorted(
+        binding["body"]["covered_seqs"] + [binding["seq"]])
+    r = verify(doc)
+    assert r.coverage is Coverage.SUBSET
+    assert any(f.code == "binding_covers_unexpected_seqs" for f in r.findings)
 
 
 def test_missing_layer_two_is_reported():
