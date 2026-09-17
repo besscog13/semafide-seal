@@ -22,6 +22,8 @@ Five vocabularies for one set of five things, in a project whose entire proposit
 
 **This diagnosis table was not independently re-verified against the live site while fixing this document.** `semafide.com` and `semafide.com/instrument` are not reachable from every environment that works on this repository, confirmed blocked again on 2026-09-09. `context/RECORD.md`'s 2026-09-04 entry already recorded one homepage fix, for a different fabrication (`identity`, `configuration`, an invented `not applicable` state). Whether the Homepage row above predates that fix, postdates it, or names a third, separate drift is not established by this document alone. Check the live page directly before treating this row as current.
 
+**The `/instrument` row is now stale, confirmed against the live page on 2026-09-17.** Same treatment as the Demo output row: the row above still describes what the page listed before the rewrite and is left as the historical diagnosis, not the current state.
+
 **The Demo output row is now stale, confirmed rather than merely suspected.** The change list below records that `demo.py` was fixed; the row above still describes what it printed before that fix and is left as the historical diagnosis, not the current state.
 
 ## The canonical five
@@ -30,13 +32,13 @@ The public label and the code identifier are a fixed pair. Neither moves without
 
 | Public label | Code identifier | What it tests | What a yes means | What a yes does not mean |
 | --- | --- | --- | --- | --- |
-| **Precedence** | `precedence` | Was the input set committed before the run that consumed it? | Inputs could not be selected after somebody saw the output. | That the output was derived from those inputs. |
+| **Precedence** | `precedence` | Does the commitment appear on the chain before the seal that names it? | The commitment appears before the seal. Inputs could not be selected after this chain already contained the output. | That the bytes were on the chain before the analysis ran, that the system consumed them, or that the source data was true. |
 | **Witness** | `witness_attestation` | Did a party other than the sealer sign the record at the time? | The record does not rest only on the sealer's own word. | That the witness checked the analysis, or that the witness is honest. |
 | **Recipe** | `recipe_available` | Does the record carry a complete re-run procedure — endpoint, version, invocation, expected digest? | A stranger could attempt the re-run. | That anyone has. Until somebody executes it, it is a claim. |
 | **Reproduction** | `recipe_reproduced` | Did a verifier execute the recipe and get the sealed output? | Derivation was demonstrated rather than asserted. | That the run happened at the time the record claims. |
 | **Execution** | `historical_execution_established` | Does the record establish that this run happened as described, when it says? | The strongest claim the instrument makes. | Correct, fair, wise, or lawful. Those are never established. |
 
-Reported independently. Unchecked is not a pass, and a yes on four does not imply the fifth.
+Reported independently. Unchecked is not a pass, and a yes on four does not imply the fifth. Unchecked is the honest default on Completeness and on Disclosure; it never applies to the five claims.
 
 ## The word `Witness` carried three senses in code; one has since moved to a different name
 
@@ -51,7 +53,7 @@ Two senses of this word remain live in this project, down from three: the glossa
 These describe the document. They are never listed alongside the five, and never numbered as a sixth claim.
 
 | Label | Code | Values |
-| --- | --- | --- |
+| --- | --- |
 | Completeness | `Completeness` | unchecked, consistent, short, mismatched, unusable |
 | Coverage | `Coverage` | contiguous, subset, absent |
 
@@ -79,7 +81,7 @@ Supporting determinations that the verifier reports but does not present as clai
 
 **Homepage** — replace the five-item list with the canonical five. Drop Custody from the list and leave it in the footer line. Note as of this revision: the live homepage no longer carries any claims list at all, of any kind; it has been rewritten around the AVM cascade/configuration story since the diagnosis table above was first written. This item may already be moot. Check the live page before acting on it.
 
-**`/instrument`** — the larger rewrite. Rebuild on the five propositions using the four columns from the table above, which is close to the three-part structure already there. Move Completeness and Coverage into their own short section titled for what they are: whether the record is whole, not whether the run is established. As of this revision the live `/instrument` page still presents `Anchoring` (labeled "Time bounds") as a sixth claim inside the same table as the real five, which this rewrite needs to fix along with everything else.
+**`/instrument`** — done against the live page, 2026-09-17. The page is built on the canonical five. Completeness is the chain-level statement, Disclosure is the assignment-level counterpart, Anchoring uses the code name rather than "Time bounds," and Unchecked is scoped to completeness and disclosure, not completeness alone. Precedence asks about chain sequence, not wall-clock execution. The four objects (input, configuration, output, execution) are labeled as the things a later question is about, not as per-object verdicts the verifier emits.
 
 **`code/seal/verifier.py`** — done, superseded by a larger change. The `BindingLevel` docstring first gained a line stating the projection must not appear in user-facing output; `BindingLevel` itself, the class, the derivation method, the `VerificationReport` field, and every reference to it in `code/seal/__init__.py`, `code/seal/evidence.py`, and `code/seal/README.md`, have since been removed entirely, along with every test assertion that referenced it (rewritten to assert the same fact directly against the five propositions instead of through the derived value).
 
