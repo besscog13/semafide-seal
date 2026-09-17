@@ -101,6 +101,14 @@ Before opening a PR, refetch and diff the current head of the base branch agains
 
 **Required evidence:** the base branch SHA at the start of the work and its SHA immediately before the PR is opened, with a diff of the range if the two are not identical.
 
+### 8. A hold carries its own release condition
+
+Anything that stops something is a claim about a condition that will end. Do not change this yet, this waits on that answer, this is not fixed here pending a check. Written without naming what ends it, a hold either binds forever or lifts on a day nobody can name, and to a later reader those two look identical.
+
+Name the date, the event, or the answer that releases it, in the same sentence that imposes it. Holds go stale silently rather than loudly, so they are audited rather than trusted: a hold whose condition has already been met reads exactly like one still in force.
+
+**Required evidence:** the release condition, written beside the hold.
+
 ## Claim provenance
 
 When making consequential repository statements, classify the basis internally as one of:
