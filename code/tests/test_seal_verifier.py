@@ -919,9 +919,12 @@ def test_binding_head_mismatch_is_named_even_when_sequences_match():
     """
     A binding that covers every expected sequence, has nothing sealed after
     it, and fails only the chain_head comparison is still Coverage SUBSET.
-    The catch-all remainder used to skip this case because `not head_ok`
-    made its guard false; the dedicated `binding_head_mismatch` finding is
-    what names the cause. Confirmed directly: mutate only chain_head on an
+    The catch-all remainder skips this case, before and after its guard was
+    rewritten: `not (... or not head_ok)` and `... and head_ok` are the same
+    condition by De Morgan, and both are false when head_ok is. The rewrite
+    is legibility rather than behaviour. The dedicated `binding_head_mismatch`
+    finding is what names the cause, which is why this test asserts the
+    catch-all stays silent. Confirmed directly: mutate only chain_head on an
     otherwise contiguous binding.
     """
     chain = _build(AttestationMode.SELF_ATTESTED)
