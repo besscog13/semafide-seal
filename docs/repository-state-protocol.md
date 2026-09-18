@@ -109,6 +109,16 @@ Name the date, the event, or the answer that releases it, in the same sentence t
 
 **Required evidence:** the release condition, written beside the hold.
 
+### 9. The other repository moves too
+
+Rule 7 covers the base branch moving under you inside one repository. This one covers the case that rule cannot see: the same paths exist in a second tree, and only a CI job compares them. Nothing in either repository observes the other in real time, so a second session can land work on a shared path between the moment you last looked and the moment you start.
+
+Before touching a path that is compared across repositories, read the latest result of the job that compares them, on the default branch. A red result means the trees already disagree, and work started on top of that disagreement either copies a claim nobody has read or lands on one somebody else just made.
+
+Checking afterwards is not the same thing. It reports the drift you have already built on.
+
+**Required evidence:** the conclusion of the comparison job and the commit it ran against, read before the first edit rather than before the pull request.
+
 ## Claim provenance
 
 When making consequential repository statements, classify the basis internally as one of:
