@@ -53,7 +53,7 @@ Two senses of this word remain live in this project, down from three: the glossa
 These describe the document. They are never listed alongside the five, and never numbered as a sixth claim.
 
 | Label | Code | Values |
-| --- | --- |
+| --- | --- | --- |
 | Completeness | `Completeness` | unchecked, consistent, short, mismatched, unusable |
 | Coverage | `Coverage` | contiguous, subset, absent |
 
