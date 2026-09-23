@@ -40,9 +40,16 @@ jobs:
       - name: Install
         run: pip install -r code/seal/requirements.txt
 
+      # The output is teed so the README count check below can assert against
+      # what actually ran. `set -o pipefail` is load-bearing and not style: the
+      # default shell here is `bash -e`, which does not set it, so a failing
+      # pytest piped into a succeeding tee would exit zero and turn this whole
+      # gate into a no-op while still printing red test output nobody acts on.
       - name: Tests
         working-directory: code
-        run: python -m pytest tests -q
+        run: |
+          set -o pipefail
+          python -m pytest tests -q | tee "${RUNNER_TEMP}/pytest.txt"
 
       - name: Demo runs end to end
         working-directory: code
@@ -80,6 +87,58 @@ jobs:
           print("\n".join(difflib.unified_diff(
               claimed.splitlines(), actual.splitlines(),
               fromfile="README.md block", tofile="seal.demo_60s", lineterm="")))
+          sys.exit(1)
+          PY
+
+      # README.md's verification table states a passing test count. Copied
+      # numbers are claims about the code that nothing keeps true, and this one
+      # did not stay true: it said 196 while 205 ran, for long enough that
+      # nobody could say when it drifted, because no check compared the two.
+      # The demo block three lines above has never drifted, and the difference
+      # between them is that one of them was checked.
+      #
+      # Asserted against the run that just happened rather than against a fresh
+      # `--collect-only`, which would count a skipped test as passing and make
+      # the word in the README false while the check stayed green.
+      #
+      # Fails if the heading or the figure is missing, as well as if the number
+      # is wrong. A check that quietly asserts nothing because somebody renamed
+      # a section is worse than no check, since it still reports green.
+      - name: README states the test count that actually ran
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, sys
+
+          HEADING = "## Verification status"
+          readme = pathlib.Path("README.md").read_text(encoding="utf-8")
+
+          if HEADING not in readme:
+              sys.exit(f"{HEADING!r} is not in README.md; this check has "
+                       "nothing to assert")
+
+          after = readme.split(HEADING, 1)[1]
+          claimed = re.search(r"\*\*(\d+) passing\*\*", after)
+          if claimed is None:
+              sys.exit(f"no '**N passing**' figure follows {HEADING!r} in "
+                       "README.md; this check has nothing to assert")
+
+          report = pathlib.Path(os.environ["RUNNER_TEMP"], "pytest.txt")
+          if not report.is_file():
+              sys.exit("the Tests step left no output to read; this is not a "
+                       "README result and must not pass as one")
+          ran = re.search(r"(\d+) passed", report.read_text(encoding="utf-8"))
+          if ran is None:
+              sys.exit("could not read a passing count from the pytest output; "
+                       "this is not a README result")
+
+          if claimed.group(1) == ran.group(1):
+              print(f"README states {claimed.group(1)} passing, and "
+                    f"{ran.group(1)} passed")
+              sys.exit(0)
+
+          print(f"::error::README.md claims {claimed.group(1)} tests pass under "
+                f"'{HEADING}' and {ran.group(1)} actually passed. Update the "
+                "figure in that table.")
           sys.exit(1)
           PY
 

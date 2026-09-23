@@ -159,7 +159,7 @@ The verifier also reports chain completeness, assignment disclosure, external ti
 
 A green verification result is not a claim that the underlying model, appraisal, or business decision was correct. It means the artifact satisfied the particular checks the verifier performed against the evidence supplied to it.
 
-The package also documents known limits. The current re-derivation recipe pins the endpoint, tool, version, invocation, input reference, output digest, and service window, but does not yet pin the full execution environment, numerical libraries, hardware, or linked BLAS. A later mismatch can therefore reflect environmental drift rather than a changed analysis. The verifier fails conservatively rather than converting that uncertainty into a clean pass.
+The package also documents known limits. The current re-derivation recipe pins the endpoint, tool, version, invocation, input reference, output digest, and service window. It does not pin the execution environment, the numerical libraries, the hardware, or the linked BLAS, and it is not going to. A manifest of those fields was the candidate fix and it has been withdrawn, because the libraries involved name different compilers and different machines as axes along which output is expected to move, so recording them would document the drift rather than prevent it. Section 9.1 of [`docs/executive-thesis.md`](docs/executive-thesis.md) carries the evidence. A later mismatch can therefore reflect environmental drift rather than a changed analysis, and the verifier fails conservatively rather than converting that uncertainty into a clean pass. What is open is larger than the manifest: whether the re-derivation recipe is worth keeping for the machine-learning class at all, or is retained only for tools that are deterministic in practice.
 
 The package deliberately does not present its experimental transparency-log implementation as a production foundation. Production deployments should use established transparency-log and witness specifications rather than treating this scaffold as a replacement for them.
 
@@ -257,7 +257,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 | Check | Status |
 |---|---|
-| Unit and adversarial tests (`code/tests/`) | **196 passing** |
+| Unit and adversarial tests (`code/tests/`) | **205 passing** |
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
