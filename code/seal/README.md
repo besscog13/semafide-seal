@@ -1,8 +1,8 @@
 # `code/seal`
 
-This package is the verification and artifact layer for Semafide. It is not the production capture or custody service.
+This package is the verification and artifact layer for Semafide. It includes a capture scaffold. It is not a hosted production custody service.
 
-The package models the evidence that a future capture layer will need to preserve and provides a standalone verifier for the claims that artifact can establish.
+The package defines the artifact, the verifier, and `code/seal/capture/`, which seals a decorated function call into a real artifact and self-checks it against that verifier. The decorator is opt-in per function, so an undecorated call is invisible.
 
 ## The epistemic evidence model
 
@@ -60,7 +60,7 @@ Those boundaries are intentional. The package is designed to make the evidence c
 
 ## Production boundary
 
-The capture path is not implemented in this repository. A production integration will need an application-level capture mechanism, independent custody, external time services, and an operational witness model.
+`code/seal/capture/` seals a live function call into a real artifact against the verifier. The decorator is opt-in per function, so an undecorated call is invisible, and a chain never handed to a custodian is not a chain anybody can count. A production integration still needs independent custody, external time services, and an operational witness model. Those are not in this package.
 
 The experimental append-only log and witness code in this repository should not be treated as a production transparency-log implementation. Production deployments should use established transparency-log and witness specifications.
 
