@@ -67,9 +67,9 @@ The verifier records five independent propositions. They are not a ladder.
 |---|---|---|
 | Precedence | The evidence commitment predates the run seal. | The analysis consumed that evidence. |
 | Witness attestation | A separately trusted witness key signed an observed-execution attestation covering the run, evidence, action, and capture reference. | That the witness organization is operationally independent or truthful. |
-| Recipe availability | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
-| Recipe reproduction | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
-| Historical execution established | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
+| Recipe available | A complete recipe is present and linked to the claimed evidence and action. | That it has been executed. |
+| Recipe reproduced | A verifier later produced the sealed output from that recipe. | That the historical execution ran the recipe. |
+| Historical execution | A valid observed-execution witness attestation covers the relation. | General custody completeness or substantive correctness. |
 
 Successful re-derivation does not make `historical_execution_established` true. A generic signature over a supplied bundle does not make `witness_attestation` true.
 
