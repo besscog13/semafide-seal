@@ -54,7 +54,7 @@ Talk: eli@semafide.com
 | Capture scaffold that seals a decorated function call into a chain | **Built** |
 | Assignment checkpoint and disclosure check | **Built** as a model |
 | Hosted production custody service | **Unbuilt** |
-| Enforcement that every run in an assignment reaches the chain | **Unbuilt** — an undecorated call is invisible |
+| Enforcement that every run in an assignment reaches the chain | **Unbuilt**, an undecorated call is invisible |
 | Independent operational witness | **Unbuilt** |
 
 The intended architecture places the evidentiary record outside the control of the party that produced the analysis.
@@ -261,7 +261,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
-| Dependency isolation | Asserted — the live package imports `cryptography` and the standard library only |
+| Dependency isolation | Asserted, and the live package imports `cryptography` and the standard library only |
 
 The division of labour is deliberate: **SMT for mathematical invariants** forced by the construction, **property-based testing for input-shaped questions** quantified over arbitrary values, and **unit tests for explicit design rules** somebody chose and could have chosen differently. Each spec proves a safety property over unbounded histories *and* drives the real implementation over concrete traces, because a proof about a model that nothing ties to the code establishes nothing about the code.
 

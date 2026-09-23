@@ -11,6 +11,7 @@
 - [ ] I confirmed every changed file is intentional.
 - [ ] I confirmed the final claims do not exceed what the current implementation establishes.
 - [ ] I ran the relevant tests, or documented why they could not be run.
+- [ ] I rechecked whether the base branch moved since I started, and re-audited against the new head if it did.
 
 ## Evidence basis
 

@@ -149,6 +149,14 @@ jobs:
       - name: Retired vocabulary stays on its licensed lines
         run: python .github/scripts/check_retired_vocabulary.py
 
+      # House style is stated in CONTRIBUTING.md and was enforced by nobody.
+      # It had drifted by sixteen em dashes across three files before anyone
+      # counted, in the same way the README's test count drifted: described
+      # rather than asserted. Code fences are skipped so a quoted command or
+      # a block of real output stays byte-accurate.
+      - name: House style holds in shipped prose
+        run: python .github/scripts/check_writing_lint.py
+
       - name: Dependency isolation
         working-directory: code
         run: |

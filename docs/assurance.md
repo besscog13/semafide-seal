@@ -30,9 +30,9 @@ The left column produces claims an examiner might read. The right column only ch
 
 Status language:
 
-- **Implemented** — present in this repository and exercised by tests or a demo.
-- **Intended** — described as architecture; not a hosted service.
-- **Unknown** — commercial or operational; not decided by code.
+- **Implemented**, present in this repository and exercised by tests or a demo.
+- **Intended**, described as architecture; not a hosted service.
+- **Unknown**, commercial or operational; not decided by code.
 
 | Claim | Status |
 |---|---|
