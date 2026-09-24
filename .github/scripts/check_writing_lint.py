@@ -12,10 +12,18 @@ block quotes real output or a real command and must stay byte-accurate; the
 demo block in README.md is asserted verbatim against what `seal.demo_60s`
 prints, so relinting it would break a different check.
 
-Possessives are not contractions. `it's` is banned and `its` is not, and
-`demo.py's` is ordinary English. The pattern therefore matches only the
-verb forms, never a bare apostrophe-s, which is what makes this runnable
-over prose nobody wants to rewrite.
+Possessives are not contractions, and telling them apart is the whole
+difficulty. `demo.py's show()` and `the sealer's claim` are ordinary English
+and must not fire. So the general pattern matches the unambiguous verb
+endings only, never a bare apostrophe-s.
+
+That alone was too blunt, and the first version of this check shipped with
+the hole. A handful of apostrophe-s words have no possessive form at all, so
+they are always contractions: `it's` against the possessive `its`, and
+`that's`, `there's`, `let's`, `what's`, `who's`, `here's`, which have no
+possessive sense to protect. Those are listed by name. Everything else
+ending in apostrophe-s is left alone, which is what keeps this runnable over
+prose nobody wants to rewrite.
 
 It scans tracked files, which on a CI runner is the whole tree. Locally an
 unstaged new document is invisible to it, which is worth knowing before
@@ -31,9 +39,16 @@ import subprocess
 import sys
 
 EM_DASH = "—"
-# Verb contractions only. `'s` is excluded on purpose: it is a possessive far
-# more often than it is `is`, and banning it would make this check unusable.
-CONTRACTION = re.compile(r"\b[A-Za-z]+'(?:t|re|ve|ll|m|d)\b")
+# Unambiguous verb endings, plus the apostrophe-s words that have no
+# possessive form and are therefore always contractions. A bare apostrophe-s
+# on anything else is left alone, because it is a possessive far more often
+# than it is `is`.
+_ALWAYS_CONTRACTION = "it|that|there|let|what|who|here"
+CONTRACTION = re.compile(
+    r"\b[A-Za-z]+'(?:t|re|ve|ll|m|d)\b"
+    rf"|\b(?:{_ALWAYS_CONTRACTION})'s\b",
+    re.IGNORECASE,
+)
 
 
 def prose_lines(text: str):
