@@ -1016,8 +1016,9 @@ def verify(
     Ten single-field mutations make a naive verifier raise instead of
     rejecting: a binding seq past the end of the
     chain, a null signature, a string where a recipe was expected, an unknown
-    entry kind, an Ed25519 key where a P-256 key was expected. A crash is not a
-    false clean, but the intended reader is an examiner running this years
+    entry kind, an Ed25519 key where a P-256 key was expected. A crash is a
+    loud failure rather than a false clean, and the intended reader is an
+    examiner running this years
     later against an artifact supplied by the opposing party, and any caller
     who wraps this in try/except and treats failure as inconclusive converts
     every one of them into a pass. So malformed input returns an untrustworthy
