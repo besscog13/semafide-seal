@@ -39,7 +39,7 @@ not keep a private ledger.
 | [assurance.md](assurance.md) | What a green CI run does and does not mean |
 | [handover-rehearsal.md](handover-rehearsal.md) | A rehearsal script for handing the instrument over |
 | [repository-state-protocol.md](repository-state-protocol.md) | How this repository refuses silent drift |
-| [demos/README.md](demos/README.md) | How to run the three demos |
+| [demos/README.md](demos/README.md) | How to run or open each of them, in reading order |
 | [semafide-system-map.html](semafide-system-map.html) | The public system map |
 | [semafide.architecture.json](semafide.architecture.json) | Machine-readable map input |
 | `.github/scripts/check_writing_lint.py` | House style on this tree |
