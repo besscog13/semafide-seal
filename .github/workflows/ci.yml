@@ -168,6 +168,25 @@ jobs:
       - name: Shipped prose makes no claim the mechanism does not support
         run: python .github/scripts/check_language.py
 
+      # REVIEW.md item one, which that file recorded as checked by nothing
+      # anywhere. Reporting only: of the closing sentences carrying a hedge
+      # word, almost all are correct scoping, and a gate at that ratio is one
+      # nobody reads. Run by hand it found the single live-prose defect of a
+      # full sweep, which is why it is worth printing on every push.
+      - name: Closing sentences, read not gated
+        run: |
+          python .github/scripts/check_closing_sentences.py --selftest
+          python .github/scripts/check_closing_sentences.py
+
+      # The system map has check_system_map.py asserting it against its
+      # source. The prose documents that describe the package had nothing,
+      # and that asymmetry is why business-flow.md could claim the sequence
+      # cannot drift from the shipped mechanism while nothing compared them.
+      - name: Documents cite names the package still has
+        run: |
+          python .github/scripts/check_cited_symbols.py --selftest
+          python .github/scripts/check_cited_symbols.py
+
       - name: Dependency isolation
         working-directory: code
         run: |
