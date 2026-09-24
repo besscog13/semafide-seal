@@ -79,7 +79,9 @@ Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md)
 
 ## The problem
 
-Two things go wrong, in two different places, and only one of them is about data disappearing.
+Mortgage valuation increasingly relies on software and data sources that can change after an analysis runs. Automated valuation models can use public records, listings, market data, and other inputs. Appraisers can use statistical analysis and regression-based methods to support adjustments.
+
+The record of what was actually done breaks in two different places.
 
 **An appraiser at a bench.** The comparable rows are exported to their own machine before any tool runs, so those rows do not disappear. What was never written down is the judgment: which filters were chosen, which comparables were rejected, and how many times the regression was re-run before one supported the number that reached the report. A workfile carries the analysis that was used. It does not show the analyses that were not.
 
