@@ -287,7 +287,7 @@ def rebut(proof: dict[str, Any], consistency: list[str]) -> bool:
     preconditions `equivocation` itself checks before anything else, means
     a `None` verdict reached past them can only be the one case this
     function's own docstring promises: the supplied `consistency` proof
-    genuinely reconciles two heads that were themselves genuine.
+    reconciles two heads that were themselves genuine.
     """
     try:
         if proof.get("finality") != UNRECONCILED:

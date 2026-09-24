@@ -214,7 +214,7 @@ def reset_assignments() -> None:
 
     For tests and for a process that wants a clean slate. Discards chains rather
     than finalising them, so anything it drops was never bound and never
-    disclosed. Also clears `_CLOSED`, since a genuinely fresh process has
+    disclosed. Also clears `_CLOSED`, since a fresh process has
     certified nothing yet either.
     """
     with _REGISTRY_LOCK:

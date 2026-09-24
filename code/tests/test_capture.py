@@ -521,7 +521,7 @@ def test_a_call_that_finishes_after_its_assignment_closes_raises_rather_than_ret
     counting after the evidence-commitment append, and this call never
     gets that far before the close lands.
 
-    This is deliberate, not a bug: `fn` can genuinely succeed and compute a
+    This is deliberate, not a bug: `fn` can succeed and compute a
     real result, and the call still raises `AssignmentError` instead of
     returning it. The result is not silently handed back unsealed. See
     decorator.py's module docstring for why: returning it anyway would let
@@ -651,7 +651,7 @@ def test_manifest_write_happens_inside_the_assignment_lock(tmp_path, monkeypatch
     the actual mechanism directly: `state.lock` must already be held by the
     calling thread at the moment `write_manifest` runs. `threading.Lock` is
     not reentrant, so a non-blocking acquire attempt from inside the write
-    can only fail if the lock is genuinely held right now.
+    can only fail if the lock is held right now.
     """
     from seal.capture import decorator as decorator_module
     from seal.capture.assignment import _REGISTRY

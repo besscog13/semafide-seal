@@ -100,6 +100,17 @@ NEG_BEFORE = re.compile(
     r"\b(?:not|never|cannot|can't|no|nor|neither|without|nothing|refuses?|"
     r"declines?|stops? short of)\b[A-Za-z\s'\-]{0,30}$", re.I)
 
+# A bound named in the same clause is not an overclaim. "The solver proves
+# soundness of the consistency proof to size six" states exactly what it
+# established and where it stops, and the paragraph around it in
+# code/tests/test_properties.py goes on to say a proved size six says nothing
+# about size two hundred. Without this guard, extending the sweep to Python
+# would have shipped that sentence as a defect.
+BOUND_AFTER = re.compile(
+    r"^[A-Za-z\s'\-]{0,40}?\b(?:to size|to depth|up to|within the bound|"
+    r"to a bound|for (?:sizes?|instances?|inputs?|traces?) |bounded|"
+    r"at (?:sizes?|depth)|under the model)\b", re.I)
+
 CLAIM_VERB = (r"(?:proves?|proving|guarantees?|guaranteeing|ensures?|ensuring|"
               r"establishes?|establishing|demonstrates?|certifies?|certifying|"
               r"confirms?|validates?|validating|attests? to|vouches? for)")
@@ -218,6 +229,19 @@ REPORTING = [
      "Read it. KC1 turns on assembly time. A sentence describing the failure "
      "mode matches this too."),
 
+    # The gating shield rule needs a verb or an article, so the possessive
+    # forms slip past it: "for the appraiser's protection" names the product
+    # as a shield and does not fire. Gating this would fail on
+    # context/BUSINESS_SHAPE.md, where an institution paying "for its own
+    # protection" is the institution managing its own exposure, which is the
+    # correct framing. So it reports. "cover" was in the first version of this
+    # pattern and pulled seventeen instances of "liability cover" and "cover
+    # note", which is how a reporting rule stops being read.
+    ("protection as a noun",
+     re.compile(r"\b(?:protections?|shields?|safeguards?)\b", re.I),
+     "Read it. Symmetric evidence: an institution protecting itself is fine, "
+     "the product protecting its buyer is not."),
+
     ("aggregate for distribution",
      re.compile(r"\b(?:the )?(?:report|aggregate|value|adjustment)\s+"
                 r"(?:\w+\s+){0,3}?(?:shows?|reveals?|tells? you)\s+"
@@ -272,21 +296,61 @@ CONTROLS = {
 }
 
 
-def hits(line, rules, is_rule_text=False):
-    """Yield (label, why) for each rule the line breaches."""
+# The guards, driven directly. Each is a place the gate deliberately stays
+# quiet, and a guard that silences too much is indistinguishable from a gate
+# that was never written. (description, prev, line, nxt, should_fire)
+GUARD_CONTROLS = [
+    ("negation, same line",
+     "", "The verifier does not prove admissibility.", "", False),
+    ("negation, wrapped onto this line",
+     "The verifier does not", "prove admissibility.", "", False),
+    ("negation cannot reach across a sentence",
+     "", "That is not a bundle. The chain proves admissibility.", "", True),
+    ("bound named in the same clause",
+     "", "The solver proves soundness to size six.", "", False),
+    ("bound named on the next line",
+     "", "The solver proves soundness of the consistency proof",
+     "to size six; the completeness properties go wider.", False),
+    ("no bound named",
+     "", "The solver proves soundness of the analysis.", "", True),
+    ("conjunction breaks the subject",
+     "", "The chain opens and prevents relabelling the completed chain.",
+     "", False),
+    ("mechanism with no conjunction still fires",
+     "", "The chain prevents cherry-picking.", "", True),
+]
+
+
+def hits(line, rules, is_rule_text=False, prev="", nxt=""):
+    """Yield (label, why) for each rule the line breaches.
+
+    `prev` and `nxt` are the neighbouring lines, so a guard can see a clause
+    that wrapped. Every file in both trees wraps at about eighty columns, and
+    a line-based gate that ignores the wrap reads half a sentence. The first
+    Python sweep flagged `test_properties.py:19` for "proves soundness of"
+    because the words "to size six" sat on the next line. Both guards refuse
+    to bridge sentence punctuation, so a refusal in one sentence still cannot
+    silence a claim in the next.
+    """
     for label, pat, why in rules:
         if is_rule_text and label in QUOTES_THE_RULES:
             continue
         m = pat.search(line)
-        if m and not NEG_BEFORE.search(line[:m.start()]):
+        if m and not NEG_BEFORE.search(prev + " " + line[:m.start()]) \
+               and not BOUND_AFTER.search(line[m.end():] + " " + nxt):
             yield label, why
 
 
-def prose(text):
-    """Yield (line number, line) outside fenced code blocks."""
+def prose(text, fences=True):
+    """Yield (line number, line), skipping fenced code blocks in Markdown.
+
+    `fences` is off for Python, where there are none. A triple-quote is not a
+    fence, and treating it as one would hide every docstring in the tree,
+    which is most of the prose the package ships.
+    """
     fenced = False
     for n, line in enumerate(text.splitlines(), 1):
-        if line.lstrip().startswith("```"):
+        if fences and line.lstrip().startswith("```"):
             fenced = not fenced
             continue
         if not fenced:
@@ -310,6 +374,13 @@ def selftest() -> int:
             bad.append(f"{label}: fired {sorted(clean)} on the compliant "
                        f"sentence {compliant!r}")
 
+    for desc, prev, line, nxt, should in GUARD_CONTROLS:
+        fired = bool(list(hits(line, GATING, False, prev, nxt)))
+        if fired != should:
+            bad.append(f"guard {desc!r}: expected "
+                       f"{'a hit' if should else 'silence'}, got "
+                       f"{'a hit' if fired else 'silence'} on {line!r}")
+
     if bad:
         print(f"::error::selftest: {len(bad)} problem(s)")
         for b in bad:
@@ -317,11 +388,21 @@ def selftest() -> int:
         return 1
     print(f"selftest: all {len(labels)} gating rules fire on a violation and "
           "stay quiet on the compliant sentence beside it")
+    print(f"selftest: all {len(GUARD_CONTROLS)} guard cases behave, including "
+          "the three where the guard must NOT suppress")
     return 0
 
 
 def targets(root: pathlib.Path, include_all: bool):
-    out = subprocess.run(["git", "-C", str(root), "ls-files", "*.md"],
+    """Markdown and Python. The claims live in both.
+
+    Scope was Markdown alone until a sweep on 2026-09-24 ran the same rules
+    over the tracked Python by hand and found twelve gating hits there, two of
+    them inside `seal*`, which is what `pyproject.toml` actually ships. A rule
+    that holds for a document and not for the docstring beside it is a rule
+    with a hole in it.
+    """
+    out = subprocess.run(["git", "-C", str(root), "ls-files", "*.md", "*.py"],
                          capture_output=True, text=True, check=True).stdout.split()
     if include_all:
         return out
@@ -331,16 +412,21 @@ def targets(root: pathlib.Path, include_all: bool):
 def run(root: pathlib.Path, include_all: bool) -> int:
     files = targets(root, include_all)
     if not files:
-        sys.exit("no tracked Markdown found; this check has nothing to assert")
+        sys.exit("no tracked Markdown or Python found; this check has nothing "
+                 "to assert")
 
     failures, notes = [], []
     for name in files:
         path = root / name
         is_rule_text = name in RULE_TEXT
-        for n, line in prose(path.read_text(encoding="utf-8")):
-            for label, why in hits(line, GATING, is_rule_text):
+        lines = list(prose(path.read_text(encoding="utf-8"),
+                           fences=not name.endswith(".py")))
+        for i, (n, line) in enumerate(lines):
+            prev = lines[i - 1][1] if i else ""
+            nxt = lines[i + 1][1] if i + 1 < len(lines) else ""
+            for label, why in hits(line, GATING, is_rule_text, prev, nxt):
                 failures.append((label, name, n, line.strip(), why))
-            for label, why in hits(line, REPORTING):
+            for label, why in hits(line, REPORTING, False, prev, nxt):
                 notes.append((label, name, n, line.strip(), why))
 
     if notes:
@@ -359,8 +445,9 @@ def run(root: pathlib.Path, include_all: bool) -> int:
             print(f"    -> {why}")
         return 1
 
-    print(f"clean: {len(files)} tracked Markdown files carry none of the "
-          f"{len(GATING)} gating claim defects")
+    md = sum(1 for f in files if f.endswith(".md"))
+    print(f"clean: {md} Markdown and {len(files) - md} Python files carry none "
+          f"of the {len(GATING)} gating claim defects")
     return 0
 
 
