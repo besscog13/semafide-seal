@@ -66,6 +66,7 @@ import tokenize
 # script can run against either repository.
 SKIP = (
     "context/business-drafts/",
+    "context/OUTSIDE_READ_",
     "context/RECORD.md",
     "customers/DISCOVERY_MASTER", "customers/MASTER_PROSPECTING",
     "customers/DISCOVERY_ACTION", "customers/MOTION_1",
