@@ -157,6 +157,17 @@ jobs:
       - name: House style holds in shipped prose
         run: python .github/scripts/check_writing_lint.py
 
+      # The style lint above reads punctuation. This one reads claims, which
+      # is the half that costs something when it drifts. Its rules pair a verb
+      # with the object it may not take, because a rule written as a banned
+      # verb flags the sentence that refuses the claim. The selftest runs
+      # first: a gate nobody has watched fire is not a gate.
+      - name: Claim-shape rules fire
+        run: python .github/scripts/check_language.py --selftest
+
+      - name: Shipped prose makes no claim the mechanism does not support
+        run: python .github/scripts/check_language.py
+
       - name: Dependency isolation
         working-directory: code
         run: |
