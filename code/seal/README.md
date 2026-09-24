@@ -85,9 +85,13 @@ changed at a time, ending on the second kill condition. `demo_60s.py` is
 the presentation-length version of the same artifact-level story: an
 honest execution, a tampered one, and a selective-disclosure attack.
 Neither ever builds a `TransparencyLog` or asks a `Witness` to cosign
-anything. Both stand in `checkpoint.py`'s simpler per-chain `ChainStatement`
-for the outside party. `demo_custody.py` is one level up from either: it
-answers whether the custodian's own history can be shown never to have
-been rewritten, and what a witness cosignature buys against two
+anything. `demo.py` stands in `checkpoint.py`'s simpler per-chain
+`ChainStatement` for the outside party. `demo_60s.py` supplies no chain
+statement at all, so its completeness line reads UNCHECKED throughout, which
+is the default a chain statement exists to escape; its selective-disclosure
+scenario uses `assignment.py`'s `AssignmentStatement` instead.
+`demo_custody.py` is one level up from either: it answers whether the
+custodian's own history can be shown never to have been rewritten, and
+what a witness cosignature buys against two
 examiners being shown different heads, using `log.py` and `witness.py`
 directly.
