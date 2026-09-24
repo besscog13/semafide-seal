@@ -45,6 +45,30 @@ jobs:
         with:
           python-version: "3.11"
 
+      # A publish is the one irreversible surface here. semafide-seal 0.0.1,
+      # uploaded 2026-09-11, carries two uses of a word CLAUDE.md bans by
+      # name, in witness.py and capture/assignment.py. Both were corrected in
+      # the repository on 2026-09-24 and neither correction reaches the file
+      # on PyPI, because a release cannot be edited and a yanked version is
+      # still downloadable. Until this step existed, this workflow checked
+      # out, built and uploaded without running the tests or any check: it
+      # trusted that main was green at some point, which is not the same as
+      # green on the tree being shipped.
+      #
+      # These run against the checked-out ref, so what is asserted is the
+      # exact tree that becomes the artifact.
+      - name: The tree being shipped passes its own checks
+        run: |
+          python -m pip install -r code/seal/requirements.txt
+          python -m pip install pytest
+          python -m pytest code/tests -q
+          python .github/scripts/check_language.py --selftest
+          python .github/scripts/check_language.py
+          python .github/scripts/check_cited_symbols.py --selftest
+          python .github/scripts/check_cited_symbols.py
+          python .github/scripts/check_retired_vocabulary.py
+          python .github/scripts/check_writing_lint.py
+
       - name: Build distributions
         run: |
           python -m pip install build
