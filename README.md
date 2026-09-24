@@ -7,7 +7,7 @@
 [![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
 [![PyPI](https://img.shields.io/pypi/v/semafide-seal.svg)](https://pypi.org/project/semafide-seal/)
 
-Appraisals and automated valuations get challenged years after they run. By then the data they used may have changed, been corrected, or disappeared, and rerunning the analysis can produce a different number. Semafide is testing whether independent custody can preserve enough evidence to establish what actually happened.
+Appraisals and automated valuations get challenged years after they run. The question that arrives is rarely whether the file is intact. It is whether the file is the whole story, and the party who chooses what to disclose also chooses what to leave out. Semafide is testing whether independent custody can establish that, and what it still cannot establish even then.
 
 Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test.
 
@@ -79,9 +79,15 @@ Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md)
 
 ## The problem
 
-Mortgage valuation increasingly relies on software and data sources that can change after an analysis runs. Automated valuation models can use public records, listings, market data, and other inputs. Appraisers can use statistical analysis and regression-based methods to support adjustments. The underlying data, tools, and model versions may change, be corrected, or become unavailable.
+Two things go wrong, in two different places, and only one of them is about data disappearing.
 
-When a repurchase demand, regulatory examination, or dispute arrives later, rerunning the analysis can produce a different result. The historical execution may have depended on a state that is no longer available in the same form.
+**An appraiser at a bench.** The comparable rows are exported to their own machine before any tool runs, so those rows do not disappear. What was never written down is the judgment: which filters were chosen, which comparables were rejected, and how many times the regression was re-run before one supported the number that reached the report. A workfile carries the analysis that was used. It does not show the analyses that were not.
+
+**A lender on a vendor cascade.** Several models are tried in a configured order until one clears a confidence threshold. The lender receives a value and a score. Which model fired, and under what configuration, is provider infrastructure revised on the provider's own cadence. The lender did not lose that record. It was never handed one.
+
+Both produce the same question years later, when a repurchase demand, a regulatory examination, or a state board letter arrives: was the number in this file the whole story, or the part that survived selection?
+
+Data does also change. Sources are corrected, tools are updated, and rerunning an analysis can return a different number, which is a real problem and a smaller one than it appears. Where the operator already holds the inputs, a local copy and a commodity timestamp pin them without anyone else involved. What neither a local copy nor a timestamp establishes is the question above, because that one is about what is absent.
 
 The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
 
