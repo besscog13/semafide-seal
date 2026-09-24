@@ -84,6 +84,14 @@ PATHLIKE = re.compile(r"^[\w./-]+\.(?:py|json|html|md|toml)$")
 CONST = re.compile(r"^[A-Z][A-Z0-9_]{2,}$")
 IDENT = re.compile(r"^[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)*(?:\(\))?$")
 
+# A bare filename, cited without a directory. This must be classified before
+# IDENT, which otherwise reads `decorator.py` as a dotted identifier whose
+# leaf is `py`, and `py` is in every Python tree's vocabulary. That made every
+# bare filename citation pass unconditionally, including one naming a file
+# that does not exist. Found on 2026-09-24 by reading the classifier after a
+# citation count moved for a reason that was not obvious.
+FILENAME = re.compile(r"^[\w.-]+\.(?:py|json|html|md|toml|yml|yaml|txt|cfg)$")
+
 
 def cited(text):
     """Yield (line number, token) for backticked tokens outside code fences.
@@ -144,6 +152,13 @@ def run(root: pathlib.Path) -> int:
                 checked += 1
                 if not (root / tok).exists():
                     drift.append((doc, n, tok, "cited path does not exist"))
+            elif FILENAME.match(tok):
+                # No directory given, so match on basename anywhere in the
+                # tree. Still an existence check, not a vocabulary lookup.
+                checked += 1
+                if not any(root.rglob(tok)):
+                    drift.append((doc, n, tok,
+                                  "no file of that name anywhere in the tree"))
             elif (root / tok).exists():
                 # A bare filename such as LICENSE reads as a constant and is
                 # a citation of a file, so resolve it before classifying.
@@ -188,6 +203,16 @@ def selftest() -> int:
             bad.append(f"{desc!r}: expected {expected}, got {got}")
 
     # The classifier has to route each shape, or the check silently skips.
+    # The hole this classifier had: a bare filename read as an identifier
+    # whose leaf is `py`, which always resolves. Assert the routing directly.
+    for tok, want_filename in (("decorator.py", True),
+                               ("nonexistent_module.py", True),
+                               ("code/seal/verifier.py", False),
+                               ("close_assignment", False),
+                               ("state.in_flight", False)):
+        if bool(FILENAME.match(tok)) != want_filename:
+            bad.append(f"classifier: {tok!r} routed wrong for FILENAME")
+
     for tok, pat, want in (("code/seal/verifier.py", PATHLIKE, True),
                            ("RUN_SEAL", CONST, True),
                            ("close_assignment", IDENT, True),
