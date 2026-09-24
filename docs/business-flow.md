@@ -4,6 +4,8 @@ One business event, twelve steps. Most of the twelve are not code. This document
 
 **Provenance.** Built and corrected across several rounds in one working session, 2026-09-09, against `semafide-seal` directly rather than from memory. Two earlier drafts of this sequence were wrong in specific, checkable ways and were corrected before this version was recorded: a claimed pre-execution commit that the decorator does not perform, a "custody begins at capture" claim the manifest-writing code contradicts, a "periodic cosigning" claim `code/seal/witness.py`'s own docstring contradicts, and a "completeness answers disclosure" overclaim that ignores what an undecorated call leaves behind. Each correction below cites what was actually read.
 
+**A fourth correction, 2026-09-24.** Step 1 said `RUN_SEAL` was appended in the same synchronous block as the evidence commitment. The witness-lock liveness fix split those into two locked steps on 2026-09-05, four days before this document was written, so the claim was wrong on the day it was recorded rather than drifting later. It also contradicted step 5 of its own list, which names the gap between the two appends and the guard that covers it. Found by reading the sequence against `code/seal/capture/decorator.py` on 2026-09-24. No check in either repository could have caught it: `check_cited_symbols.py` asserts that every name a document cites still exists, and every name in that sentence did.
+
 ---
 
 ## 0. Naming
@@ -19,7 +21,7 @@ What actually happens, in wall-clock order, read directly from `code/seal/captur
 1. Arguments bind.
 2. `fn()` runs. The output now exists.
 3. After return, the decorator hashes those bound arguments and appends `EVIDENCE_COMMITMENT`, dated to `t_start` (when the call started), written after the call finished.
-4. `RUN_SEAL` is appended in the same synchronous block, dated to when it finished.
+4. `RUN_SEAL` is appended under a second lock, dated to when the call finished. The two appends are not adjacent. The witness round trip runs between them with no lock held, so another call's entries can land in the chain in between. `decorator.py` records why adjacency was never what made this correct: this run's `evidence_commitment_hash` is fixed to a real block hash the moment the first append returns, so it names its own commitment whatever interleaves afterward.
 5. Between those two appends, `state.in_flight` is set so `close_assignment` cannot certify through the gap.
 
 What Precedence checks is chain sequence: commitment before seal. It does not check that the bytes were on the chain before the function ran. They were not.

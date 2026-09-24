@@ -58,7 +58,11 @@ Six primitives, mapped from what a call actually gives us:
 
 * ACTION    — the function's return value.
 * SURFACE   — the bound arguments as the caller supplied them.
-* EVIDENCE  — the same bound arguments, committed before the function runs.
+* EVIDENCE  — the same bound arguments, captured before the function
+              runs and appended to the chain after it returns, dated
+              to the call's start. Committed before the function runs
+              is the KC1 claim this scaffold does not make, and the
+              line said exactly that until 2026-09-24.
 * EVALUATOR — `model_id`, exactly as passed to the decorator.
 * INSTANT   — wall-clock start and end of the call.
 * CLAIM     — left ABSENT. A claim is a certification-time assertion about
