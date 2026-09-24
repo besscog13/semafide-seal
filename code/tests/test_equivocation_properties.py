@@ -2,7 +2,7 @@
 Property-based coverage for `witness.equivocation`, `equivocation_holds`, and
 `rebut`.
 
-This is the one mechanism in the package that is genuinely novel rather than
+This is the one mechanism in the package that is novel rather than
 plumbing around commodity cryptography: whether a custodian can be caught
 showing two examiners two different histories, and what a witness or an
 equivocation proof buys against it. It is also, until this file, the one

@@ -298,7 +298,7 @@ def test_concurrent_append_never_lets_two_entries_share_a_sequence_number(monkey
     This is a more serious failure than a missing entry. A verifier walking
     a chain notices a hole in the sequence; it has no reason to expect two
     validly signed entries at the same position, which is exactly the linkage
-    the whole chain exists to make unforgeable.
+    the whole chain exists to make checkable.
 
     Existing callers in `capture/` already serialize every `append` under a
     coarser lock (`_OpenAssignment.lock`), so this has not been reachable
@@ -601,7 +601,7 @@ def test_witness_attestation_survives_an_unexecuted_recipe():
     """
     `_run_evidence`'s own docstring says it establishes each proposition
     without treating them as a ladder. The control flow used to disagree: a
-    run carrying both a complete rederivation recipe and a genuinely valid,
+    run carrying both a complete rederivation recipe and a valid,
     trusted witness attestation lost the attestation entirely whenever the
     recipe path returned early, because every early return inside the
     REDERIVABLE branch returned bare `evidence` without ever calling
@@ -1695,7 +1695,7 @@ def _log_of(n, key, ts=T0, log_id="semafide"):
 def test_a_witness_refuses_a_head_that_does_not_verify_against_its_own_key():
     """
     `cosign`'s very first guard, before it ever touches `_seen`, and nothing
-    exercised it: every existing witness test hands it a genuinely signed
+    exercised it: every existing witness test hands it a validly signed
     head, whether honest, conflicting, shrunk, or from a different key.
     A witness asked to cosign a head with a corrupted signature must refuse
     outright rather than recording it as "seen" -- a witness that quietly
@@ -1933,7 +1933,7 @@ def test_rebut_refuses_a_proof_pairing_heads_from_different_logs_or_keys():
     re-checks signatures (see the docstring on `rebut` and the signature
     version of this test above): `equivocation(lo, hi, consistency)` returns
     `None` for a log_id or key mismatch exactly as readily as it does for a
-    genuinely reconciled pair, so a `rebut` that skipped straight to that
+    correctly reconciled pair, so a `rebut` that skipped straight to that
     call would accept a hand-built "proof" pairing two heads that were never
     from the same log as a successful rebuttal. Neither existing mismatch
     test (`test_an_unsigned_or_mismatched_pair_accuses_nobody`) calls
@@ -2361,7 +2361,7 @@ def test_a_resolved_beacon_with_no_time_anchor_is_bounded_only_below():
     `LOWER_ONLY` had no test anywhere: every existing beacon test either
     supplies no resolver (UNANCHORED, the resolver-missing branch) or
     supplies both a resolver and a time anchor (BOUNDED). This is the
-    remaining combination -- a beacon that genuinely resolves, with nothing
+    remaining combination -- a beacon that resolves, with nothing
     from an authority at all -- which is the mirror image of
     `test_a_timestamp_alone_leaves_backdating_untouched`'s `UPPER_ONLY` on
     the other side of the interval.
@@ -2401,8 +2401,8 @@ def test_a_time_anchor_with_an_unreadable_digest_does_not_crash_the_verifier():
     `witness_attestation.public_key` or `.signature` naming the wrong JSON
     type. Here the value survives signing (canonicalization accepts a list)
     and only breaks later, at `block_hash_to_seq.get(doc["digest"])`, which
-    raises on an unhashable key. Confirmed this reaches a genuinely
-    signature-valid anchor first, not one rejected earlier for a bad
+    raises on an unhashable key. Confirmed this reaches a signature-valid
+    anchor first, not one rejected earlier for a bad
     signature, which is what a naive version of this test would have
     produced instead.
     """

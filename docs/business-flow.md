@@ -1,6 +1,6 @@
 # The business flow
 
-One business event, twelve steps. Most of the twelve are not code. This document names, for each step, the level the code actually supports, so the sequence cannot drift from the shipped mechanism the way earlier drafts of it did.
+One business event, twelve steps. Most of the twelve are not code. This document names, for each step, the level the code actually supports, so a drift from the shipped mechanism shows up on reading rather than passing unnoticed the way it did in earlier drafts.
 
 **Provenance.** Built and corrected across several rounds in one working session, 2026-09-09, against `semafide-seal` directly rather than from memory. Two earlier drafts of this sequence were wrong in specific, checkable ways and were corrected before this version was recorded: a claimed pre-execution commit that the decorator does not perform, a "custody begins at capture" claim the manifest-writing code contradicts, a "periodic cosigning" claim `code/seal/witness.py`'s own docstring contradicts, and a "completeness answers disclosure" overclaim that ignores what an undecorated call leaves behind. Each correction below cites what was actually read.
 
