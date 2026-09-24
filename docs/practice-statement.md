@@ -55,8 +55,12 @@ independently trusts. A signature over a supplied bundle is not this. A field in
 which the sealer writes the word independent is not this.
 
 **`recipe_available`** holds when the artifact carries a complete re-derivation
-recipe, meaning a pinned tool, a pinned version, and an invocation a stranger
-could execute. A partial recipe is treated as absent.
+recipe, meaning one a stranger could execute. `RederivationRecipe.REQUIRED`
+names seven fields, and the count is stated here because a reviewer checking
+this section against the code is entitled to the whole list: endpoint, tool,
+version, invocation, input reference, expected output digest, and service
+window. A recipe missing any one of them is treated as absent rather than as
+partial.
 
 **`recipe_reproduced`** holds when that recipe was actually executed and produced
 the digest the artifact sealed as the action. A recipe that has not been run is
