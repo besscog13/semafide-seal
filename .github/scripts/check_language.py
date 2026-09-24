@@ -52,10 +52,13 @@ violating and one compliant sentence through every rule, because a gate nobody
 has watched fire is not a gate.
 """
 
+import ast
+import io
 import pathlib
 import re
 import subprocess
 import sys
+import tokenize
 
 # Frozen snapshots, the ledger, and this file. Editing a snapshot to match
 # current vocabulary would falsify the snapshot, and a ledger's dated entries
@@ -298,63 +301,223 @@ CONTROLS = {
 
 # The guards, driven directly. Each is a place the gate deliberately stays
 # quiet, and a guard that silences too much is indistinguishable from a gate
-# that was never written. (description, prev, line, nxt, should_fire)
+# that was never written. (description, sentence, should_fire)
+#
+# Three wrap cases lived here until sentences replaced lines. They asserted
+# that a guard could see one line either way, which was true and insufficient:
+# 58.7 percent of sentences in these trees span three or more lines. The
+# window is gone and so are the controls for it. `test_sentences_reflow`
+# below replaces them by asserting the reflow itself.
 GUARD_CONTROLS = [
-    ("negation, same line",
-     "", "The verifier does not prove admissibility.", "", False),
-    ("negation, wrapped onto this line",
-     "The verifier does not", "prove admissibility.", "", False),
+    ("negation, same clause",
+     "The verifier does not prove admissibility.", False),
     ("negation cannot reach across a sentence",
-     "", "That is not a bundle. The chain proves admissibility.", "", True),
+     "That is not a bundle. The chain proves admissibility.", True),
     ("bound named in the same clause",
-     "", "The solver proves soundness to size six.", "", False),
-    ("bound named on the next line",
-     "", "The solver proves soundness of the consistency proof",
-     "to size six; the completeness properties go wider.", False),
+     "The solver proves soundness to size six.", False),
+    ("bound named after a wrap, now one sentence",
+     "The solver proves soundness of the consistency proof to size six; "
+     "the completeness properties go wider.", False),
     ("no bound named",
-     "", "The solver proves soundness of the analysis.", "", True),
+     "The solver proves soundness of the analysis.", True),
     ("conjunction breaks the subject",
-     "", "The chain opens and prevents relabelling the completed chain.",
-     "", False),
+     "The chain opens and prevents relabelling the completed chain.", False),
     ("mechanism with no conjunction still fires",
-     "", "The chain prevents cherry-picking.", "", True),
+     "The chain prevents cherry-picking.", True),
+]
+
+# The reflow itself, asserted rather than assumed. Each case is (description,
+# source text, python?, expected sentences).
+REFLOW_CONTROLS = [
+    ("a sentence wrapped across three lines becomes one",
+     "The solver proves\nsoundness of the proof\nto size six.\n", False,
+     ["The solver proves soundness of the proof to size six."]),
+    ("a blank line ends the paragraph",
+     "One sentence here.\n\nAnother over\nhere.\n", False,
+     ["One sentence here.", "Another over here."]),
+    ("a fenced block is not prose",
+     "Before it.\n\n```\nThe system blocks a run.\n```\n\nAfter it.\n",
+     False, ["Before it.", "After it."]),
+    ("a table row does not continue the sentence above",
+     "Lead in.\n| a | b |\n| c | d |\n", False, ["Lead in."]),
+    ("a heading ends the paragraph",
+     "Lead in\nwrapped.\n## Heading\nNext one.\n", False,
+     ["Lead in wrapped.", "Next one."]),
+    ("python reads a docstring and ignores the code",
+     'def proves_soundness():\n    """Reads this.\n\n    And this one\n'
+     '    wrapped.\n    """\n    return proves_soundness\n', True,
+     ["Reads this.", "And this one wrapped."]),
+    ("python reads a comment block as one paragraph",
+     "# First half of it\n# and the second half.\nx = 1\n", True,
+     ["First half of it and the second half."]),
+    ("python does not join comments across a gap",
+     "# One.\nx = 1\n# Two.\n", True, ["One.", "Two."]),
+    ("a link keeps its text and drops its address",
+     "See [the protection rule](https://example.com/protection) here.\n",
+     False, ["See the protection rule here."]),
+    ("a badge row carries no prose at all",
+     "[![CI](https://example.com/a-protection-badge.svg)](https://example.com)\n",
+     False, ["CI"]),
+    ("a backticked identifier is not read",
+     "The field `proves_admissibility` is gone.\n", False,
+     ["The field is gone."]),
 ]
 
 
-def hits(line, rules, is_rule_text=False, prev="", nxt=""):
-    """Yield (label, why) for each rule the line breaches.
+def hits(sentence, rules, is_rule_text=False):
+    """Yield (label, why) for each rule the sentence breaches.
 
-    `prev` and `nxt` are the neighbouring lines, so a guard can see a clause
-    that wrapped. Every file in both trees wraps at about eighty columns, and
-    a line-based gate that ignores the wrap reads half a sentence. The first
-    Python sweep flagged `test_properties.py:19` for "proves soundness of"
-    because the words "to size six" sat on the next line. Both guards refuse
-    to bridge sentence punctuation, so a refusal in one sentence still cannot
-    silence a claim in the next.
+    The unit is a whole sentence, so both guards see everything in their own
+    clause without looking at neighbouring lines. NEG_BEFORE still refuses to
+    bridge sentence punctuation, which now costs nothing to enforce: there is
+    no other sentence in the string.
     """
     for label, pat, why in rules:
         if is_rule_text and label in QUOTES_THE_RULES:
             continue
-        m = pat.search(line)
-        if m and not NEG_BEFORE.search(prev + " " + line[:m.start()]) \
-               and not BOUND_AFTER.search(line[m.end():] + " " + nxt):
+        m = pat.search(sentence)
+        if m and not NEG_BEFORE.search(sentence[:m.start()]) \
+               and not BOUND_AFTER.search(sentence[m.end():]):
             yield label, why
 
 
-def prose(text, fences=True):
-    """Yield (line number, line), skipping fenced code blocks in Markdown.
+SENTENCE_END = re.compile(r'(?<=[.!?])["\')\]]*\s+')
 
-    `fences` is off for Python, where there are none. A triple-quote is not a
-    fence, and treating it as one would hide every docstring in the tree,
-    which is most of the prose the package ships.
+# Markup is not prose. A link's address is not a claim, and neither is a
+# backticked identifier. Reflowing made this matter: joining three badge lines
+# into one paragraph put four URLs in a single string, and one of them carried
+# the word "protection". Link text is kept, because a reader reads it.
+# Images before links, because a badge nests one inside the other and a single
+# combined pattern eats the wrong brackets.
+MARKUP = [
+    (re.compile(r"!\[([^\]]*)\]\([^)]*\)"), r"\1"),    # ![alt](url)
+    (re.compile(r"\[([^\]]*)\]\([^)]*\)"), r"\1"),     # [text](url)
+    (re.compile(r"`[^`]*`"), " "),                       # `identifier`
+    (re.compile(r"https?://\S+"), " "),                  # a bare address
+]
+
+
+def _strip_markup(s):
+    """Reduce markup to the words a reader reads.
+
+    Applied to a fixpoint, because a badge is a link wrapping an image and one
+    pass leaves the outer half behind.
     """
-    fenced = False
+    for _ in range(5):
+        before = s
+        for pat, repl in MARKUP:
+            s = pat.sub(repl, s)
+        if s == before:
+            break
+    return re.sub(r"\s+", " ", s).strip()
+
+# A line that is structure rather than prose. A table row, a fence, a rule, a
+# heading: none of them continue the sentence above, so a paragraph ends here.
+STRUCTURAL = re.compile(r"^\s*(?:\||```|---+$|===+$|#{1,6}\s|<)")
+
+
+def _paragraphs_md(text):
+    """Yield (first line number, joined text) for Markdown, skipping fences."""
+    fenced, buf, start = False, [], None
     for n, line in enumerate(text.splitlines(), 1):
-        if fences and line.lstrip().startswith("```"):
+        if line.lstrip().startswith("```"):
             fenced = not fenced
+            if buf:
+                yield start, " ".join(buf)
+            buf, start = [], None
             continue
-        if not fenced:
-            yield n, line
+        if fenced:
+            continue
+        if not line.strip() or STRUCTURAL.match(line):
+            if buf:
+                yield start, " ".join(buf)
+            buf, start = [], None
+            continue
+        if not buf:
+            start = n
+        buf.append(line.strip())
+    if buf:
+        yield start, " ".join(buf)
+
+
+def _paragraphs_py(text):
+    """Yield (first line number, joined text) for Python prose only.
+
+    Prose in Python means docstrings and comments. Nothing else is read, which
+    drops a whole false-positive class: an identifier named `proves_soundness`
+    is code and was previously scanned as though it were a sentence. Docstrings
+    come from `ast` and comments from `tokenize`, so neither is found by
+    guessing at quotes.
+    """
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return
+    for node in ast.walk(tree):
+        if not isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef)):
+            continue
+        doc = ast.get_docstring(node, clean=True)
+        if not doc:
+            continue
+        # Line of the docstring itself, not of the def above it.
+        body = node.body[0]
+        base = getattr(body, "lineno", getattr(node, "lineno", 1))
+        off, buf, start = 0, [], None
+        for i, line in enumerate(doc.splitlines()):
+            if not line.strip():
+                if buf:
+                    yield base + start, " ".join(buf)
+                buf, start = [], None
+                continue
+            if not buf:
+                start = i
+            buf.append(line.strip())
+        if buf:
+            yield base + start, " ".join(buf)
+
+    # Comments. Consecutive `#` lines are one paragraph; a gap ends it.
+    buf, start, last = [], None, None
+    try:
+        toks = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, IndentationError):
+        toks = []
+    for tok in toks:
+        if tok.type != tokenize.COMMENT:
+            continue
+        n = tok.start[0]
+        body = tok.string.lstrip("#").strip()
+        if last is not None and n != last + 1:
+            if buf:
+                yield start, " ".join(buf)
+            buf, start = [], None
+        if not buf:
+            start = n
+        buf.append(body)
+        last = n
+    if buf:
+        yield start, " ".join(buf)
+
+
+def sentences(text, python=False):
+    """Yield (line number, sentence).
+
+    Matching used to run line by line, and every file in both trees wraps at
+    about eighty columns. Measured on 2026-09-24, 58.7 percent of sentences
+    here span three or more lines, so a line-based rule read a fragment and
+    the guards, which looked one line either way, reached only the 41.3
+    percent that fit in two. Reflowing to whole sentences removes the window
+    and the question of how wide it should be.
+
+    The line number reported is where the sentence's paragraph begins, which
+    is within a line or two of the sentence itself and is stable under
+    rewrapping.
+    """
+    paras = _paragraphs_py(text) if python else _paragraphs_md(text)
+    for n, para in paras:
+        for s in SENTENCE_END.split(_strip_markup(para)):
+            if s.strip():
+                yield n, s.strip()
 
 
 def selftest() -> int:
@@ -374,12 +537,17 @@ def selftest() -> int:
             bad.append(f"{label}: fired {sorted(clean)} on the compliant "
                        f"sentence {compliant!r}")
 
-    for desc, prev, line, nxt, should in GUARD_CONTROLS:
-        fired = bool(list(hits(line, GATING, False, prev, nxt)))
+    for desc, sentence, should in GUARD_CONTROLS:
+        fired = bool(list(hits(sentence, GATING)))
         if fired != should:
             bad.append(f"guard {desc!r}: expected "
                        f"{'a hit' if should else 'silence'}, got "
-                       f"{'a hit' if fired else 'silence'} on {line!r}")
+                       f"{'a hit' if fired else 'silence'} on {sentence!r}")
+
+    for desc, src, python, expected in REFLOW_CONTROLS:
+        got = [s for _, s in sentences(src, python=python)]
+        if got != expected:
+            bad.append(f"reflow {desc!r}: expected {expected}, got {got}")
 
     if bad:
         print(f"::error::selftest: {len(bad)} problem(s)")
@@ -390,6 +558,8 @@ def selftest() -> int:
           "stay quiet on the compliant sentence beside it")
     print(f"selftest: all {len(GUARD_CONTROLS)} guard cases behave, including "
           "the three where the guard must NOT suppress")
+    print(f"selftest: all {len(REFLOW_CONTROLS)} reflow cases produce exactly "
+          "the sentences expected, in Markdown and in Python")
     return 0
 
 
@@ -419,15 +589,12 @@ def run(root: pathlib.Path, include_all: bool) -> int:
     for name in files:
         path = root / name
         is_rule_text = name in RULE_TEXT
-        lines = list(prose(path.read_text(encoding="utf-8"),
-                           fences=not name.endswith(".py")))
-        for i, (n, line) in enumerate(lines):
-            prev = lines[i - 1][1] if i else ""
-            nxt = lines[i + 1][1] if i + 1 < len(lines) else ""
-            for label, why in hits(line, GATING, is_rule_text, prev, nxt):
-                failures.append((label, name, n, line.strip(), why))
-            for label, why in hits(line, REPORTING, False, prev, nxt):
-                notes.append((label, name, n, line.strip(), why))
+        for n, s in sentences(path.read_text(encoding="utf-8"),
+                              python=name.endswith(".py")):
+            for label, why in hits(s, GATING, is_rule_text):
+                failures.append((label, name, n, s, why))
+            for label, why in hits(s, REPORTING):
+                notes.append((label, name, n, s, why))
 
     if notes:
         print(f"For reading, not failing ({len(notes)}):")
