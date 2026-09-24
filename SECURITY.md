@@ -20,7 +20,7 @@ The security property this project cares about is narrow and specific: **a party
 
 In scope:
 
-- Obtaining `precedence` without the evidence commitment genuinely preceding the run seal.
+- Obtaining `precedence` without the evidence commitment preceding the run seal.
 - Obtaining `witness_attestation` or `historical_execution_established` from a self-declared field, a generic signature over a supplied bundle, or any key the sealer controls.
 - Obtaining `recipe_reproduced` without the recipe actually reproducing the sealed action.
 - Truncating or reordering a chain while retaining a `CONSISTENT` completeness result.
