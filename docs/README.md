@@ -12,8 +12,8 @@ the source file is right.
 
 ## Shared sources
 
-Edit these. The private tree holds the same bytes so a session there cannot
-invent a third glossary.
+Edit these. The private sync job compares each one with its private copy, so
+an edit made to one copy alone turns that job red on its next run.
 
 | File | Owns |
 |---|---|
