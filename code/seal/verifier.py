@@ -171,23 +171,33 @@ class VerificationReport:
 
     def summary(self) -> str:
         lines = [
+            "Integrity of the artifact",
             f"TRUSTWORTHY          {self.trustworthy}",
             f"chain_intact         {self.chain_intact}",
             f"signatures_valid     {self.signatures_valid}",
             f"key_trusted          {self.key_trusted}",
+            f"anchoring            {self.anchoring.name}",
+            "",
+            # KC2 is computed from these fields only. The file-level fields
+            # below answer a different question and do not enter it.
+            "About each run (judged by KC2)",
             f"precedence           {self.evidence.precedence}",
             f"witness_attestation  {self.evidence.witness_attestation}",
             f"recipe_available     {self.evidence.recipe_available}",
             f"recipe_reproduced    {self.evidence.recipe_reproduced}",
             f"historical_execution {self.evidence.historical_execution_established}",
-            f"coverage             {self.coverage.name}",
-            f"completeness         {self.completeness.name}",
-            f"disclosure           {self.disclosure.name}",
-            f"anchoring            {self.anchoring.name}",
             f"input_provenance     {self.input_provenance.name}",
             f"input_holding        {self.input_holding.name}",
             f"timestamp_replicable {self.timestamp_replicable}",
             f"KC2 fires            {self.kc2_fires}",
+            "",
+            # Runs that reached this chain only. Whether every run reached a
+            # chain at all is KC3, which nothing here observes.
+            "About the file: runs that reached this chain (KC3 open)",
+            f"coverage             {self.coverage.name}",
+            f"completeness         {self.completeness.name}",
+            f"disclosure           {self.disclosure.name}",
+            f"chains_withheld      {self.chains_withheld}",
         ]
         for f in self.findings:
             bears = f" [{f.bears_on}]" if f.bears_on else ""
