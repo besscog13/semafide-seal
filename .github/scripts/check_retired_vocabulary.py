@@ -69,7 +69,6 @@ def wrap_spanning(text: str) -> list[str]:
 # rather than silently widening what it exempts to cover the edit.
 EXEMPT_LINES: dict[pathlib.Path, set[str]] = {
     pathlib.Path("README.md"): {
-        "The verifier reports the epistemic propositions above and nothing else in that register. An earlier revision of this package also exposed `BindingLevel`, a single derived value that collapsed the five propositions into one rung on a lossy summary ladder; it has been removed, since it could not even represent the strongest of the five claims and every place it could mislead a reader was easier to fix by removing it than by re-caveating it again.",
     },
     pathlib.Path("docs/executive-thesis.md"): {
         "**On the removed `BindingLevel` projection.** An earlier revision of the verifier also emitted an ordered `BindingLevel` value (`BUNDLED` → `PRECEDENCE` → `WITNESSED` → `REDERIVABLE` → `REDERIVED`), a single summary figure derived from the table above. It has been removed. It could not represent `historical_execution_established`, the strongest of the five propositions, under any combination of the others, since the derivation rule never checked it; a summary figure that cannot express the strongest real claim is a defect rather than a convenience.",

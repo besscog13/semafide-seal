@@ -9,33 +9,31 @@
 
 Appraisals and automated valuations get challenged years after they run. The question that arrives is rarely whether the file is intact. It is whether the file is the whole story, and the party who chooses what to disclose also chooses what to leave out. Semafide is testing whether independent custody can establish that, and what it still cannot establish even then.
 
-Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test.
+Mortgage lending is the first market this is tested against.
 
 How valuation moved from an appraiser's workfile to software agents, and why no stage assigned anyone the count, is told for a reader outside the industry in [`docs/valuation-history.md`](docs/valuation-history.md).
 
 ## What a partner should look at first
 
-Not a library clone. One sealed run, and what an examiner is allowed to say about it.
+Not a library clone. One assignment, three runs, and what an examiner is allowed to say when only one run is handed over.
 
-`python -m seal.demo_60s` walks an honest valuation on assignment `ASG-8942`, then two attacks. On the honest case the verifier prints:
+`python -m seal.demo_60s` walks an honest valuation on assignment `ASG-8942`, then two attacks. The second attack is the one this project turns on:
 
 ```
-HONEST EXECUTION (Collateral Valuation #ASG-8942)
+ATTACK: SELECTIVE ASSIGNMENT OMISSION
+Scenario: Operator ran 3 models but presents only the favorable run.
 ------------------------------------------------------------------------
-  Precedence              ✓ ESTABLISHED
-  Witness attestation     ✗ NOT ESTABLISHED
-  Recipe available        ✓ ESTABLISHED
-  Recipe reproduced       ✓ ESTABLISHED
-  Historical execution    ✗ NOT ESTABLISHED
-  Completeness            ✗ NOT ESTABLISHED
+  Runs committed          3 (independent assignment record)
+  Runs disclosed           1 (presented by operator)
+  Assignment disclosure    ✗ NOT ESTABLISHED
 ------------------------------------------------------------------------
-  CRYPTOGRAPHIC RESULT    ✓ ESTABLISHED
-  EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
+  CRYPTOGRAPHIC RESULT     ✓ ESTABLISHED
+  EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED
 ```
 
-An examiner can say the evidence commitment predates the seal, and that a pinned recipe later reproduced the sealed output. An examiner cannot say a witness observed the run, that historical execution is established, or that this was the only run in the assignment. Cryptographic integrity is not evidentiary reliance.
+The run that was handed over verifies perfectly. What exposes the omission is a count of runs held by a party other than the operator. In the demo that independent record is constructed by the demo itself. No hosted custodian holds one today, and building one is what Semafide is testing whether anyone will pay for.
 
-That refusal is the product. The rest of this README is the argument underneath it.
+On the honest case every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nothing outside the record states how many runs the assignment holds. Cryptographic integrity is not evidentiary reliance. The honest case also reports the recipe as reproduced. That holds for the deterministic tool in the demo. For machine-learning valuation models a later run does not reliably return the same value, so the verifier reports that proposition as unestablished for them. Section 9.1 of [`docs/executive-thesis.md`](docs/executive-thesis.md) carries the evidence. The full output is under [What the demo prints](#what-the-demo-prints).
 
 **See it run** (sixty seconds, built for someone outside the project):
 
@@ -47,6 +45,10 @@ python -m seal.demo_60s
 `semafide-seal` is a pre-alpha verifier for inspecting a supplied artifact. Installing it does not mean Semafide witnessed a run or holds an assignment record.
 
 Talk: eli@semafide.com
+
+## Who this is for
+
+Lenders that order automated valuations through a cascade on loans they may later have to defend, and the valuation vendors and appraisal management companies whose platforms carry those orders. The question being put to them is the one in section 9.2 of [`docs/executive-thesis.md`](docs/executive-thesis.md): would one institution pay to know how many valuations were run on its own loans, purely to manage its own exposure, with nobody else needing to accept the count. That question has not yet been answered by a buyer, and the answer decides whether this is a business.
 
 ## Built / unbuilt
 
@@ -77,7 +79,7 @@ Successful re-derivation does not make `historical_execution_established` true. 
 
 This table and [`docs/claim-vocabulary.md`](docs/claim-vocabulary.md) are the source for these five names.
 
-Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md) (worked example to architecture), [`docs/executive-thesis.md`](docs/executive-thesis.md) (commercial thesis), and the [system map](https://besscog13.github.io/semafide-seal/) generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json). The interactive [design canvas](https://claude.ai/code/artifact/24c8c27e-a797-4cca-851a-ac95dfe9f88a) assumes this table. A rehearsal of comparing an outside count to the files an examiner is shown is in [`docs/handover-rehearsal.md`](docs/handover-rehearsal.md).
+Further reading, after the table: [`docs/demos/README.md`](docs/demos/README.md) (worked example to architecture), [`docs/executive-thesis.md`](docs/executive-thesis.md) (commercial thesis), and the [system map](https://besscog13.github.io/semafide-seal/) generated from [`docs/semafide.architecture.json`](docs/semafide.architecture.json). A rehearsal of comparing an outside count to the files an examiner is shown is in [`docs/handover-rehearsal.md`](docs/handover-rehearsal.md).
 
 ## The problem
 
@@ -85,17 +87,17 @@ Mortgage valuation increasingly relies on software and data sources that can cha
 
 The record of what was actually done breaks in two different places.
 
-**An appraiser at a bench.** The comparable rows are exported to their own machine before any tool runs, so those rows do not disappear. What was never written down is the judgment: which filters were chosen, which comparables were rejected, and how many times the regression was re-run before one supported the number that reached the report. A workfile carries the analysis that was used. It does not show the analyses that were not.
+**A lender on a vendor cascade.** Several models are tried in a configured order until one clears a confidence threshold. The lender receives a value and a score. Which model fired, and under what configuration, is provider infrastructure revised on the provider's own cadence. The lender did not lose that record. It was never handed one. Where a second valuation can be ordered outside the configured cascade, through another portal, a quality-control rerun, or a manual order, nothing the lender receives records that it was.
 
-**A lender on a vendor cascade.** Several models are tried in a configured order until one clears a confidence threshold. The lender receives a value and a score. Which model fired, and under what configuration, is provider infrastructure revised on the provider's own cadence. The lender did not lose that record. It was never handed one.
+**An appraiser at a bench.** The comparable rows are exported to their own machine before any tool runs, so those rows do not disappear. What was never written down is the judgment: which filters were chosen, which comparables were rejected, and how many times the regression was re-run before one supported the number that reached the report. A workfile carries the analysis that was used. It does not show the analyses that were not. The rows themselves sit on the appraiser's disk, which is why a local copy and a timestamp already cover them and custody adds only the count.
 
 Both produce the same question years later, when a repurchase demand, a regulatory examination, or a state board letter arrives: was the number in this file the whole story, or the part that survived selection?
 
 Data does also change. Sources are corrected, tools are updated, and rerunning an analysis can return a different number, which is a real problem and a smaller one than it appears. Where the operator already holds the inputs, a local copy and a commodity timestamp pin them without anyone else involved. What neither a local copy nor a timestamp establishes is the question above, because that one is about what is absent.
 
-The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
+The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports to summarize the data sources, tools, and techniques used to support time adjustments. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
 
-**How the work got here.** Residential valuation moved from a licensed appraiser who keeps a workfile, to regression models that reproduce their own values, to vendor cascades, to machine-learning models retrained on the vendor's cadence, and now to software agents that run steps of the lending workflow. At each step the decision moved further from a person who keeps the record, and oversight moved from the single file to the performance of many. The rule above is met across a portfolio. What happened on one loan, and how many attempts preceded the value in its file, is a question none of those stages assigned to anyone. Section 9.5 of [`docs/executive-thesis.md`](docs/executive-thesis.md) traces the stages with sources, and labels the direction they point as a hypothesis. Its second table reads each stage against three questions: whether the operator can keep the inputs, whether a later run returns the value, and who can count the attempts.
+**How the work got here.** Residential valuation moved from a licensed appraiser who keeps a workfile to vendor cascades, machine-learning models and now software agents, and oversight moved from the single file to the portfolio. Liability did not move with it: a repurchase demand, a board complaint and a lawsuit each name one loan. How many attempts preceded the value in that loan's file is a question no stage assigned to anyone. [`docs/valuation-history.md`](docs/valuation-history.md) tells this for a reader outside the industry, and section 9.5 of [`docs/executive-thesis.md`](docs/executive-thesis.md) carries the sources.
 
 ## Authorization and admissibility
 
@@ -159,13 +161,13 @@ It also does not claim that successful re-derivation proves historical execution
 
 Custody carries costs that a file handed over does not. A production guarantee would depend on Semafide continuing to operate, a custodian preserving the records it received, and partners keeping pinned execution environments available. Those are operational and contractual dependencies, not consequences of cryptography alone.
 
-Collusion remains an operational question. An append-only log can make later equivocation detectable when its consistency proofs are checked. Independent witnesses can make conflicting views harder to maintain without detection. The deployment still has to establish who the witnesses are, whether they are independent, and whether anyone checks what they signed.
+Collusion remains an operational question. An append-only log can make later equivocation detectable when its consistency proofs are checked. Independent witnesses can make conflicting views harder to maintain without detection. The deployment still has to establish who the witnesses are, whether they are independent, and whether anyone checks what they signed. Who operates the log is itself unresolved. A custodian is a party too, and section 8.6 of [`docs/executive-thesis.md`](docs/executive-thesis.md) sets out the options and what each costs.
+
+**What it competes with.** Where the operator already holds the inputs, a local copy and a commodity timestamp do most of what custody would, which is why the argument here rests on the count rather than on the inputs. And an institution can buy risk transfer instead of evidence: at least one vendor sells a repurchase warranty attached to its appraisal review product, which pays out where a count does not. Section 8.4 of the thesis treats both.
 
 ## About this repository
 
 `code/seal/` contains the artifact schema, checkpoint formats, external time-bound models, append-only log primitives, witness machinery, standalone verifier, and a capture scaffold (`code/seal/capture/`) that seals a live function call into a real artifact and self-checks it against the verifier. It holds one chain open per assignment so that sequence numbers and prev-hash linkage run unbroken across calls, which makes an omitted run detectable rather than merely undesirable. What it does not do is site a witness on the operator's machine or establish how many runs an assignment holds: the decorator is opt-in per function, an undecorated call is invisible, and a chain never handed to a custodian is not a chain anybody can count. There is no hosted production custody service.
-
-The verifier reports the epistemic propositions above and nothing else in that register. An earlier revision of this package also exposed `BindingLevel`, a single derived value that collapsed the five propositions into one rung on a lossy summary ladder; it has been removed, since it could not even represent the strongest of the five claims and every place it could mislead a reader was easier to fix by removing it than by re-caveating it again.
 
 The verifier also reports chain completeness, assignment disclosure, external time bounds, and input-retention determinations. These answer different questions. Completeness asks whether a supplied chain is whole. Disclosure asks whether the chain is the whole assignment. Anchoring asks what external evidence constrains when the chain existed. Retention asks whether the operator could have kept the input, which determines whether re-derivation provides something beyond a locally retained and timestamped copy.
 
