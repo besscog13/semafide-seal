@@ -11,6 +11,8 @@ Appraisals and automated valuations get challenged years after they run. The que
 
 Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test.
 
+How valuation moved from an appraiser's workfile to software agents, and why no stage assigned anyone the count, is under [The problem](#the-problem).
+
 ## What a partner should look at first
 
 Not a library clone. One sealed run, and what an examiner is allowed to say about it.
@@ -93,7 +95,7 @@ Data does also change. Sources are corrected, tools are updated, and rerunning a
 
 The interagency Quality Control Standards for Automated Valuation Models became effective October 1, 2025. For covered mortgage originators and secondary market issuers, the rule requires policies, practices, procedures, and control systems designed to comply with specified quality-control standards, including protection against the manipulation of data. The rule does not itself prescribe Semafide's evidence model. Separately, Fannie Mae's Selling Guide requires appraisal reports dated on or after March 1, 2025 to summarize the data sources, tools, and techniques used to support time adjustments. Semafide's narrower question is whether the underlying execution state can later be established rather than merely asserted.
 
-**How the work got here.** Residential valuation moved from a licensed appraiser who keeps a workfile, to regression models that reproduce their own values, to vendor cascades, to machine-learning models retrained on the vendor's cadence, and now to software agents that run steps of the lending workflow. At each step the decision moved further from a person who keeps the record, and oversight moved from the single file to the performance of many. The rule above is met across a portfolio. What happened on one loan, and how many attempts preceded the value in its file, is a question none of those stages assigned to anyone. Section 9.5 of [`docs/executive-thesis.md`](docs/executive-thesis.md) traces the stages with sources, and labels the direction they point as a hypothesis.
+**How the work got here.** Residential valuation moved from a licensed appraiser who keeps a workfile, to regression models that reproduce their own values, to vendor cascades, to machine-learning models retrained on the vendor's cadence, and now to software agents that run steps of the lending workflow. At each step the decision moved further from a person who keeps the record, and oversight moved from the single file to the performance of many. The rule above is met across a portfolio. What happened on one loan, and how many attempts preceded the value in its file, is a question none of those stages assigned to anyone. Section 9.5 of [`docs/executive-thesis.md`](docs/executive-thesis.md) traces the stages with sources, and labels the direction they point as a hypothesis. Its second table reads each stage against three questions: whether the operator can keep the inputs, whether a later run returns the value, and who can count the attempts.
 
 ## Authorization and admissibility
 
