@@ -11,7 +11,7 @@ Appraisals and automated valuations get challenged years after they run. The que
 
 Mortgage lending is the first market this is tested against, not the only one, because it was inexpensive to test.
 
-How valuation moved from an appraiser's workfile to software agents, and why no stage assigned anyone the count, is under [The problem](#the-problem).
+How valuation moved from an appraiser's workfile to software agents, and why no stage assigned anyone the count, is told for a reader outside the industry in [`docs/valuation-history.md`](docs/valuation-history.md).
 
 ## What a partner should look at first
 

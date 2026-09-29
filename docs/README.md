@@ -36,6 +36,7 @@ not keep a private ledger.
 | File | Owns |
 |---|---|
 | [../README.md](../README.md) | The external landing page |
+| [valuation-history.md](valuation-history.md) | How valuation became automated, for a reader outside the industry. Derived from section 9.5 of the thesis |
 | [assurance.md](assurance.md) | What a green CI run does and does not mean |
 | [handover-rehearsal.md](handover-rehearsal.md) | A rehearsal script for handing the instrument over |
 | [repository-state-protocol.md](repository-state-protocol.md) | How this repository refuses silent drift |
