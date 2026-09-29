@@ -42,6 +42,8 @@ In modern batch valuation pipelines, automated underwriting, and autonomous AI s
 
 When an automated system executes, the responsible person may not be able to reconstruct the exact runtime state, input data, or configuration that was active at the time.
 
+Residential valuation has already made this move in five stages over roughly four decades. Section 9.5 traces them and what each did to the record.
+
 ### 1.2 The Limit of Operator-Controlled Records
 
 In many high-stakes automated decisions, the party responsible for the action also controls the records used to reconstruct it. That creates an evidentiary limitation when the record itself becomes subject to adversarial review.
@@ -360,6 +362,34 @@ This is a market hypothesis. It is not a demonstrated buyer requirement, not evi
 - **Expansion hypothesis:** Similar infrastructure could serve consequential autonomous agents that execute financial or operational actions with no person observing each step.
 
 These are future applications rather than current product claims, and both inherit the fourth condition. An expansion market where the operator can retain the inputs is a market a commodity timestamping service serves adequately.
+
+### 9.5 The Trajectory the Wedge Sits On
+
+This section places the wedge in the history of how residential valuation became automated. The dated events are public record and each is cited below. The pattern drawn across them is a Thesis in the sense of the status labels above. The direction the pattern points is a Hypothesis, and nothing in this section establishes that a buyer exists.
+
+**The appraiser stage.** After the savings and loan crisis, Title XI of the Financial Institutions Reform, Recovery, and Enforcement Act of 1989 created the state licensing system for appraisers and gave legal force to the Uniform Standards of Professional Appraisal Practice, which The Appraisal Foundation had been established in 1987 to maintain. Under the record keeping rule in those standards, an appraiser retains a workfile for at least five years for most assignments. Responsibility for the value and the record of the work both sit with one licensed person.
+
+**The statistical stage.** Hedonic price theory, formalised by Rosen in 1974, treats the price of a house as the sum of implicit prices for its characteristics. Assessors applied regression models to value whole tax rolls. Case and Shiller published repeat-sales house price indexes in 1987. Mortgage lenders adopted automated valuation models in the late 1980s and the 1990s, first to check appraisals and then to value lower-risk loans directly. A model at this stage is a set of fixed coefficients, and running it again on the same inputs returns the same value.
+
+**The cascade stage.** Several vendors came to sell models and none covered every county equally well, so lenders began to run a cascade: models are tried in a ranked order until one returns a value whose confidence score, usually derived from a forecast standard deviation, clears a cutoff. Independent testing firms rank the models by geography, and the ranking sets the order. The Interagency Appraisal and Evaluation Guidelines of December 2010 told institutions to validate AVMs independently of the vendor, including by testing multiple models, and stated that an AVM result is not an appraisal. After the 2008 crisis the Home Valuation Code of Conduct, applicable from 1 May 2009, separated loan production staff from appraiser selection, and section 1473(q) of the Dodd-Frank Act of 2010 required quality control standards for AVMs. The rule implementing that section took effect on 1 October 2025. Its five standards cover confidence in the estimates, protection against data manipulation, avoidance of conflicts of interest, random sample testing and reviews, and compliance with nondiscrimination law, the last added by the agencies after the Property Appraisal and Valuation Equity Task Force called for it in March 2022. Each standard is met across a population of estimates.
+
+**The machine-learning stage.** Models moved to ensemble learners and neural networks trained on listings, imagery and public records, retrained on the vendor's own cadence. Section 9.1 records that this class disclaims determinism, so a later run is not the historical run. In November 2021 Zillow Group wound down Zillow Offers, its home-buying business, citing in its filings the unpredictability of home pricing. In the same period the enterprises reduced the share of loans a person appraises. Fannie Mae introduced appraisal waivers for refinances in 2016, extended them to purchases in 2017, and has since renamed them value acceptance. The redesigned Uniform Appraisal Dataset, UAD 3.6, becomes mandatory for loans delivered to Fannie Mae and Freddie Mac on 2 November 2026 and replaces static report forms with a single structured report built for machine reading.
+
+**The agentic stage.** Lenders have begun deploying software agents built on language models to run steps of the lending workflow with limited human intervention, and TD announced one for mortgages and home equity lines of credit in May 2026. An agent can order, read, compare and retry valuations before one value reaches the loan file.
+
+| Stage | Who decides | What the record is | Where oversight looks |
+| --- | --- | --- | --- |
+| Appraiser | A licensed person | The workfile that person keeps | The individual, through the state board |
+| Statistical | A model with fixed coefficients | The inputs and coefficients, which reproduce the value | Comparison against appraisals |
+| Cascade | A ranked table choosing among vendors | The value that cleared, often with its score. Whether the attempts that missed are kept depends on the platform | Hit rate and accuracy across the portfolio |
+| Machine learning | Models retrained on the vendor's cadence | The value that cleared. The model version that produced it may no longer exist | Portfolio testing and model risk management |
+| Agentic | A multi-step process that can retry | Logs held by a vendor or platform, where anyone keeps them | No standard specific to it among the sources cited here |
+
+**The pattern.** Across the five stages three things move together. The decision moves from a licensed person to a pipeline. The record moves from a workfile the decision-maker is obliged to keep to logs that a vendor or a platform may keep. Oversight moves from a single file to the performance of many. Each move made valuation cheaper and faster. None of them assigned any party the task of stating what happened on one loan and how many attempts preceded the value in the file. That is the question Section 1.1 names, and in this market it takes the form of the count described in Section 9.3.
+
+**What the trajectory does not establish.** Regulation followed the cascade by fifteen years, and the rule that arrived measures a portfolio. Nothing in the record above obliges any party to keep the attempts behind one value, so the trajectory describes a widening gap and supplies no forcing function. The question in Section 9.2 therefore still decides the business. The agentic stage carries the same question beyond valuation, which is the expansion hypothesis in Section 9.4, and it is subject to the same test as the wedge.
+
+Sources for the dated events: Title XI of FIRREA and the Appraisal Foundation's description of the appraiser regulatory system; the USPAP Record Keeping Rule; Rosen, "Hedonic Prices and Implicit Markets", Journal of Political Economy 82(1), 1974; Case and Shiller, NBER working paper, 1987; the Interagency Appraisal and Evaluation Guidelines, 75 FR 77450, 10 December 2010; the FHFA announcement of the Home Valuation Code of Conduct; Quality Control Standards for Automated Valuation Models, 89 FR, 7 August 2024; the PAVE Task Force Action Plan, 23 March 2022; Zillow Group's Form 10-Q for the quarter ended 30 September 2021; Fannie Mae's Selling Guide on value acceptance and the FHFA Office of Inspector General overview of enterprise appraisal waivers, 2018; Fannie Mae's UAD 3.6 production announcement; TD Stories, 21 May 2026.
 
 ## 10. Conclusion
 
