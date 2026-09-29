@@ -385,6 +385,16 @@ This section places the wedge in the history of how residential valuation became
 | Machine learning | Models retrained on the vendor's cadence | The value that cleared. The model version that produced it may no longer exist | Portfolio testing and model risk management |
 | Agentic | A multi-step process that can retry | Logs held by a vendor or platform, where anyone keeps them | No standard specific to it among the sources cited here |
 
+The second table reads the same five stages against the three questions the evidence model turns on. The operator column is the fourth condition in Section 8.1. The rerun column is the determinism finding in Section 9.1. The count column is the question in Section 9.3.
+
+| Stage | Can the operator keep the inputs | Does a later run return the value | Who can count the attempts |
+| --- | --- | --- | --- |
+| Appraiser | Yes, for the comparables in the workfile. A filter choice that never left the appraiser's head has nothing to keep (Section 4.1) | No run exists to repeat. The workfile has to support the value | The appraiser |
+| Statistical | Yes. The inputs are the property characteristics and the fixed coefficients. Where appraisers run regression tools, the operator exports the comparable file before the tool runs (Section 8.1) | Yes, when the coefficients are kept. Fitting them again can move them (Section 9.1) | The operator |
+| Cascade | Not the configuration, which the provider holds and revises on its own schedule (Section 8.1) | Only with the configuration that was in force at that moment | The platform, where it keeps the attempts that missed |
+| Machine learning | No. The inputs are the vendor's dataset in its state at execution and the learned weights (Section 8.1) | No. This class disclaims identical results across versions, compilers and systems (Section 9.1) | The vendor |
+| Agentic | Depends on who runs the agent | No. The models vary and the choice of steps varies | The operator's own log, where one is kept |
+
 **The pattern.** Across the five stages three things move together. The decision moves from a licensed person to a pipeline. The record moves from a workfile the decision-maker is obliged to keep to logs that a vendor or a platform may keep. Oversight moves from a single file to the performance of many. Each move made valuation cheaper and faster. None of them assigned any party the task of stating what happened on one loan and how many attempts preceded the value in the file. That is the question Section 1.1 names, and in this market it takes the form of the count described in Section 9.3.
 
 **What the trajectory does not establish.** Regulation followed the cascade by fifteen years, and the rule that arrived measures a portfolio. Nothing in the record above obliges any party to keep the attempts behind one value, so the trajectory describes a widening gap and supplies no forcing function. The question in Section 9.2 therefore still decides the business. The agentic stage carries the same question beyond valuation, which is the expansion hypothesis in Section 9.4, and it is subject to the same test as the wedge.
