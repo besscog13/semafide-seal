@@ -113,16 +113,22 @@ state regulator, read as primary documents, contain no decision concerning
 analyses performed and not documented. And until machine learning,
 a kept record reproduced its value, so the count mattered less.
 
-**One hypothesis about how the count could matter to the portfolio.** A
-cascade, or an agent that retries until a value clears a threshold, passes
-only cleared values into the population that validation measures. The
-attempts that missed never reach it. If so, portfolio accuracy is measured over
-a set the selection has already filtered, and it may overstate how good the
-models are. The count of attempts behind each loan would then be an input to
-the portfolio figures the rule already asks for. This is analysis. No source
-read for this project states it. It is falsified if validation already runs
-over every attempt rather than over cleared values, or if the missed attempts
-make no material difference to measured accuracy.
+**One hypothesis about where the count meets the portfolio.** An institution
+that orders more than one valuation for a loan is expected to follow a policy
+for choosing among them, set before the values are seen, so that the choice
+does not drift toward whichever value is highest. Portfolio oversight does not
+show whether that policy held on one loan. Model validation tests each model
+against benchmark sales, so it measures the models and never sees which value a
+loan used. A test of the values actually used needs a benchmark, and a
+simulation over assumed parameters, none of them sourced, put such a test at
+low power until thousands of benchmarked loans are available. The count and
+order of valuations on one loan is the direct record of whether the policy
+held. Where every valuation passes through one configured cascade, the
+configuration already answers the question. Where a second valuation can be
+ordered by another route, a count held by a party other than the one ordering
+is the record. This is analysis. It is falsified if no second route exists, if
+every route is already logged to the loan by a party other than the one
+ordering, or if nobody ever asks for selection evidence on one loan.
 
 ## What this history does not establish
 
