@@ -21,7 +21,7 @@ Not a library clone. One assignment, three runs, and what an examiner is allowed
 
 ```
 ATTACK: SELECTIVE ASSIGNMENT OMISSION
-Scenario: Operator ran 3 models but presents only the favorable run.
+Scenario: Three runs were committed on one assignment and one was handed over.
 ------------------------------------------------------------------------
   Runs committed          3 (independent assignment record)
   Runs disclosed           1 (presented by operator)
@@ -249,7 +249,7 @@ Scenario: Operator alters the committed action after execution.
     agrees with the committed evidence.
 
 ATTACK: SELECTIVE ASSIGNMENT OMISSION
-Scenario: Operator ran 3 models but presents only the favorable run.
+Scenario: Three runs were committed on one assignment and one was handed over.
 ------------------------------------------------------------------------
   Runs committed          3 (independent assignment record)
   Runs disclosed           1 (presented by operator)

@@ -194,7 +194,7 @@ def main() -> None:
     from .assignment import issue as issue_assignment
 
     print("\nATTACK: SELECTIVE ASSIGNMENT OMISSION")
-    print("Scenario: Operator ran 3 models but presents only the favorable run.")
+    print("Scenario: Three runs were committed on one assignment and one was handed over.")
     print(RULE)
     siblings = [build_chain(run_id=f"run-{i}") for i in range(1, 4)]
     refs = tuple(ChainRef(c.chain_id, c.head, len(c.entries)) for c in siblings)
