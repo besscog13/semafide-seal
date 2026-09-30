@@ -43,7 +43,7 @@ A Semafide artifact carries five propositions about one sealed run. They are
 established independently, on separate evidence, and a reader is entitled to
 treat each one as answering its own question.
 
-**`precedence`** holds when the hash of the evidence the run consumed was
+**`precedence`** holds when the evidence commitment the run seal names was
 committed before the run was sealed. It fixes ordering and nothing else. Two
 commodity timestamps over local files reach the same place, which is why
 precedence alone never clears the binding constraint.

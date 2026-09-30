@@ -8,7 +8,7 @@ What a later examiner actually needs, if the dispute is â€œwas this every run,â€
 
 ## What a partner should take from it
 
-A loan or valuation assignment can produce more than one automated run. The operator can seal all of them and later produce only the favorable file. Each file can verify. Nothing inside a file proves its siblings exist.
+A loan or valuation assignment can produce more than one automated run. The operator can seal all of them and later produce only one. Each file can verify. Nothing inside a file proves its siblings exist.
 
 The rehearsal walks three examiner outcomes:
 
