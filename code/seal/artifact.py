@@ -6,8 +6,8 @@ certification. The two moments stay separate.
 
 The chain carries four entry kinds. An assignment anchor opens the chain and
 names the assignment every later entry belongs to. An evidence commitment fixes
-the input set. A run seal records the analysis and names the commitment it
-consumed. A workfile binding closes the assignment at certification. Ordering
+the input set. A run seal records the analysis and names an evidence
+commitment. A workfile binding closes the assignment at certification. Ordering
 across those kinds is what makes precedence checkable, and precedence is the
 weakest property that rules out choosing evidence after seeing the output.
 
@@ -426,7 +426,8 @@ class RunSeal:
     Layer 1, second move. The analysis, with all six primitives recorded.
 
     `evidence_commitment_hash` names the block hash of the evidence entry this
-    run consumed. A run that names no prior commitment cannot establish
+    run seal points to. Naming it does not establish that the run consumed that
+    evidence, which is KC2. A run that names no prior commitment cannot establish
     `precedence`, because nothing fixes the inputs ahead of the output.
     """
 
