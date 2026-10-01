@@ -48,7 +48,7 @@ Talk: eli@semafide.com
 
 ## Who this is for
 
-Lenders that order automated valuations through a cascade on loans they may later have to defend, and the valuation vendors and appraisal management companies whose platforms carry those orders. The question being put to them is the one in section 9.2 of [`docs/executive-thesis.md`](docs/executive-thesis.md): would one institution pay to know how many valuations were run on its own loans, purely to manage its own exposure, with nobody else needing to accept the count. That question has not yet been answered by a buyer, and the answer decides whether this is a business.
+Lenders that order automated valuations through a cascade on loans they may later have to defend, and the valuation vendors and appraisal management companies whose platforms carry those orders. A cascade is a stop rule, not a blend. The loan file is built to keep the value that cleared. The model that missed the bar may never be in that file, so the run that was handed over is not the set. The question being put to them is the one in section 9.2 of [`docs/executive-thesis.md`](docs/executive-thesis.md): would one institution pay to know how many valuations were run on its own loans, purely to manage its own exposure, with nobody else needing to accept the count. That question has not yet been answered by a buyer, and the answer decides whether this is a business.
 
 ## Built / unbuilt
 
