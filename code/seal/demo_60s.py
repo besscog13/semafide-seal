@@ -10,8 +10,10 @@ selective-disclosure scenario uses the real assignment record to establish
 that three sibling chains exist, then shows the one-chain disclosure as an
 incomplete presentation.
 
-The runner deliberately does not invent witness signatures or infer
-propositions independently just to make the screen look clean.
+The runner deliberately does not invent witness signatures or retention
+determinations, or infer propositions independently, just to make the screen
+look clean. The evidentiary reliance line is the package's own
+``assess_evidentiary_reliance``, not a rule of the demo's.
 """
 
 from __future__ import annotations
@@ -20,8 +22,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 
 from .artifact import EntryKind, EvidenceCommitment, RunSeal, SealChain, AttestationMode, WorkfileBinding, export_artifact
 from .primitives import Pinning, PrimitiveKind, PrimitiveRecord, EvidenceForm, commit, merkle_root
-from .retention import Holding, RetentionDetermination
-from .retention import issue as issue_determination
+from .evidence import assess_evidentiary_reliance
 from .verifier import Completeness, verify
 
 T0 = 1_753_200_000_000_000_000
@@ -60,21 +61,6 @@ def _recipe(evidence_hash: str) -> dict:
     }
 
 
-def _determination() -> dict:
-    return issue_determination(
-        RetentionDetermination(
-            tool="avm-engine",
-            version="3.2.1",
-            holding=Holding.OPERATOR_CANNOT_HOLD,
-            source="https://partner.example/docs/3.2.1/workflow",
-            source_digest=commit({"doc": "workflow", "holding": Holding.OPERATOR_CANNOT_HOLD.value}),
-            read_as_of="2026-03-14",
-            determined_by="custodian",
-        ),
-        CUSTODIAN,
-    )
-
-
 def build_chain(assignment_id: str = "ASG-8942", run_id: str = "run-1") -> SealChain:
     """Build a genuine artifact using the repository's existing primitives."""
     chain = SealChain(assignment_id, opened_ns=T0)
@@ -109,7 +95,6 @@ def _verify(chain: SealChain, document=None):
         export_artifact(chain) if document is None else document,
         trusted_keys=[chain.public_key_pem],
         rederive=lambda _recipe: commit(ACTION_PAYLOAD),
-        retention_determinations=[_determination()],
     )
 
 
@@ -118,31 +103,19 @@ def _established(value: bool) -> str:
 
 
 def _evidentiary_reliance(report) -> bool:
-    """Presentation-only aggregation of the verifier's evidence vector.
+    """The package's reliance test, so the demo prints what the package computes.
 
     ``report.trustworthy`` answers the narrower cryptographic-integrity
-    question. This display intentionally keeps that result separate from the
-    evidentiary propositions rather than relabeling cryptographic integrity as
-    historical reliance.
+    question. ``assess_evidentiary_reliance`` adds the relation-level test:
+    cryptographic trust, then an independent witness attestation or a matched
+    reproduction, then no commodity timestamp that reaches the same place.
+    Completeness is printed on its own line and is not part of this test.
 
-    Compares against ``Completeness.CONSISTENT`` by identity rather than
-    against the string ``"COMPLETE"``, which is not a member of the
-    ``Completeness`` enum at all (the real members are UNCHECKED, CONSISTENT,
-    SHORT, MISMATCHED, UNUSABLE) and so could never match. This runner never
-    currently supplies a chain statement, so completeness stays UNCHECKED and
-    this bug was invisible in every scenario the demo actually runs; confirmed
-    directly that a real chain statement making completeness reach CONSISTENT,
-    the best real state, still compared false against the nonexistent value.
+    The runner supplies no retention determination. No real valuation tool has
+    a signed one, so the honest run fails the last condition for the reason a
+    real record would.
     """
-    evidence = report.evidence
-    return all((
-        evidence.precedence,
-        evidence.witness_attestation,
-        evidence.recipe_available,
-        evidence.recipe_reproduced,
-        evidence.historical_execution_established,
-        report.completeness is Completeness.CONSISTENT,
-    ))
+    return assess_evidentiary_reliance(report).established
 
 
 def _print_verdict(report) -> None:
@@ -150,8 +123,8 @@ def _print_verdict(report) -> None:
     print(f"  CRYPTOGRAPHIC RESULT    {_established(report.trustworthy)}")
     print(f"  EVIDENTIARY RELIANCE    {_established(reliance)}")
     if report.trustworthy and not reliance:
-        print("  ↳ Cryptographic integrity is established, but the evidence vector")
-        print("    does not establish every claim required for historical reliance.")
+        print("  ↳ Cryptographic integrity is established, but a commodity timestamp")
+        print("    over the same local files would reach the same place.")
 
 
 def main() -> None:
@@ -208,7 +181,7 @@ def main() -> None:
     print("  Assignment disclosure    ✗ NOT ESTABLISHED")
     print(RULE)
     print(f"  CRYPTOGRAPHIC RESULT     {_established(disclosed_report.trustworthy)}")
-    print("  EVIDENTIARY RELIANCE     ✗ NOT ESTABLISHED")
+    print(f"  EVIDENTIARY RELIANCE     {_established(_evidentiary_reliance(disclosed_report))}")
     print("  ↳ Mechanism: the assignment record identifies three committed chains;")
     print("    the disclosed artifact contains only one.")
     assert assignment_record

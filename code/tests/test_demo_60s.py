@@ -1,64 +1,82 @@
 """
 `demo_60s.py` is a presentation layer over the real verifier, not a second
-one, and its own module docstring says so. Its printed verdicts are only
-honest if they actually reflect what `verify()` returned rather than a
-comparison that can never succeed regardless of the real state.
+one, and its own module docstring says so. Its EVIDENTIARY RELIANCE line is
+only honest if it is the package's own `assess_evidentiary_reliance` rather
+than a stricter or looser rule the demo keeps for itself.
+
+An earlier version computed that line with its own rule: all five
+propositions and a CONSISTENT completeness. The public instrument page
+described the package's rule under the demo's label, so the two disagreed.
 """
 from __future__ import annotations
 
-from seal import Completeness, EvidencePropositions, VerificationReport
+import itertools
+
+from seal import (
+    Completeness,
+    EvidencePropositions,
+    VerificationReport,
+    assess_evidentiary_reliance,
+)
+from seal import demo_60s
 from seal.demo_60s import _evidentiary_reliance
 
 
-def _fully_established_report(completeness: Completeness) -> VerificationReport:
-    """A report where every evidence proposition holds, varying only completeness."""
-    evidence = EvidencePropositions(
-        precedence=True,
-        witness_attestation=True,
-        recipe_available=True,
-        recipe_reproduced=True,
-        historical_execution_established=True,
-    )
+def _report(*, evidence: EvidencePropositions, kc2: bool,
+            completeness: Completeness = Completeness.UNCHECKED,
+            trustworthy: bool = True) -> VerificationReport:
     return VerificationReport(
-        chain_intact=True,
-        signatures_valid=True,
-        key_trusted=True,
+        chain_intact=trustworthy,
+        signatures_valid=trustworthy,
+        key_trusted=trustworthy,
         evidence=evidence,
-        timestamp_replicable=False,
+        timestamp_replicable=kc2,
         completeness=completeness,
     )
 
 
-def test_evidentiary_reliance_reaches_true_when_completeness_is_consistent():
-    """
-    `_evidentiary_reliance` used to compare `report.completeness.name`
-    against the string "COMPLETE", which is not a member of the
-    `Completeness` enum at all (the real members are UNCHECKED, CONSISTENT,
-    SHORT, MISMATCHED, UNUSABLE). That comparison could never succeed, so
-    the aggregate could never report full evidentiary reliance even when
-    every other proposition held and completeness reached CONSISTENT, the
-    best real state a checkpoint can produce.
+def test_demo_line_is_the_package_rule_for_every_combination():
+    """Every combination of the inputs the package rule reads agrees."""
+    for witness, reproduced, kc2, trustworthy in itertools.product(
+        (False, True), repeat=4,
+    ):
+        report = _report(
+            evidence=EvidencePropositions(
+                witness_attestation=witness,
+                historical_execution_established=witness,
+                recipe_reproduced=reproduced,
+            ),
+            kc2=kc2,
+            trustworthy=trustworthy,
+        )
+        expected = assess_evidentiary_reliance(report).established
+        assert _evidentiary_reliance(report) is expected, (
+            witness, reproduced, kc2, trustworthy,
+        )
 
-    This is a real bug in the presentation layer only: `demo_60s.py`'s own
-    `_verify` helper never supplies a checkpoint in any scenario the runner
-    actually executes, so completeness stays UNCHECKED there and the bug
-    was invisible in the shipped output. It becomes visible the moment a
-    checkpoint enters the picture and completeness reaches CONSISTENT,
-    which this test constructs directly.
-    """
-    report = _fully_established_report(Completeness.CONSISTENT)
-    assert _evidentiary_reliance(report) is True
 
-
-def test_evidentiary_reliance_stays_false_for_every_other_completeness_state():
-    """
-    Companion to the test above, checked against every real member of the
-    enum rather than only the one CONSISTENT case: an otherwise fully
-    established report must not read as complete for UNCHECKED, SHORT,
-    MISMATCHED, or UNUSABLE.
-    """
+def test_completeness_does_not_move_the_reliance_line():
+    """Completeness is printed on its own line and is not in the rule."""
     for state in Completeness:
-        if state is Completeness.CONSISTENT:
-            continue
-        report = _fully_established_report(state)
-        assert _evidentiary_reliance(report) is False, state
+        report = _report(
+            evidence=EvidencePropositions(witness_attestation=True,
+                                          historical_execution_established=True),
+            kc2=False,
+            completeness=state,
+        )
+        assert _evidentiary_reliance(report) is True, state
+
+
+def test_honest_run_fails_reliance_because_a_timestamp_reaches_the_same_place():
+    """
+    The runner supplies no retention determination, because no real
+    valuation tool has a signed one. The recipe still reproduces, and the
+    honest run still fails reliance, for the KC2 reason a real record would.
+    """
+    report = demo_60s._verify(demo_60s.build_chain())
+
+    assert report.trustworthy
+    assert report.evidence.recipe_reproduced
+    assert not report.evidence.witness_attestation
+    assert report.kc2_fires
+    assert _evidentiary_reliance(report) is False

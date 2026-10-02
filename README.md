@@ -33,7 +33,7 @@ Scenario: Three runs were committed on one assignment and one was handed over.
 
 The run that was handed over verifies perfectly. What exposes the omission is a count of runs held by a party other than the operator. In the demo that independent record is constructed by the demo itself. No hosted custodian holds one today, and building one is what Semafide is testing whether anyone will pay for.
 
-On the honest case every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nothing outside the record states how many runs the assignment holds. Cryptographic integrity is not evidentiary reliance. The honest case also reports the recipe as reproduced. That holds for the deterministic tool in the demo. For machine-learning valuation models a later run does not reliably return the same value, so the verifier reports that proposition as unestablished for them. Section 9.1 of [`docs/executive-thesis.md`](docs/executive-thesis.md) carries the evidence. The full output is under [What the demo prints](#what-the-demo-prints).
+On the honest case every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nobody other than the operator has said the input could not have been kept, so a commodity timestamp over the same files reaches the same place. Cryptographic integrity is not evidentiary reliance. The honest case also reports the recipe as reproduced. That holds for the deterministic tool in the demo. For machine-learning valuation models a later run does not reliably return the same value, so the verifier reports that proposition as unestablished for them. Section 9.1 of [`docs/executive-thesis.md`](docs/executive-thesis.md) carries the evidence. The full output is under [What the demo prints](#what-the-demo-prints).
 
 **See it run** (sixty seconds, built for someone outside the project):
 
@@ -233,8 +233,8 @@ HONEST EXECUTION (Collateral Valuation #ASG-8942)
 ------------------------------------------------------------------------
   CRYPTOGRAPHIC RESULT    ✓ ESTABLISHED
   EVIDENTIARY RELIANCE    ✗ NOT ESTABLISHED
-  ↳ Cryptographic integrity is established, but the evidence vector
-    does not establish every claim required for historical reliance.
+  ↳ Cryptographic integrity is established, but a commodity timestamp
+    over the same local files would reach the same place.
 
 ATTACK: POST-HOC INPUT SUBSTITUTION
 Scenario: Operator alters the committed action after execution.
@@ -261,7 +261,7 @@ Scenario: Three runs were committed on one assignment and one was handed over.
     the disclosed artifact contains only one.
 ```
 
-Read what it refuses on the honest case. Every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nothing outside the record states how many runs the assignment holds.
+Read what it refuses on the honest case. Every cryptographic check passes and evidentiary reliance is still not established, because no witness observed the run and nobody other than the operator has said the input could not have been kept, so a commodity timestamp over the same files reaches the same place.
 
 This block is copied output and can go stale. CI checks it against `code/seal/demo_60s.py` rather than trusting it.
 
@@ -271,7 +271,7 @@ The claims in this repository are asserted by CI on every push rather than descr
 
 | Check | Status |
 |---|---|
-| Unit and adversarial tests (`code/tests/`) | **205 passing** |
+| Unit and adversarial tests (`code/tests/`) | **206 passing** |
 | Property-based tests (Hypothesis) | Included above, over canonicalization and log invariants |
 | Formal specifications (Z3/SMT, `specs/`) | **4 specs**: Merkle consistency, checkpoint issuance, witness cosigning, assignment issuance |
 | End-to-end demo | Runs clean |
