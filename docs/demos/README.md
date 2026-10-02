@@ -12,7 +12,7 @@ cd code
 python -m seal.demo_60s
 ```
 
-This prints one honest execution and two attacks. In the honest case, every cryptographic check passes and the verifier still refuses to grant reliance, because no witness observed the run and nothing outside the record states how many runs the assignment holds. In the first attack, an operator alters a committed input after the fact, and the verifier catches it directly: the commitment relation breaks. In the second, three runs are committed on one assignment and one is handed over, and the disclosed record passes every check on its own while an independent assignment record shows two others were withheld.
+This prints one honest execution and two attacks. In the honest case, every cryptographic check passes and the verifier still refuses to grant reliance, because no witness observed the run and nobody other than the operator has said the input could not have been kept, so a commodity timestamp over the same files reaches the same place. In the first attack, an operator alters a committed input after the fact, and the verifier catches it directly: the commitment relation breaks. In the second, three runs are committed on one assignment and one is handed over, and the disclosed record passes every check on its own while an independent assignment record shows two others were withheld.
 
 The lesson in three lines: cryptographic validity and evidentiary reliance are different claims. A tampered record can be caught by the record itself. A selectively disclosed record cannot, because nothing about the one file that was shown reveals what was not.
 
