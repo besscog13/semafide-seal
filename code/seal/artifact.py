@@ -26,9 +26,10 @@ appraiser's workflow, is KC3 and remains open.
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Any, Optional
 
@@ -120,11 +121,14 @@ class Entry:
     public_key: str
 
     def to_payload(self) -> dict[str, Any]:
+        # The body is copied, not shared. A caller that edits the exported
+        # document, to redact it or to stage an attack in a demo, must not
+        # reach back into the entry it was exported from.
         return {
             "kind": self.kind.value,
             "seq": self.seq,
             "prev_hash": self.prev_hash,
-            "body": self.body,
+            "body": copy.deepcopy(self.body),
             "ts_ns": self.ts_ns,
             "block_hash": self.block_hash,
             "signature": self.signature,
@@ -257,7 +261,17 @@ class SealChain:
 
     @property
     def entries(self) -> list[Entry]:
-        return list(self._entries)
+        """
+        The sealed entries, each with its own copy of its body.
+
+        `Entry` is frozen but its body is a dict, so a shallow copy of the
+        list would hand every caller a live reference into the sealed
+        record. Editing one of those bodies would change what the chain
+        exports without changing the hash and signature sealed over it.
+        """
+        with self._lock:
+            entries = list(self._entries)
+        return [replace(e, body=copy.deepcopy(e.body)) for e in entries]
 
     def append(self, kind: EntryKind, body: dict[str, Any], ts_ns: int) -> Entry:
         """
@@ -275,6 +289,13 @@ class SealChain:
         around every `append`, so this is a second, independent guard for any
         caller that constructs a `SealChain` directly.
         """
+        # The chain keeps its own copy of the body. A caller that edits the
+        # dict it passed in after this returns would otherwise edit the
+        # sealed entry too, and the next export would carry a body the
+        # signature was never computed over. Reproduced 2026-10-05: one
+        # edit to the caller's dict, and a chain that verified before the
+        # edit failed its signature check after it, with no append between.
+        body = copy.deepcopy(body)
         with self._lock:
             seq = len(self._entries)
             prev = self.head
