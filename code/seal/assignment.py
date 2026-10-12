@@ -79,6 +79,17 @@ class AssignmentStatement:
     observed_ns: int
     issuer: str
 
+    def __post_init__(self) -> None:
+        # The statement keeps its own tuple of chains. The annotation says
+        # tuple, but a frozen dataclass does not enforce it, and a caller
+        # that passed a list kept a live handle on it. `AssignmentIssuer`
+        # remembers each statement it signs, so editing that list after
+        # signing edited the issuer's memory of what it had signed.
+        # Reproduced 2026-10-12: sign three chains from a list, pop one
+        # from the same list, and the issuer then signed the two-chain
+        # statement it exists to refuse.
+        object.__setattr__(self, "chains", tuple(self.chains))
+
     def signing_payload(self) -> dict[str, Any]:
         return {
             "assignment_id": self.assignment_id,
