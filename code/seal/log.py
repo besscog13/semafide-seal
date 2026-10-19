@@ -247,8 +247,21 @@ def sign_head(head: TreeHead, key: ec.EllipticCurvePrivateKey) -> dict[str, Any]
 
 
 def head_signature_valid(doc: dict[str, Any]) -> bool:
+    """
+    True only for a head that is well formed and signed by its own key.
+
+    A size that is not a non-negative integer is refused before the signature
+    is checked. `TreeHead` does not enforce its annotations, so a custodian can
+    sign a head whose size is "3" or None. Every caller compares sizes with
+    `<` once this returns True. Before 2026-10-19 such a head made
+    `heads_consistent` and `equivocation` raise instead of returning, and a
+    `Witness` cosigned it and then raised on every real head for that log.
+    """
     try:
-        head = TreeHead(doc["size"], doc["root"], doc["observed_ns"],
+        size = doc["size"]
+        if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+            return False
+        head = TreeHead(size, doc["root"], doc["observed_ns"],
                         doc["log_id"])
         pub = serialization.load_pem_public_key(doc["public_key"].encode("ascii"))
         pub.verify(bytes.fromhex(doc["signature"]),
@@ -269,7 +282,8 @@ def heads_consistent(old: dict[str, Any], new: dict[str, Any],
     custodian rewriting its own history.
     """
     if not head_signature_valid(old) or not head_signature_valid(new):
-        return False, "a tree head does not verify against its own key"
+        return False, ("a tree head is malformed or does not verify against "
+                       "its own key")
     if old.get("log_id") != new.get("log_id"):
         return False, "the heads describe different logs"
     if old.get("public_key", "").strip() != new.get("public_key", "").strip():

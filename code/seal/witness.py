@@ -110,7 +110,8 @@ class Witness:
         through a race rather than through a missing check.
         """
         if not head_signature_valid(head):
-            raise WitnessRefusal("the head does not verify against its own key")
+            raise WitnessRefusal(
+                "the head is malformed or does not verify against its own key")
 
         log_id = head["log_id"]
 

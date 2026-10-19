@@ -86,9 +86,13 @@ def request_witness_signature(
             http.client.HTTPException):
         return None
 
+    # A body nested deeper than the interpreter's recursion limit makes
+    # json.loads raise RecursionError, which is not a ValueError. Before
+    # 2026-10-19 it escaped this function and the decorated call raised after
+    # the wrapped function had already run, so the run was never sealed.
     try:
         data = json.loads(raw)
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
         return None
 
     required = ("witness", "public_key", "signature", "capture_ref")
