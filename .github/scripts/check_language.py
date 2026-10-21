@@ -281,7 +281,8 @@ CONTROLS = {
         "The seal never substitutes for the professional."),
     "prevention overclaim": (
         "The system prevents cherry-picking.",
-        "A discarded run leaves a hole the verifier reports."),
+        "A run removed from the middle of the chain leaves a hole the verifier "
+        "reports."),
     "absolute integrity": (
         "The log is a tamper-proof store.",
         "The log is append-only and the artifact is tamper-evident."),

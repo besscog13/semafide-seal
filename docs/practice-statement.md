@@ -145,11 +145,15 @@ and it exonerates or convicts as the facts fall. Semafide does not describe this
 product as a shield or as protection.
 
 Two senses of integrity are served and only one is claimed. Record integrity
-means the artifact faithfully represents what was captured and has not been
-altered since, and that is what the mechanism delivers. Analytical integrity
-means the reasoning was sound and the inputs were well chosen, and the verifier
-cannot evaluate it. A tamper-evident seal over a badly reasoned analysis produces
-a badly reasoned analysis that nobody can quietly revise. The judging stays with
+means the artifact faithfully represents what was captured and a change since
+is detectable. An edit inside the chain, or a run removed from its middle,
+breaks it for any reader. A run removed from the end, or a chain the key holder
+re-issues, shows only against a count someone else signed first. That is what
+the mechanism delivers. Analytical integrity means the reasoning was sound and
+the inputs were well chosen, and the verifier cannot evaluate it. A
+tamper-evident seal over a badly reasoned analysis produces a badly reasoned
+analysis that nobody can quietly revise once someone else holds its count. The
+judging stays with
 the person who can be sanctioned for getting it wrong.
 
 Admissibility is used in the evidentiary sense, meaning whether the data state
@@ -278,8 +282,10 @@ not co-occurred.
 
 Completeness enforcement is unsolved and is the constraint the rest of the
 architecture is organised around. Capture accumulates, one chain stays open for
-an assignment, and a run discarded before hand-over leaves a hole the verifier
-reports. What that buys is expressibility rather than enforcement. The decorator
+an assignment, and a run removed from the middle of the chain before hand-over
+leaves a hole the verifier reports. A run removed from the end shows only against
+a count someone else signed first. What that buys is expressibility rather than
+enforcement. The decorator
 is opt-in per function, so an undecorated call is invisible. The manifest sits in
 a directory the operator controls. A chain never handed to a custodian is not a
 chain anybody can count, and nothing here observes the operator's machine.

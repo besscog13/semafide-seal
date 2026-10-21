@@ -9,8 +9,10 @@ assignment's chain, optionally asks an external witness to co-sign it, and
 self-checks the result against the real verifier before writing a manifest.
 
 One chain lives for the assignment and every call appends to it, so sequence
-numbers and prev-hash linkage run unbroken across calls and a discarded run
-leaves a hole a verifier notices. `close_assignment` is the second moment: it
+numbers and prev-hash linkage run unbroken across calls, and a run removed
+from the middle leaves a hole a verifier notices. A run removed from the end, or
+a chain re-issued under the same key, shows only against a count someone else
+signed first. `close_assignment` is the second moment: it
 writes the workfile binding at certification and is deliberately a separate
 act, because a binding is an assertion about finished work rather than a side
 effect of running one more analysis.
