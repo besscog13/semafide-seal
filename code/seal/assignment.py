@@ -134,7 +134,18 @@ class AssignmentIssuer:
         pass their own consistency check against it, and both get signed,
         since that reintroduces the dropped-chain equivocation this class
         exists to prevent through a race rather than through a missing check.
+
+        Every chain's count must be a non-negative integer, for the reason
+        `checkpoint.ChainStatementIssuer.issue` gives. Before 2026-10-26 a
+        count of "5" or None was signed, stored, and then made every later
+        statement for that assignment raise TypeError.
         """
+        for ref in statement.chains:
+            count = ref.entry_count
+            if (isinstance(count, bool) or not isinstance(count, int)
+                    or count < 0):
+                raise AssignmentRefusal(
+                    f"entry_count must be a non-negative integer, not {count!r}")
         with self._lock:
             prior = self._last.get(statement.assignment_id)
             if prior is not None:

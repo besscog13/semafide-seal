@@ -170,7 +170,17 @@ class ChainStatementIssuer:
         own consistency check against it, and both get signed, since that
         reintroduces the equivocation this class exists to prevent through a
         race rather than through a missing check.
+
+        A count that is not a non-negative integer is refused before `_last`
+        is read. The dataclass does not enforce its annotation. Before
+        2026-10-26 a statement counting "5" or None was signed, stored as the
+        baseline, and every later statement for that assignment raised
+        TypeError, so one malformed request stopped the issuer for it.
         """
+        count = statement.entry_count
+        if isinstance(count, bool) or not isinstance(count, int) or count < 0:
+            raise ChainStatementRefusal(
+                f"entry_count must be a non-negative integer, not {count!r}")
         with self._lock:
             prior = self._last.get(statement.assignment_id)
             if prior is not None:
