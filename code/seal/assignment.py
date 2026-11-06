@@ -293,6 +293,21 @@ def assess(artifacts: Iterable[dict[str, Any]],
         )
 
     asg = load(statement)
+
+    # A count that is not a non-negative integer makes the statement unusable.
+    # The signature verifies, because the custodian signed what it was given,
+    # but `ChainRef` does not enforce its annotation. Before 2026-11-02 a
+    # count of "4" or None raised TypeError out of this function, and a count
+    # of True or -1 read as PARTIAL, an accusation against the operator for
+    # a defect in the custodian's own statement.
+    if any(isinstance(c.entry_count, bool) or not isinstance(c.entry_count, int)
+           or c.entry_count < 0 for c in asg.chains):
+        return DisclosureReport(
+            state=Disclosure.UNUSABLE,
+            findings=("The assignment statement records a chain count that is "
+                      "not a non-negative integer.",),
+        )
+
     findings: list[str] = []
 
     wrong_assignment = sorted({aid for aid, _ in identities
