@@ -7,6 +7,8 @@
 [![Security policy](https://img.shields.io/badge/security-policy-informational.svg)](SECURITY.md)
 [![PyPI](https://img.shields.io/pypi/v/semafide-seal.svg)](https://pypi.org/project/semafide-seal/)
 
+When a lender lends against a home, software often produces the value. Years later that value can be challenged. The lender may hold the number it used without a reliable record of how many times the software ran to produce it. Semafide is testing whether a record sealed as each run happens, and held by someone outside the party being questioned, can show whether the runs presented are the whole set. It does not judge whether a value was correct.
+
 Appraisals and automated valuations get challenged years after they run. The question that arrives is rarely whether the file is intact. It is whether the file is the whole story, and the party who chooses what to disclose also chooses what to leave out. Semafide is testing whether independent custody can establish that, and what it still cannot establish even then.
 
 Mortgage lending is the first market this is tested against.
