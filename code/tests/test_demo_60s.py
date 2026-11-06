@@ -80,3 +80,28 @@ def test_honest_run_fails_reliance_because_a_timestamp_reaches_the_same_place():
     assert not report.evidence.witness_attestation
     assert report.kc2_fires
     assert _evidentiary_reliance(report) is False
+
+
+def test_substitution_attack_is_labelled_detected(capsys):
+    """
+    Editing a committed field after the fact leaves the prev_hash links intact,
+    so chain_intact stays true. The signature and block hash check is what
+    catches it. The demo label read chain_intact alone and printed NOT DETECTED
+    directly above a BROKEN commitment relation.
+    """
+    chain = demo_60s.build_chain()
+    tampered = demo_60s.export_artifact(chain)
+    for entry in tampered["entries"]:
+        if entry["kind"] == demo_60s.EntryKind.RUN_SEAL.value:
+            entry["body"]["primitives"][demo_60s.PrimitiveKind.ACTION.value][
+                "commitment"
+            ] = demo_60s.commit({"time_adjustment_pct_per_month": "0.0050"})
+            break
+    report = demo_60s._verify(chain, tampered)
+    assert report.chain_intact
+    assert not report.signatures_valid
+
+    demo_60s.main()
+    line = next(l for l in capsys.readouterr().out.splitlines() if "Altered input" in l)
+    assert "NOT DETECTED" not in line
+    assert "DETECTED" in line

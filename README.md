@@ -240,7 +240,7 @@ ATTACK: POST-HOC INPUT SUBSTITUTION
 Scenario: Operator alters the committed action after execution.
 ------------------------------------------------------------------------
   Original evidence       COMMITTED
-  Altered input            NOT DETECTED
+  Altered input            ✗ DETECTED
   Commitment relation      ✗ BROKEN
 ------------------------------------------------------------------------
   CRYPTOGRAPHIC RESULT    ✗ NOT ESTABLISHED
