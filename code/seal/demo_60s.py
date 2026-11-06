@@ -156,7 +156,10 @@ def main() -> None:
             break
     tampered_report = _verify(honest, tampered)
     print("  Original evidence       COMMITTED")
-    print(f"  Altered input            {'✗ DETECTED' if not tampered_report.chain_intact else 'NOT DETECTED'}")
+    # A body edit leaves the prev_hash links alone, so chain_intact stays true.
+    # The block hash and signature check is what catches it.
+    altered_detected = not (tampered_report.chain_intact and tampered_report.signatures_valid)
+    print(f"  Altered input            {'✗ DETECTED' if altered_detected else 'NOT DETECTED'}")
     print(f"  Commitment relation      {'✗ BROKEN' if not tampered_report.trustworthy else '✓ INTACT'}")
     print(RULE)
     _print_verdict(tampered_report)
