@@ -65,12 +65,9 @@ import tokenize
 # stay. Both are stated rules in the private tree and are honoured here so one
 # script can run against either repository.
 SKIP = (
-    "context/business-drafts/",
+    "archive/",
     "context/OUTSIDE_READ_",
     "context/RECORD.md",
-    "customers/DISCOVERY_MASTER", "customers/MASTER_PROSPECTING",
-    "customers/DISCOVERY_ACTION", "customers/MOTION_1",
-    "customers/COMPLETENESS_OBJECT", "customers/DEMO_ROOM",
     ".github/scripts/",
 )
 
@@ -236,7 +233,7 @@ REPORTING = [
     # The gating shield rule needs a verb or an article, so the possessive
     # forms slip past it: "for the appraiser's protection" names the product
     # as a shield and does not fire. Gating this would fail on
-    # context/BUSINESS_SHAPE.md, where an institution paying "for its own
+    # archive/BUSINESS_SHAPE.md, where an institution paying "for its own
     # protection" is the institution managing its own exposure, which is the
     # correct framing. So it reports. "cover" was in the first version of this
     # pattern and pulled seventeen instances of "liability cover" and "cover
